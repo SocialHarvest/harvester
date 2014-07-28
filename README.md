@@ -65,29 +65,17 @@ Congratulation, you now have your own social media analytics platform!
 
 ## Testing
 
-Social Harvest currently makes use of the testify package which you'll need to get separately. Run the following from the command line:
+Social Harvest currently makes use of the testify package which you'll need to get first.
 
 ```
 go get github.com/stretchr/testify
+go test ./...
 ```
 
-After that, you can test like normal from Social Harvest's package directory:
+Social Harvest also has a few performance benchmarks. Feel free to run tests with benchmarks:
 
 ```
-go test
-```
-
-Social Harvest has a few private packages within it (under ```lib```) and to test them you'll need to run:
-
-```
-go test github.com/SocialHarvest/harvester/lib/harvester
-```
-
-Social Harvest also has a few performance benchmark tests. Feel free to run those with commands like:
-
-```
-go test -bench=".*"
-go test github.com/SocialHarvest/harvester/lib/harvester -bench=".*"
+go test ./... -bench=".*"
 ```
 
 Note that while Go performs some operations really, really, fast...Each social network's API has a rate limit which is going to make
