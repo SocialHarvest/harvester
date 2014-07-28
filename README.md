@@ -37,6 +37,9 @@ Installation is pretty simple. You'll need to have Go installed, clone this repo
 ```go build```. Many of the dependencies will be handled automatically by first calling ```go get```, but you will have the need to get 
 a few packages separately.
 
+If you're using a SQL database, be sure to setup your tables using the SQL files in the ```scripts``` directory. It'll save you a lot of trouble. 
+However, these will change quite frequently during development until Social Harvest has a stable version released.
+
 Social Harvest makes use of [upper.io](https://upper.io/db) which abstracts some common database calls for a few databases using separate driver packages.
 Some of these packages are not directly used within Social Harvest, so you may need to get them separately so that they are in your $GOPATH 
 before building.
