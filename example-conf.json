@@ -1,0 +1,72 @@
+{
+    "server": {
+        "port": 3000
+    },
+    "database": {
+        "type": "postgresql",
+        "host": "localhost",
+        "port": 5432,
+        "database": "socialharvest"
+    },
+    "logs" : {
+        "directory": "/usr/local/sites/tmp"
+    },
+    "services": {
+        "twitter": {
+            "apiKey": "xxxxxxxxx",
+            "apiSecret": "xxxxxxxxx",
+            "accessToken": "xxxxxxxxx",
+            "accessTokenSecret": "xxxxxxxxx"
+        },
+        "facebook": {
+            "appToken": "xxxxxxxxx|xxxxxxxxx"
+        },
+        "google": {
+            "serverKey": "xxxxxxxxx"
+        }
+    },
+    "harvest": {
+        "questionRegex": "(?i)\\w\\?(\\s|\\n)|i.*(would|like|need|have|love).*to know about[^a-zA-Z]",
+        "territories": [
+            {
+	            "name": "javascript",
+	            "content": {
+	                "lang": "en",
+	                "keywords": ["javascript", "angularjs"],
+	                "urls": ["http://www.shift8creative.com/blog/some-post"]
+	            },
+	            "accounts": {
+	                "twitter": [
+	                    "56448819"
+	                ],
+	                "facebook": [
+	                    "113124472034820"
+	                ],
+	                "googlePlus": [],
+	                "youTube": []
+	            },
+	            "streams": {
+	                "twitter": []
+	            },
+	            "schedule": {
+	                "everything": {
+	                    "content": "@hourly",
+	                    "accounts": "@hourly"
+	                },
+	                "twitter": {
+	                    "content": "@every 1h30m",
+	                    "accounts": "0 30 * * * *"
+	                },
+	                "facebook": {
+	                    "content": "@hourly",
+	                    "accounts": "@hourly"
+	                }
+	            },
+	            "limits": {
+	                "maxResultsPages": 2,
+	                "resultsPerPage": "100"
+	            }
+            }
+        ]
+    }
+}
