@@ -1,4 +1,6 @@
 #Social Harvest (harvester)
+[![Gitter chat](https://badges.gitter.im/SocialHarvest/harvester.png)](https://gitter.im/SocialHarvest/harvester)
+
 http://www.socialharvest.io
 
 Harvests data from Twitter, Facebook, etc. using Go and concurrently stores to a variety of data stores.
@@ -111,6 +113,9 @@ If you'd like to see a feature implemented in Social Harvest, again first check 
 Please keep in mind that Social Harvest has some specific goals in mind and not all features can be put into the platform. To do any work on Social Harvest, 
 you will of course need to fork the repository so that you can send pull requests.
 
+## Questions? Chat?
+You should hop in the [Gitter.im channel](https://gitter.im/SocialHarvest) and say hi. It's a great place to ask questions for help, suggest ideas, or just chat about Social Harvest. 
+The channel is open and chat history is saved so, if you don't get an instant response, be sure to check back regularly.
 
 
 
