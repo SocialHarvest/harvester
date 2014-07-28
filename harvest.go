@@ -17,7 +17,7 @@
 package main
 
 import (
-	"bitbucket.org/tmaiaroto/go-social-harvest/lib/harvester"
+	"github.com/SocialHarvest/harvester/lib/harvester"
 	"log"
 	"strconv"
 	"time"

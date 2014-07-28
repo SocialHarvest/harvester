@@ -17,7 +17,7 @@
 package harvester
 
 import (
-	"bitbucket.org/tmaiaroto/go-social-harvest/lib/config"
+	"github.com/SocialHarvest/harvester/lib/config"
 	geohash "github.com/TomiHiltunen/geohash-golang"
 	fb "github.com/huandu/facebook"
 	//"github.com/mitchellh/mapstructure"

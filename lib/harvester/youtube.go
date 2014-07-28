@@ -27,7 +27,7 @@ import (
 // TODO: Get from database/config file.
 // NOTE: this is shared among all the .go files, so the name changed here. can't re-define it.
 // I believe the files are processed alphabetically...but we'll use a method to look up the keys and manage all that in one spot.
-const youtubeDeveloperKey = "AIzaSyA1EklkNQ-G9fqkCHEUuv4ERFJqysIUNTg"
+const youtubeDeveloperKey = "xxxx"
 
 // YOUTUBE HARVESTER
 // All done with public API access key. Easy. Awesome. Pretty much all we need...

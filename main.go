@@ -17,10 +17,10 @@
 package main
 
 import (
-	"bitbucket.org/tmaiaroto/go-social-harvest/lib/config"
-	"bitbucket.org/tmaiaroto/go-social-harvest/lib/harvester"
 	"encoding/json"
 	"flag"
+	"github.com/SocialHarvest/harvester/lib/config"
+	"github.com/SocialHarvest/harvester/lib/harvester"
 	"github.com/ant0ine/go-json-rest/rest"
 	"log"
 	"net/http"

@@ -26,7 +26,7 @@ import (
 )
 
 // TODO: Get from database/config file.
-const developerKey = "AIzaSyA1EklkNQ-G9fqkCHEUuv4ERFJqysIUNTg"
+const developerKey = "xxxx"
 
 func GooglePlusActivitySearch() {
 

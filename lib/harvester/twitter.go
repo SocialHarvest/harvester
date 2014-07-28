@@ -18,8 +18,8 @@ package harvester
 
 import (
 	//"encoding/json"
-	"bitbucket.org/tmaiaroto/go-social-harvest/lib/config"
 	"github.com/ChimeraCoder/anaconda"
+	"github.com/SocialHarvest/harvester/lib/config"
 	"log"
 	"net/url"
 	//"net/http"
