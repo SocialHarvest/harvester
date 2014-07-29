@@ -65,7 +65,7 @@ Preferably, you'll just build a Social Harvest binary by running:
 go build
 ```
 
-You need not specify the files in this case. It will leavey ou with a ```harvester``` executable file. Run this. Once running, you should have an API server which 
+You need not specify the files in this case. It will leave you with a ```harvester``` executable file. Run this. Once running, you should have an API server which 
 the Dashboard web application can talk to in order to visualize harvested data. Congratulation, you now have your own social media analytics platform!
 
 ## Testing

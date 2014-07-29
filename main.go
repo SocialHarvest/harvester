@@ -22,6 +22,7 @@ import (
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/SocialHarvest/harvester/lib/harvester"
 	"github.com/ant0ine/go-json-rest/rest"
+	"github.com/fatih/color"
 	"log"
 	"net/http"
 	"os"
@@ -53,7 +54,16 @@ func TestRoute(w rest.ResponseWriter, r *rest.Request) {
 
 // Main - initializes, configures, and sets routes for API
 func main() {
-	log.Println("harvester started")
+
+	color.Cyan(" ____             _       _   _   _                           _  ")
+	color.Cyan(`/ ___|  ___   ___(_) __ _| | | | | | __ _ _ ____   _____  ___| |_ ®`)
+	color.Cyan("\\___ \\ / _ \\ / __| |/ _` | | | |_| |/ _` | '__\\ \\ / / _ \\/ __| __|")
+	color.Cyan(" ___) | (_) | (__| | (_| | | |  _  | (_| | |   \\ V /  __/\\__ \\ |_ ")
+	color.Cyan("|____/ \\___/ \\___|_|\\__,_|_| |_| |_|\\__,_|_|    \\_/ \\___||___/\\__|")
+	//	color.Cyan("                                                                  ")
+	color.Yellow("_____________________________________________version 0.1.0-preview")
+	color.Cyan("   ")
+
 	// Optionally allow a config JSON file to be passed via command line
 	var confFile string
 	flag.StringVar(&confFile, "conf", "social-harvest-conf.json", "Path to the Social Harvest configuration file.")
@@ -80,9 +90,9 @@ func main() {
 	harvester.NewFacebook(socialHarvest)
 
 	// Search Facebook public posts using keywords in Social Harvest config
-	FacebookPublicMessagesByKeyword()
+	//FacebookPublicMessagesByKeyword()
 	// Search Facebook public feeds using account ids in Social Harvest config
-	FacebookMessagesByAccount()
+	//FacebookMessagesByAccount()
 
 	/// TEST/debug
 	//	log.Println(socialHarvest.config.Services.Twitter)
