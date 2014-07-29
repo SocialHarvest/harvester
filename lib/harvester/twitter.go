@@ -32,7 +32,7 @@ type Twitter struct {
 
 var twitter = Twitter{}
 
-func InitTwitter(sh config.SocialHarvest) {
+func NewTwitter(sh config.SocialHarvest) {
 	anaconda.SetConsumerKey(sh.Config.Services.Twitter.ApiKey)
 	anaconda.SetConsumerSecret(sh.Config.Services.Twitter.ApiSecret)
 	twitter.api = anaconda.NewTwitterApi(sh.Config.Services.Twitter.AccessToken, sh.Config.Services.Twitter.AccessTokenSecret)

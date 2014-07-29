@@ -36,7 +36,7 @@ type SocialHarvestWriters struct {
 var writers = SocialHarvestWriters{}
 
 // Initializes the default writers that log harvest data to files on disk
-func InitWriters(config SocialHarvestConf) *SocialHarvestWriters {
+func NewWriters(config SocialHarvestConf) *SocialHarvestWriters {
 	// Set up the file log writers (refactor this and the next block?)
 	writers.MessagesWriter = make(log4go.Logger)
 	writers.ContributorsWriter = make(log4go.Logger)

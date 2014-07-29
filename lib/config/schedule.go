@@ -28,7 +28,7 @@ type SocialHarvestSchedule struct {
 var schedule = SocialHarvestSchedule{}
 
 // Set up the schedule so it is accessible by others and start it
-func InitSchedule(config SocialHarvestConf) *SocialHarvestSchedule {
+func NewSchedule(config SocialHarvestConf) *SocialHarvestSchedule {
 	c := cron.New()
 
 	c.AddFunc("@hourly", func() { log.Println("Every hour") })

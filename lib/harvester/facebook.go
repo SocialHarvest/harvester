@@ -145,7 +145,7 @@ type FacebookAccount struct {
 var facebook = Facebook{}
 
 // Set the appToken for future use, this will become a little more sophisticated when user tokens are at play
-func InitFacebook(sh config.SocialHarvest) {
+func NewFacebook(sh config.SocialHarvest) {
 	facebook.appToken = sh.Config.Services.Facebook.AppToken
 	facebook.socialHarvest = sh
 }

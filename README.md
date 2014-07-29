@@ -35,9 +35,8 @@ You do not need a web browser to configure Social Harvest. Configurations are po
 
 ## Installation
 
-Installation is pretty simple. You'll need to have Go installed, clone this repository and then grab some dependencies before running 
-```go build```. Many of the dependencies will be handled automatically by first calling ```go get```, but you will have the need to get 
-a few packages separately.
+Installation is pretty simple. You'll need to have Go installed, clone this repository and then grab some dependencies before building. 
+Many of the dependencies will be handled automatically by first calling ```go get```, but you will have the need to get a few packages separately.
 
 If you're using a SQL database, be sure to setup your tables using the SQL files in the ```scripts``` directory. It'll save you a lot of trouble. 
 However, these will change quite frequently during development until Social Harvest has a stable version released.
@@ -54,18 +53,24 @@ package, you shouldn't need it if you don't plan to use PostgreSQL. MySQL suppor
 Again, all of this is explained in upper.io's documentation.
 
 All other dependencies (with the exception of testify, see below) should be obtained easily enough via ```go get```. Then to run Social Harvest before (or without) 
-building it, you can issue the command:
+building it, you can issue the following command because there are multiple files in the main package (and you don't want to run the _test files):
 
 ```
-go run *.go
+go run main.go harvest.go
 ```
 
-Once running, you should have an API server which the Dashboard web application can talk to in order to visualize harvested data.
-Congratulation, you now have your own social media analytics platform!
+Preferably, you'll just build a Social Harvest binary by running:
+
+```
+go build
+```
+
+You need not specify the files in this case. It will leavey ou with a ```harvester``` executable file. Run this. Once running, you should have an API server which 
+the Dashboard web application can talk to in order to visualize harvested data. Congratulation, you now have your own social media analytics platform!
 
 ## Testing
 
-Social Harvest currently makes use of the testify package which you'll need to get first.
+Social Harvest currently makes use of the testify package which you'll need to get first before running the tests.
 
 ```
 go get github.com/stretchr/testify

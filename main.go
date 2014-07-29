@@ -51,8 +51,9 @@ func TestRoute(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson("foo")
 }
 
-// Main - inits, configures things, and sets routes for API
+// Main - initializes, configures, and sets routes for API
 func main() {
+	log.Println("harvester started")
 	// Optionally allow a config JSON file to be passed via command line
 	var confFile string
 	flag.StringVar(&confFile, "conf", "social-harvest-conf.json", "Path to the Social Harvest configuration file.")
@@ -70,13 +71,13 @@ func main() {
 
 	// Set the configuration, DB client, etc. so that it is available to other stuff.
 	socialHarvest.Config = configuration
-	socialHarvest.Database = config.InitDatabase(socialHarvest.Config)
-	socialHarvest.Schedule = config.InitSchedule(socialHarvest.Config)
-	socialHarvest.Writers = config.InitWriters(socialHarvest.Config)
+	socialHarvest.Database = config.NewDatabase(socialHarvest.Config)
+	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
+	socialHarvest.Writers = config.NewWriters(socialHarvest.Config)
 
 	// Set up the data sources (social media APIs for now) and give them the writers they need (all for now)
-	harvester.InitTwitter(socialHarvest)
-	harvester.InitFacebook(socialHarvest)
+	harvester.NewTwitter(socialHarvest)
+	harvester.NewFacebook(socialHarvest)
 
 	// Search Facebook public posts using keywords in Social Harvest config
 	FacebookPublicMessagesByKeyword()

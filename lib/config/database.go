@@ -42,7 +42,7 @@ type SocialHarvestDB struct {
 var database = SocialHarvestDB{}
 
 // Initializes the database and returns the client (NOTE: In the future, this *may* be interchangeable for another database)
-func InitDatabase(config SocialHarvestConf) *SocialHarvestDB {
+func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 	database.Type = config.Database.Type
 	database.Settings = db.Settings{
 		Host:     config.Database.Host,

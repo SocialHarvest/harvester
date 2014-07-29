@@ -13,10 +13,10 @@ import (
 var testCfg = config.SocialHarvestConf{}
 var testShCfg = config.SocialHarvest{}
 
-func TestInitFacebook(t *testing.T) {
+func TestNewFacebook(t *testing.T) {
 	testCfg.Services.Facebook.AppToken = "1234567890"
 	testShCfg.Config = testCfg
-	InitFacebook(testShCfg)
+	NewFacebook(testShCfg)
 
 	expected := "1234567890"
 	assert.Equal(t, facebook.appToken, expected, "SocialHarvestConf.Services.Facebook.AppToken should be "+expected)
@@ -24,12 +24,12 @@ func TestInitFacebook(t *testing.T) {
 
 // This is neat, but do benchmark tests make sense? A lot of these functions make HTTP requests, so tat's gonna vary and even if we stop the timer for that...
 // ...Which we can't without re-writing code...I don't know. I'm more interested in seeing benchmarks for things like the gender lookup and any other data filtering.
-func Benchmark_InitFacebook(b *testing.B) {
+func Benchmark_NewFacebook(b *testing.B) {
 	testCfg.Services.Facebook.AppToken = "1234567890"
 	testShCfg.Config = testCfg
 
 	for i := 0; i < b.N; i++ { //use b.N for looping
-		InitFacebook(testShCfg)
+		NewFacebook(testShCfg)
 	}
 }
 
