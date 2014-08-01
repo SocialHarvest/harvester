@@ -31,10 +31,8 @@ var schedule = SocialHarvestSchedule{}
 func NewSchedule(config SocialHarvestConf) *SocialHarvestSchedule {
 	c := cron.New()
 
-	c.AddFunc("@hourly", func() { log.Println("Every hour") })
-	c.AddFunc("0 5 * * * *", func() { log.Println("Every 5 minutes") }, "Optional name here. Useful when inspecting.")
-
-	// Set the initial schedule from config SocialHarvestConf
+	//c.AddFunc("@hourly", func() { log.Println("Every hour") })
+	//c.AddFunc("0 5 * * * *", func() { log.Println("Every 5 minutes") }, "Optional name here. Useful when inspecting.")
 
 	c.Start()
 	schedule.Cron = c

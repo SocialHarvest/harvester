@@ -33,6 +33,10 @@ import (
 
 var socialHarvest = config.SocialHarvest{}
 
+type Message struct {
+	Body string
+}
+
 // --------- Route functions
 
 // Shows the harvest schedule as configured
@@ -45,6 +49,10 @@ func ShowSchedule(w rest.ResponseWriter, r *rest.Request) {
 		log.Println(item.Next)
 
 	}
+
+	w.WriteJson(&Message{
+		Body: "foo",
+	})
 }
 
 func TestRoute(w rest.ResponseWriter, r *rest.Request) {
@@ -52,9 +60,23 @@ func TestRoute(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson("foo")
 }
 
+// --------- Initial schedule
+
+// Set the initial schedule entries from config SocialHarvestConf
+func setInitialSchedule() {
+	for _, territory := range socialHarvest.Config.Harvest.Territories {
+		if territory.Schedule.Everything.Accounts != "" {
+			socialHarvest.Schedule.Cron.AddFunc(territory.Schedule.Everything.Accounts, HarvestAllAccounts, "Harvesting all content - "+territory.Schedule.Everything.Accounts)
+		}
+		if territory.Schedule.Everything.Content != "" {
+			socialHarvest.Schedule.Cron.AddFunc(territory.Schedule.Everything.Accounts, HarvestAllAccounts, "Harvesting all content - "+territory.Schedule.Everything.Accounts)
+		}
+
+	}
+}
+
 // Main - initializes, configures, and sets routes for API
 func main() {
-
 	color.Cyan(" ____             _       _   _   _                           _  ")
 	color.Cyan(`/ ___|  ___   ___(_) __ _| | | | | | __ _ _ ____   _____  ___| |_ ®`)
 	color.Cyan("\\___ \\ / _ \\ / __| |/ _` | | | |_| |/ _` | '__\\ \\ / / _ \\/ __| __|")
@@ -77,7 +99,6 @@ func main() {
 	if err != nil {
 		log.Println("error:", err)
 	}
-	//log.Println(configuration.Database)
 
 	// Set the configuration, DB client, etc. so that it is available to other stuff.
 	socialHarvest.Config = configuration
@@ -85,17 +106,17 @@ func main() {
 	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
 	socialHarvest.Writers = config.NewWriters(socialHarvest.Config)
 
-	// Set up the data sources (social media APIs for now) and give them the writers they need (all for now)
+	// Set up the data sources (social media APIs for now) and give them the writers (and database connection) they need (all for now)
 	harvester.NewTwitter(socialHarvest)
 	harvester.NewFacebook(socialHarvest)
+
+	// Set the initial schedule (can be changed via API if available)
+	setInitialSchedule()
 
 	// Search Facebook public posts using keywords in Social Harvest config
 	//FacebookPublicMessagesByKeyword()
 	// Search Facebook public feeds using account ids in Social Harvest config
 	//FacebookMessagesByAccount()
-
-	/// TEST/debug
-	//	log.Println(socialHarvest.config.Services.Twitter)
 
 	//harvester.YoutubeVideoSearch("obama")
 	///
@@ -110,13 +131,12 @@ func main() {
 		handler := rest.ResourceHandler{
 			EnableRelaxedContentType: true,
 		}
-		/*
-			// Route definitions
-			handler.SetRoutes(
-				rest.RouteObjectMethod("GET", "/test", &socialHarvest, "TestRoute"),
-				rest.RouteObjectMethod("GET", "/schedule", &socialHarvest, "ShowSchedule"),
-			)
-		*/
+		err := handler.SetRoutes(
+			&rest.Route{"GET", "/schedule", ShowSchedule},
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		// Allow the port to be configured (we need it as a string, but let the config define an int)
 		p := strconv.Itoa(socialHarvest.Config.Server.Port)
@@ -124,8 +144,15 @@ func main() {
 		if p == "0" {
 			p = "3000"
 		}
-		log.Println("Social Harvest listening on port " + p)
-		http.ListenAndServe(":"+p, &handler)
-	}
+		log.Println("Social Harvest API listening on port " + p)
+		log.Fatal(http.ListenAndServe(":"+p, &handler))
 
+		/*
+			// Route definitions
+			handler.SetRoutes(
+				rest.RouteObjectMethod("GET", "/test", &socialHarvest, "TestRoute"),
+				rest.RouteObjectMethod("GET", "/schedule", &socialHarvest, "ShowSchedule"),
+			)
+		*/
+	}
 }

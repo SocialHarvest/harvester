@@ -23,6 +23,8 @@ type SocialHarvest struct {
 	Writers  *SocialHarvestWriters
 }
 
+type Harvest struct{}
+
 // The configuration structure mapping from JSON
 type SocialHarvestConf struct {
 	Server struct {

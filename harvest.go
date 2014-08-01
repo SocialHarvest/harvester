@@ -36,6 +36,7 @@ import (
 
 // Harvest Facebook publicly accessible posts by searching keyword criteria
 func FacebookPublicMessagesByKeyword() {
+	log.Println("getting facebook public messages by keyword")
 	params := harvester.FacebookParams{}
 	posts := []harvester.FacebookPost{}
 
@@ -167,4 +168,23 @@ func FacebookMessagesByAccount() {
 // Track Facebook account changes for public pages (without extended permissions, we can't determine personal account growth/number of friends)
 func FacebookGrowthByAccount() {
 
+}
+
+// Simply calls every other function here, harvesting everything
+func HarvestAll() {
+	FacebookPublicMessagesByKeyword()
+	FacebookMessagesByAccount()
+
+	FacebookGrowthByAccount()
+}
+
+// Calls all harvest functions that gather content
+func HarvestAllContent() {
+	FacebookPublicMessagesByKeyword()
+	FacebookMessagesByAccount()
+}
+
+// Calls all harvest functions that gather information about account changes/growth
+func HarvestAllAccounts() {
+	FacebookGrowthByAccount()
 }
