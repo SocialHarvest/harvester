@@ -47,7 +47,7 @@ type HypermediaCurie struct {
 	Templated bool   `json:"templated,omitempty"`
 }
 
-// Form structure defines attributes that match HTML. This tells applications how to work with resources.
+// Form structure defines attributes that match HTML. This tells applications how to work with resources in order to manipulate state.
 // Any attribute not found in HTML should be prefixed with an underscore (for example, "_fields").
 type HypermediaForm struct {
 	Name          string                         `json:"name,omitempty"`
@@ -94,6 +94,14 @@ type HypermediaFormFieldRule struct {
 	Description string                                         `json:"description,omitempty"`
 	Pattern     string                                         `json:"pattern"`
 	Function    func(value string) (fail bool, message string) // not for JSON
+}
+
+func NewHypermediaResource() {
+	r := HypermediaResource{}
+
+	r.Links = make(map[string]HypermediaLink)
+
+	return &r
 }
 
 // Example

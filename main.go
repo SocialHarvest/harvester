@@ -33,10 +33,6 @@ import (
 
 var socialHarvest = config.SocialHarvest{}
 
-type Message struct {
-	Body string
-}
-
 // --------- Route functions
 
 // Shows the harvest schedule as configured
@@ -44,15 +40,19 @@ func ShowSchedule(w rest.ResponseWriter, r *rest.Request) {
 
 	socialHarvest.Schedule.Cron.AddFunc("0 5 * * * *", func() { log.Println("Every 5 minutes") }, "Another job every five min.")
 
+	res = config.NewHypermediaResource()
+
+	res.Links["self"] = config.HypermediaLink{
+		Href: "/schedule/read",
+	}
+
 	for _, item := range socialHarvest.Schedule.Cron.Entries() {
 		log.Println(item.Name)
 		log.Println(item.Next)
 
 	}
 
-	w.WriteJson(&Message{
-		Body: "foo",
-	})
+	w.WriteJson(res)
 }
 
 func TestRoute(w rest.ResponseWriter, r *rest.Request) {
