@@ -69,9 +69,15 @@ func ShowSchedule(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(res.End("There are " + strconv.Itoa(len(jobs)) + " jobs scheduled."))
 }
 
-func TestRoute(w rest.ResponseWriter, r *rest.Request) {
-
-	w.WriteJson("foo")
+// Shows the current harvester configuration
+func ShowSocialHarvestConfig(w rest.ResponseWriter, r *rest.Request) {
+	res := config.NewHypermediaResource()
+	res.Links["self"] = config.HypermediaLink{
+		Href: "/config/read",
+	}
+	res.Data["config"] = socialHarvest.Config
+	res.Success()
+	w.WriteJson(res.End())
 }
 
 // --------- Initial schedule
@@ -102,7 +108,7 @@ func main() {
 	color.Cyan(" ___) | (_) | (__| | (_| | | |  _  | (_| | |   \\ V /  __/\\__ \\ |_ ")
 	color.Cyan("|____/ \\___/ \\___|_|\\__,_|_| |_| |_|\\__,_|_|    \\_/ \\___||___/\\__|")
 	//	color.Cyan("                                                                  ")
-	color.Yellow("_____________________________________________version 0.1.0-preview")
+	color.Yellow("_____________________________________________version 0.2.0-preview")
 	color.Cyan("   ")
 
 	// Optionally allow a config JSON file to be passed via command line
@@ -153,6 +159,7 @@ func main() {
 		}
 		err := handler.SetRoutes(
 			&rest.Route{"GET", "/schedule/read", ShowSchedule},
+			&rest.Route{"GET", "/config/read", ShowSocialHarvestConfig},
 		)
 		if err != nil {
 			log.Fatal(err)
