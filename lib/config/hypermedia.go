@@ -1,4 +1,24 @@
+// Social Harvest is a social media analytics platform.
+//     Copyright (C) 2014 Tom Maiaroto, Shift8Creative, LLC (http://www.socialharvest.io)
+//
+//     This program is free software: you can redistribute it and/or modify
+//     it under the terms of the GNU General Public License as published by
+//     the Free Software Foundation, either version 3 of the License, or
+//     (at your option) any later version.
+//
+//     This program is distributed in the hope that it will be useful,
+//     but WITHOUT ANY WARRANTY; without even the implied warranty of
+//     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//     GNU General Public License for more details.
+//
+//     You should have received a copy of the GNU General Public License
+//     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 package config
+
+import (
+	"time"
+)
 
 // Inspired by a few hypermedia formats, this is a structure for Social Harvest API responses.
 // Storing data into Social Harvest is easy...Getting it back out and having other widgets for the dashboard be able to talk with the API is the hard part.
@@ -17,13 +37,10 @@ type HypermediaResource struct {
 
 // The Meta structure provides some common information helpful to the application and also resource state.
 type HypermediaMeta struct {
-	Success      bool              `json:"success"`
-	Message      string            `json:"message"`
-	ResponseTime float32           `json:"responseTime"`
-	DataCount    int               `json:"dataCount,omitempty"`
-	DataLimit    int               `json:"dataLimit,omitempty"`
-	DataTotal    int               `json:"dataTotal,omitempty"`
-	DataOrder    map[string]string `json:"dataOrder,omitempty"`
+	startTime    time.Time
+	Success      bool    `json:"success"`
+	Message      string  `json:"message"`
+	ResponseTime float32 `json:"responseTime,omitempty"`
 }
 
 // A simple web link structure (somewhat modeled after HAL's links and http://tools.ietf.org/html/rfc5988).
@@ -38,6 +55,7 @@ type HypermediaLink struct {
 	Profile     string `json:"profile,omitempty"`
 	Title       string `json:"title,omitempty"`
 	Hreflang    string `json:"hreflang,omitempty"`
+	Templated   bool   `json:"templated,omitempty"`
 }
 
 // Defines a CURIE
@@ -96,12 +114,39 @@ type HypermediaFormFieldRule struct {
 	Function    func(value string) (fail bool, message string) // not for JSON
 }
 
-func NewHypermediaResource() {
+// Conveniently sets a few things up for a resource
+func NewHypermediaResource() *HypermediaResource {
 	r := HypermediaResource{}
-
+	r.Meta.startTime = time.Now()
 	r.Links = make(map[string]HypermediaLink)
+	r.Data = make(map[string]interface{})
 
 	return &r
+}
+
+// Not necessary... But there may be some other functions that make sense...
+func (h *HypermediaResource) Success() {
+	h.Meta.Success = true
+}
+
+func (h *HypermediaResource) AddCurie(name string, href string, templated bool) {
+	c := HypermediaCurie{}
+	c.Name = name
+	c.Href = href
+	c.Templated = templated
+	if len(h.Curies) < 1 {
+		h.Curies = make(map[string]HypermediaCurie)
+	}
+	h.Curies[name] = c
+}
+
+// Conveniently sets a few things before returning the resource and optionally allows a passed string to set HypermediaResource.Meta.Message
+func (h *HypermediaResource) End(message ...string) *HypermediaResource {
+	if len(message) > 0 {
+		h.Meta.Message = message[0]
+	}
+	h.Meta.ResponseTime = float32(time.Since(h.Meta.startTime).Seconds())
+	return h
 }
 
 // Example

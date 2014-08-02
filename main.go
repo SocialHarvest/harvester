@@ -28,31 +28,45 @@ import (
 	"os"
 	"strconv"
 	//"sync"
-	//"reflect"
+	"reflect"
+	"runtime"
 )
 
 var socialHarvest = config.SocialHarvest{}
 
 // --------- Route functions
 
-// Shows the harvest schedule as configured
+// Shows the harvest schedule as currently configured
 func ShowSchedule(w rest.ResponseWriter, r *rest.Request) {
-
-	socialHarvest.Schedule.Cron.AddFunc("0 5 * * * *", func() { log.Println("Every 5 minutes") }, "Another job every five min.")
-
-	res = config.NewHypermediaResource()
+	res := config.NewHypermediaResource()
+	res.AddCurie("schedule", "/docs/rels/{rel}", true)
 
 	res.Links["self"] = config.HypermediaLink{
 		Href: "/schedule/read",
 	}
-
-	for _, item := range socialHarvest.Schedule.Cron.Entries() {
-		log.Println(item.Name)
-		log.Println(item.Next)
-
+	res.Links["schedule:add"] = config.HypermediaLink{
+		Href: "/schedule/add",
+	}
+	res.Links["schedule:delete"] = config.HypermediaLink{
+		Href:      "/schedule/delete/{id}",
+		Templated: true,
 	}
 
-	w.WriteJson(res)
+	jobs := []map[string]interface{}{}
+	for _, item := range socialHarvest.Schedule.Cron.Entries() {
+		m := make(map[string]interface{})
+		m["id"] = item.Id
+		m["name"] = item.Name
+		m["next"] = item.Next
+		m["prev"] = item.Prev
+		m["job"] = getFunctionName(item.Job)
+		jobs = append(jobs, m)
+	}
+	res.Data["totalJobs"] = len(jobs)
+	res.Data["jobs"] = jobs
+
+	res.Success()
+	w.WriteJson(res.End("There are " + strconv.Itoa(len(jobs)) + " jobs scheduled."))
 }
 
 func TestRoute(w rest.ResponseWriter, r *rest.Request) {
@@ -73,6 +87,11 @@ func setInitialSchedule() {
 		}
 
 	}
+}
+
+// Helper function to get the name of a function (primarily used to show scheduled tasks)
+func getFunctionName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
 // Main - initializes, configures, and sets routes for API
@@ -109,6 +128,7 @@ func main() {
 	// Set up the data sources (social media APIs for now) and give them the writers (and database connection) they need (all for now)
 	harvester.NewTwitter(socialHarvest)
 	harvester.NewFacebook(socialHarvest)
+	harvester.NewInstagram(socialHarvest)
 
 	// Set the initial schedule (can be changed via API if available)
 	setInitialSchedule()
@@ -132,7 +152,7 @@ func main() {
 			EnableRelaxedContentType: true,
 		}
 		err := handler.SetRoutes(
-			&rest.Route{"GET", "/schedule", ShowSchedule},
+			&rest.Route{"GET", "/schedule/read", ShowSchedule},
 		)
 		if err != nil {
 			log.Fatal(err)
@@ -146,13 +166,5 @@ func main() {
 		}
 		log.Println("Social Harvest API listening on port " + p)
 		log.Fatal(http.ListenAndServe(":"+p, &handler))
-
-		/*
-			// Route definitions
-			handler.SetRoutes(
-				rest.RouteObjectMethod("GET", "/test", &socialHarvest, "TestRoute"),
-				rest.RouteObjectMethod("GET", "/schedule", &socialHarvest, "ShowSchedule"),
-			)
-		*/
 	}
 }

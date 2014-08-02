@@ -56,6 +56,10 @@ type SocialHarvestConf struct {
 		Google struct {
 			ServerKey string `json:"serverKey"`
 		} `json:"google"`
+		Instagram struct {
+			ClientId     string `json:"clientId"`
+			ClientSecret string `json:"clientSecret"`
+		} `json:"instagram"`
 	} `json:"services"`
 	Harvest struct {
 		QuestionRegex string `json:"questionRegex"`
