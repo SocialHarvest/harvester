@@ -23,6 +23,7 @@ import (
 // Inspired by a few hypermedia formats, this is a structure for Social Harvest API responses.
 // Storing data into Social Harvest is easy...Getting it back out and having other widgets for the dashboard be able to talk with the API is the hard part.
 // So a self documenting API that can be navigated automatically is super handy.
+// NOTE: This is going to change a good bit at first.
 
 // A resource is the root level item being returned. It can contain embedded resources if necessary. It's possible to return more than one resource at a time too (though won't be common).
 // Within each resource there is "_meta" data
@@ -148,18 +149,3 @@ func (h *HypermediaResource) End(message ...string) *HypermediaResource {
 	h.Meta.ResponseTime = float32(time.Since(h.Meta.startTime).Seconds())
 	return h
 }
-
-// Example
-// var hyper = config.HypermediaResource{}
-// //var selfLink = config.HypermediaLink{Href: "http://www.google.com"}
-// hyper.Links = make(map[string]config.HypermediaLink)
-// hyper.Links["self"] = config.HypermediaLink{Href: "http://www.google.com"}
-// // now embed another resource within it
-// var hEmbedded = config.HypermediaResource{}
-// hEmbedded.Links = make(map[string]config.HypermediaLink)
-// hEmbedded.Links["self"] = config.HypermediaLink{Href: "http://www.embedded.com"}
-// //log.Println(hEmbedded)
-// hyper.Embedded = make(map[string]config.HypermediaResource)
-// hyper.Embedded["testEmbeddedResource"] = hEmbedded
-// hJson, _ := json.Marshal(hyper)
-// log.Println(string(hJson))

@@ -144,10 +144,21 @@ type FacebookAccount struct {
 
 var facebook = Facebook{}
 
-// Set the appToken for future use, this will become a little more sophisticated when user tokens are at play
+// Set the appToken for future use (global)
 func NewFacebook(sh config.SocialHarvest) {
 	facebook.appToken = sh.Config.Services.Facebook.AppToken
 	facebook.socialHarvest = sh
+}
+
+// If the territory has a different appToken to use
+func NewFacebookTerritoryCredentials(territory string) {
+	for _, t := range facebook.socialHarvest.Config.Harvest.Territories {
+		if t.Name == territory {
+			if t.Services.Facebook.AppToken != "" {
+				facebook.appToken = t.Services.Facebook.AppToken
+			}
+		}
+	}
 }
 
 // Takes an array of Post structs and converts it to JSON and logs to file (to be picked up by Fluentd, Logstash, Ik, etc.)

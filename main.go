@@ -75,7 +75,7 @@ func ShowSocialHarvestConfig(w rest.ResponseWriter, r *rest.Request) {
 	res.Links["self"] = config.HypermediaLink{
 		Href: "/config/read",
 	}
-	res.Data["config"] = socialHarvest.Config
+	res.Data["config"] = socialHarvest.Config.Harvest
 	res.Success()
 	w.WriteJson(res.End())
 }

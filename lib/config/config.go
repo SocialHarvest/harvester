@@ -43,29 +43,13 @@ type SocialHarvestConf struct {
 	Logs struct {
 		Directory string `json:"directory"`
 	} `json:"logs"`
-	Services struct {
-		Twitter struct {
-			ApiKey            string `json:"apiKey"`
-			ApiSecret         string `json:"apiSecret"`
-			AccessToken       string `json:"accessToken"`
-			AccessTokenSecret string `json:"accessTokenSecret"`
-		} `json:"twitter"`
-		Facebook struct {
-			AppToken string `json:"appToken"`
-		} `json:"facebook"`
-		Google struct {
-			ServerKey string `json:"serverKey"`
-		} `json:"google"`
-		Instagram struct {
-			ClientId     string `json:"clientId"`
-			ClientSecret string `json:"clientSecret"`
-		} `json:"instagram"`
-	} `json:"services"`
-	Harvest struct {
+	Services SochaHarvestServices `json:"services"`
+	Harvest  struct {
 		QuestionRegex string `json:"questionRegex"`
 		Territories   []struct {
-			Name    string `json:"name"`
-			Content struct {
+			Services SochaHarvestServices `json:"-"`
+			Name     string               `json:"name"`
+			Content  struct {
 				Lang     string   `json:"lang"`
 				Keywords []string `json:"keywords"`
 				Urls     []string `json:"urls"`
@@ -108,4 +92,23 @@ type SocialHarvestConf struct {
 			} `json:"limits"`
 		} `json:"territories"`
 	} `json:"harvest"`
+}
+
+type SochaHarvestServices struct {
+	Twitter struct {
+		ApiKey            string `json:"apiKey"`
+		ApiSecret         string `json:"apiSecret"`
+		AccessToken       string `json:"accessToken"`
+		AccessTokenSecret string `json:"accessTokenSecret"`
+	} `json:"twitter"`
+	Facebook struct {
+		AppToken string `json:"appToken"`
+	} `json:"facebook"`
+	Google struct {
+		ServerKey string `json:"serverKey"`
+	} `json:"google"`
+	Instagram struct {
+		ClientId     string `json:"clientId"`
+		ClientSecret string `json:"clientSecret"`
+	} `json:"instagram"`
 }

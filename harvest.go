@@ -44,6 +44,8 @@ func FacebookPublicMessagesByKeyword() {
 		if len(territory.Content.Lang) > 0 {
 			params.Lang = territory.Content.Lang
 		}
+		// If different credentials were set for the territory, this will find and set them
+		harvester.NewFacebookTerritoryCredentials(territory.Name)
 
 		if len(territory.Content.Keywords) > 0 {
 			for _, keyword := range territory.Content.Keywords {
@@ -112,6 +114,9 @@ func FacebookMessagesByAccount() {
 
 	for _, territory := range socialHarvest.Config.Harvest.Territories {
 		if len(territory.Accounts.Facebook) > 0 {
+			// If different credentials were set for the territory, this will find and set them
+			harvester.NewFacebookTerritoryCredentials(territory.Name)
+
 			//log.Print(territory.Accounts.Facebook)
 			for _, account := range territory.Accounts.Facebook {
 				//log.Print("Getting feed for: " + account)
