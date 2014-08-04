@@ -22,6 +22,22 @@ func TestNewFacebook(t *testing.T) {
 	assert.Equal(t, facebook.appToken, expected, "SocialHarvestConf.Services.Facebook.AppToken should be "+expected)
 }
 
+func TestNewFacebookTerritoryCredentials(t *testing.T) {
+	testCfg.Services.Facebook.AppToken = "1234567890"
+
+	territoryServices := config.SocialHarvestServices{}
+	territoryServices.Facebook.AppToken = "override"
+
+	testShCfg.Config = testCfg
+	NewFacebook(testShCfg)
+
+	expected := "1234567890"
+	assert.Equal(t, facebook.appToken, expected, "SocialHarvestConf.Services.Facebook.AppToken should be "+expected)
+
+	// TODO: Actually test the override
+
+}
+
 // This is neat, but do benchmark tests make sense? A lot of these functions make HTTP requests, so tat's gonna vary and even if we stop the timer for that...
 // ...Which we can't without re-writing code...I don't know. I'm more interested in seeing benchmarks for things like the gender lookup and any other data filtering.
 func Benchmark_NewFacebook(b *testing.B) {

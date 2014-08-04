@@ -79,6 +79,7 @@ type SocialHarvestMessage struct {
 	Longitude                   float64   `json:"longitude" db:"longitude" bson:"longitude"`
 	Latitude                    float64   `json:"latitude" db:"latitude" bson:"latitude"`
 	Geohash                     string    `json:"geohash" db:"geohash" bson:"geohash"`
+	Message                     string    `json:"message" db:"message" bson:"message"`
 	FacebookShares              int       `json:"facebook_shares" db:"facebook_shares" bson:"facebook_shares"`
 	// TODO: when we start gathering from Twitter, etc. add in twitter_mentions, etc.
 }

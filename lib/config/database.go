@@ -19,8 +19,6 @@ package config
 import (
 	//"net/http"
 	//"database/sql"
-	"crypto/md5"
-	"encoding/hex"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"log"
@@ -267,11 +265,4 @@ func (database *SocialHarvestDB) GetSession() db.Database {
 	}
 
 	return sess
-}
-
-// Turns the harvest id into an md5 string (a simple concatenation would work but some databases such as MySQL have a limit on unique key values so md5 fits without worry)
-func (database *SocialHarvestDB) GetHarvestMd5(text string) string {
-	hasher := md5.New()
-	hasher.Write([]byte(text))
-	return hex.EncodeToString(hasher.Sum(nil))
 }

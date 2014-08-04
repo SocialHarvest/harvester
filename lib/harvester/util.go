@@ -17,10 +17,20 @@
 package harvester
 
 import (
+	//"github.com/jasonwinn/geocoder"
+	"crypto/md5"
+	"encoding/hex"
 	"log"
 	"regexp"
 	"strings"
 )
+
+// Turns the harvest id into an md5 string (a simple concatenation would work but some databases such as MySQL have a limit on unique key values so md5 fits without worry)
+func GetHarvestMd5(text string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(text))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
 
 // Simple method for converting locale values like "en_US" (or even en-US) to ISO 639-1 (which would just be "en")
 func LocaleToLanguageISO(code ...string) string {
@@ -69,4 +79,11 @@ func IsQuestion(text string, regexString ...string) bool {
 // Detects gender based on US Census database
 func DetectGender() {
 	// TODO
+}
+
+// Geocodes using MapQuest API if available
+func Geocode() {
+	// TODO: Also think about using https://github.com/kellydunn/golang-geo
+	// That package will allow the use of google Maps API or Open Street Maps API (though MapQuest has a higher rate limit)
+
 }

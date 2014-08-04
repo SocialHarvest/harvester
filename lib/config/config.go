@@ -16,11 +16,22 @@
 
 package config
 
+import (
+	"time"
+)
+
 type SocialHarvest struct {
 	Config   SocialHarvestConf
 	Schedule *SocialHarvestSchedule
 	Database *SocialHarvestDB
 	Writers  *SocialHarvestWriters
+}
+
+type HarvestState struct {
+	LastId         string
+	LastTime       time.Time
+	PagesHarvested int
+	ItemsHarvested int
 }
 
 type Harvest struct{}
@@ -43,58 +54,64 @@ type SocialHarvestConf struct {
 	Logs struct {
 		Directory string `json:"directory"`
 	} `json:"logs"`
-	Services SochaHarvestServices `json:"services"`
-	Harvest  struct {
-		QuestionRegex string `json:"questionRegex"`
-		Territories   []struct {
-			Services SochaHarvestServices `json:"-"`
-			Name     string               `json:"name"`
-			Content  struct {
-				Lang     string   `json:"lang"`
-				Keywords []string `json:"keywords"`
-				Urls     []string `json:"urls"`
-			} `json:"content"`
-			Accounts struct {
-				Twitter    []string `json:"twitter"`
-				Facebook   []string `json:"facebook"`
-				GooglePlus []string `json:"googlePlus"`
-				YouTube    []string `json:"youTube"`
-			} `json:"accounts"`
-			Schedule struct {
-				Everything struct {
-					Content  string `json:"content"`
-					Accounts string `json:"accounts"`
-					Streams  string `json:"streams"`
-				} `json:"everything"`
-				Twitter struct {
-					Content  string `json:"content"`
-					Accounts string `json:"accounts"`
-					Streams  string `json:"streams"`
-				} `json:"twitter"`
-				Facebook struct {
-					Content  string `json:"content"`
-					Accounts string `json:"accounts"`
-					Streams  string `json:"streams"`
-				} `json:"facebook"`
-				GooglePlus struct {
-					Content  string `json:"content"`
-					Accounts string `json:"accounts"`
-				} `json:"googlePlus"`
-				YouTube struct {
-					Content  string `json:"content"`
-					Accounts string `json:"accounts"`
-					Streams  string `json:"streams"`
-				} `json:"youTube"`
-			} `json:"schedule"`
-			Limits struct {
-				MaxResultsPages int    `json:"maxResultsPages"`
-				ResultsPerPage  string `json:"resultsPerPage"`
-			} `json:"limits"`
-		} `json:"territories"`
-	} `json:"harvest"`
+	Services ServicesConfig `json:"services"`
+	Harvest  HarvestConfig  `json:"harvest"`
 }
 
-type SochaHarvestServices struct {
+type HarvestConfig struct {
+	QuestionRegex string `json:"questionRegex"`
+	Territories   []struct {
+		Services ServicesConfig `json:"-"`
+		Name     string         `json:"name"`
+		Content  struct {
+			Options struct {
+				KeepMessage    bool   `json:"keepMessage"`
+				Lang           string `json:"lang"`
+				TwitterGeocode string `json:"twitterGeocode"`
+			} `json:"options"`
+			Keywords []string `json:"keywords"`
+			Urls     []string `json:"urls"`
+		} `json:"content"`
+		Accounts struct {
+			Twitter    []string `json:"twitter"`
+			Facebook   []string `json:"facebook"`
+			GooglePlus []string `json:"googlePlus"`
+			YouTube    []string `json:"youTube"`
+		} `json:"accounts"`
+		Schedule struct {
+			Everything struct {
+				Content  string `json:"content"`
+				Accounts string `json:"accounts"`
+				Streams  string `json:"streams"`
+			} `json:"everything"`
+			Twitter struct {
+				Content  string `json:"content"`
+				Accounts string `json:"accounts"`
+				Streams  string `json:"streams"`
+			} `json:"twitter"`
+			Facebook struct {
+				Content  string `json:"content"`
+				Accounts string `json:"accounts"`
+				Streams  string `json:"streams"`
+			} `json:"facebook"`
+			GooglePlus struct {
+				Content  string `json:"content"`
+				Accounts string `json:"accounts"`
+			} `json:"googlePlus"`
+			YouTube struct {
+				Content  string `json:"content"`
+				Accounts string `json:"accounts"`
+				Streams  string `json:"streams"`
+			} `json:"youTube"`
+		} `json:"schedule"`
+		Limits struct {
+			MaxResultsPages int    `json:"maxResultsPages"`
+			ResultsPerPage  string `json:"resultsPerPage"`
+		} `json:"limits"`
+	} `json:"territories"`
+}
+
+type ServicesConfig struct {
 	Twitter struct {
 		ApiKey            string `json:"apiKey"`
 		ApiSecret         string `json:"apiSecret"`
@@ -111,4 +128,7 @@ type SochaHarvestServices struct {
 		ClientId     string `json:"clientId"`
 		ClientSecret string `json:"clientSecret"`
 	} `json:"instagram"`
+	MapQuest struct {
+		ApplicationKey string `json:"applicationKey"`
+	} `json:"mapQuest"`
 }

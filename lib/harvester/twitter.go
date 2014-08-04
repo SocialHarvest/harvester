@@ -17,35 +17,114 @@
 package harvester
 
 import (
-	//"encoding/json"
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
 	"log"
 	"net/url"
-	//"net/http"
+	"time"
 )
 
-type Twitter struct {
-	api           *anaconda.TwitterApi
-	socialHarvest config.SocialHarvest
+func NewTwitter(servicesConfig config.ServicesConfig) {
+	anaconda.SetConsumerKey(servicesConfig.Twitter.ApiKey)
+	anaconda.SetConsumerSecret(servicesConfig.Twitter.ApiSecret)
+	services.twitter = anaconda.NewTwitterApi(servicesConfig.Twitter.AccessToken, servicesConfig.Twitter.AccessTokenSecret)
 }
 
-var twitter = Twitter{}
-
-func NewTwitter(sh config.SocialHarvest) {
-	anaconda.SetConsumerKey(sh.Config.Services.Twitter.ApiKey)
-	anaconda.SetConsumerSecret(sh.Config.Services.Twitter.ApiSecret)
-	twitter.api = anaconda.NewTwitterApi(sh.Config.Services.Twitter.AccessToken, sh.Config.Services.Twitter.AccessTokenSecret)
-	twitter.socialHarvest = sh
+// If the territory has different keys to use
+func NewTwitterTerritoryCredentials(territory string) {
+	for _, t := range harvestConfig.Territories {
+		if t.Name == territory {
+			if t.Services.Twitter.ApiKey != "" && t.Services.Twitter.ApiSecret != "" && t.Services.Twitter.AccessToken != "" && t.Services.Twitter.AccessTokenSecret != "" {
+				anaconda.SetConsumerKey(t.Services.Twitter.ApiKey)
+				anaconda.SetConsumerSecret(t.Services.Twitter.ApiSecret)
+				services.twitter = anaconda.NewTwitterApi(t.Services.Twitter.AccessToken, t.Services.Twitter.AccessTokenSecret)
+			}
+		}
+	}
 }
 
-func SearchTwitter(query string, options url.Values) string {
-	//v := url.Values{}
-	//v.Set("count", "30")
-	searchResult, _ := twitter.api.GetSearch("golang", options)
-	for _, tweet := range searchResult {
-		log.Println(tweet.Text)
+// Search for status updates and just pass the Tweet along (no special mapping required like FacebookPost{} because the Tweet struct is used across multiple API calls unlike Facebook)
+// All "search" functions (and anything that gets data from an API) will now normalize the data, mapping it to a Social Harvest struct.
+// This means there will be no way to get the original data from the service (back in the main app or from any other Go package that imports the harvester).
+// This is fine because if someone wanted the original data, they could use packages like anaconda directly.
+// What happens now is all data pulled from earch service's API will be sent to a channel (the harvester observer). However, this function should NOT be called in a go-subroutine though.
+// We don't want to make multiple API calls in parallel (rate limits).
+// NOTE: The number of items sent to the observer will be returned along with the last message's time and id. The main package can record this in the harvest logs/table.
+// The harvester will not keep track of this information itself. Its only job is to gather data, send it to the channel and report back on how much was sent (and the last id/time). Period.
+// It doens't care if the data is stored in a database, logged, or streamed out from an API. It just harvests and sends without looking or caring.
+// Whereas previously it would be doing the db calls and logging, etc. This has now all been taken care of with the observer. All of these other processes simply subscribe and listen.
+//
+// Always passed in first (always): the territory name, and the position in the harvest (HarvestState) ... the rest are going to vary based on the API but typically are the query and options
+// @return options(for pagination), count of items, last id, last time.
+func TwitterSearch(territoryName string, harvestState config.HarvestState, query string, options url.Values) (url.Values, config.HarvestState) {
+	// nope nope nope nope. not here anymore.
+	// TODO: Remove the following from config.SocialHarvest:
+	// Schedule *SocialHarvestSchedule
+	// Database *SocialHarvestDB
+	// Writers  *SocialHarvestWriters
+	// ...they are not needed on there anymore because we will no longer be using those outside of the main package.
+	// whereas before the database and writers were passed to the harvester package... separation of concerns baby.
+	// the schedule wasn't passed to the harvesters but was put on there anyway. that can go too.
+	//
+	// Create a wait group to manage the goroutines.
+	//var waitGroup sync.WaitGroup
+	//dbSession := twitter.socialHarvest.Database.GetSession()
+
+	searchResults, _ := services.twitter.GetSearch(query, options)
+	// The cool thing about Twitter's API is that we have all the user data we need already. So we make less HTTP requests than when using Facebook's API.
+	for _, tweet := range searchResults {
+		//log.Println(tweet)
+		//	log.Println("processing a tweet....")
+
+		tweetCreatedTime, err := time.Parse(time.RubyDate, tweet.CreatedAt)
+		// Only take tweets that have a time (and an ID from Facebook)
+		if err == nil && len(tweet.IdStr) > 0 {
+			harvestState.ItemsHarvested++
+			// If this is the most recent tweet in the results, set it's date and id (to be returned) so we can continue where we left off in future harvests
+			if harvestState.LastTime.IsZero() || tweetCreatedTime.Unix() > harvestState.LastTime.Unix() {
+				harvestState.LastTime = tweetCreatedTime
+				harvestState.LastId = tweet.IdStr
+			}
+
+			// Generate a harvest_id to avoid potential dupes (a unique index is placed on this field and all insert errors ignored).
+			harvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName)
+			// We'll need a different harvest_id for contributors if we used the message to build it, we would have dupes coming in for contributors.
+			// The contributors series only needs one unique contributor per row/document in the database. The ContributorGrowth, however, keeps track of contributor changes.
+			// That's taken care of elsewhere though. We're only interested in messages here (and anything that can be created using those messages).
+			contributorharvestId := GetHarvestMd5(tweet.User.IdStr + "twitter" + territoryName)
+			//log.Println(contributorharvestId)
+
+			message := config.SocialHarvestMessage{
+				Time:                  tweetCreatedTime,
+				HarvestId:             harvestId,
+				Territory:             territoryName,
+				Network:               "twitter",
+				ContributorId:         tweet.User.IdStr,
+				ContributorScreenName: tweet.User.ScreenName,
+				IsoLanguageCode:       tweet.User.Lang,
+			}
+			// Send to the harvester observer
+			Publish("SocialHarvestMessage", message)
+
+			contributor := config.SocialHarvestContributor{
+				Time:                  tweetCreatedTime,
+				HarvestId:             contributorharvestId,
+				Territory:             territoryName,
+				Network:               "twitter",
+				ContributorId:         tweet.User.IdStr,
+				ContributorScreenName: tweet.User.ScreenName,
+				IsoLanguageCode:       tweet.User.Lang,
+				Name:                  tweet.User.Name,
+				Url:                   tweet.User.URL,
+			}
+			// Send to the harvester observer
+			Publish("SocialHarvestContributor", contributor)
+
+		} else {
+			log.Println("Could not parse the time from the Tweet, so I'm throwing it away!")
+			log.Println(err)
+		}
 	}
 
-	return "end twitter search"
+	return options, harvestState
 }
