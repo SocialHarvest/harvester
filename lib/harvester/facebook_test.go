@@ -25,7 +25,7 @@ func TestNewFacebook(t *testing.T) {
 func TestNewFacebookTerritoryCredentials(t *testing.T) {
 	testCfg.Services.Facebook.AppToken = "1234567890"
 
-	territoryServices := config.SocialHarvestServices{}
+	territoryServices := config.ServicesConfig{}
 	territoryServices.Facebook.AppToken = "override"
 
 	testShCfg.Config = testCfg
