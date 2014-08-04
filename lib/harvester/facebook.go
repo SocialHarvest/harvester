@@ -21,16 +21,11 @@ import (
 	geohash "github.com/TomiHiltunen/geohash-golang"
 	fb "github.com/huandu/facebook"
 	//"github.com/mitchellh/mapstructure"
-	//"log"
+	"log"
 	"net/url"
 	//"sync"
 	"time"
 )
-
-type Facebook struct {
-	appToken      string
-	socialHarvest config.SocialHarvest
-}
 
 type PagingResult struct {
 	Next     string
@@ -141,20 +136,17 @@ type FacebookAccount struct {
 	LastName  string `facebook:"last_name"`
 }
 
-var facebook = Facebook{}
-
 // Set the appToken for future use (global)
-func NewFacebook(sh config.SocialHarvest) {
-	facebook.appToken = sh.Config.Services.Facebook.AppToken
-	facebook.socialHarvest = sh
+func NewFacebook(servicesConfig config.ServicesConfig) {
+	services.facebookAppToken = servicesConfig.Facebook.AppToken
 }
 
 // If the territory has a different appToken to use
 func NewFacebookTerritoryCredentials(territory string) {
-	for _, t := range facebook.socialHarvest.Config.Harvest.Territories {
+	for _, t := range harvestConfig.Territories {
 		if t.Name == territory {
 			if t.Services.Facebook.AppToken != "" {
-				facebook.appToken = t.Services.Facebook.AppToken
+				services.facebookAppToken = t.Services.Facebook.AppToken
 			}
 		}
 	}
@@ -297,7 +289,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 			Publish("SocialHarvestMessage", messageRow)
 
 			// question row (if message is a question)
-			if IsQuestion(post.Message, facebook.socialHarvest.Config.Harvest.QuestionRegex) == true {
+			if IsQuestion(post.Message, harvestConfig.QuestionRegex) == true {
 				questionRow := config.SocialHarvestQuestion{
 					Time:                  postCreatedTime,
 					HarvestId:             harvestId,
@@ -408,6 +400,9 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 				}
 			}
 
+		} else {
+			log.Println("Could not parse the time from the Facebook post, so I'm throwing it away!")
+			log.Println(err)
 		}
 
 	}
@@ -435,7 +430,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 func FacebookSearch(params FacebookParams) ([]FacebookPost, FacebookParams) {
 	// Get the access token from the configuration if not passed (shouldn't need to be passed, but can be)
 	if params.AccessToken == "" {
-		params.AccessToken = facebook.appToken
+		params.AccessToken = services.facebookAppToken
 	}
 	var fbParams = fb.MakeParams(params)
 
@@ -485,7 +480,7 @@ func FacebookFeed(id string, params FacebookParams) ([]FacebookPost, FacebookPar
 	// https://graph.facebook.com/xbox
 	// 16547831022
 	if params.AccessToken == "" {
-		params.AccessToken = facebook.appToken
+		params.AccessToken = services.facebookAppToken
 	}
 	var fbParams = fb.MakeParams(params)
 
@@ -528,7 +523,7 @@ func FacebookGetUserInfo(id string) FacebookAccount {
 		// This actually isn't required...Though I'm curious about rate limits. I can't find any real concrete numbers.
 		// App tokens (which are counted as: app token + ip) have a pretty high limit for basic harvests. So I'm not overly concerned.
 		// I imagine requests without access tokens are limited even more, so leave this in for now.
-		"access_token": facebook.appToken,
+		"access_token": services.facebookAppToken,
 	})
 
 	var account FacebookAccount

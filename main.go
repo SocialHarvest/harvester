@@ -198,7 +198,7 @@ func main() {
 	// Search Facebook public posts using keywords in Social Harvest config
 	//go FacebookPublicMessagesByKeyword()
 	// Search Facebook public feeds using account ids in Social Harvest config
-	//FacebookMessagesByAccount()
+	// go FacebookMessagesByAccount()
 	//
 	//go TwitterPublicMessagesByKeyword()
 	go StoreMessages()

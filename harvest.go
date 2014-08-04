@@ -78,8 +78,15 @@ func FacebookPublicMessagesByKeyword() {
 					// However. If nothing has truly been posted since the last harvest, then no results will be returned when passing "since" and that will help a little.
 					// So always pass it. Since we only get the "next" page, we don't need to change it (and it does help particularly with account feeds).
 					lastHarvestTime := socialHarvest.Database.GetLastHarvestTime(territory.Name, "facebook", "FacebookPublicMessagesByKeyword", keyword)
+					sinceStr := ""
 					if !lastHarvestTime.IsZero() {
-						params.Since = strconv.FormatInt(lastHarvestTime.Unix(), 10)
+						sinceTimeUnix := lastHarvestTime.Unix()
+						if sinceTimeUnix > 0 {
+							sinceStr = strconv.FormatInt(sinceTimeUnix, 10)
+						}
+					}
+					if sinceStr != "" {
+						params.Since = sinceStr
 					}
 
 					// TODO: Refactor. We shouldn't need this second FacebookPostsOut() function.

@@ -22,7 +22,8 @@ import (
 )
 
 type harvesterServices struct {
-	twitter *anaconda.TwitterApi
+	twitter          *anaconda.TwitterApi
+	facebookAppToken string
 }
 
 var harvestConfig = config.HarvestConfig{}
@@ -33,4 +34,5 @@ func New(configuration config.HarvestConfig, servicesConfiguration config.Servic
 	harvestConfig = configuration
 	// Now set up all the services with the configuration
 	NewTwitter(servicesConfiguration)
+	NewFacebook(servicesConfiguration)
 }
