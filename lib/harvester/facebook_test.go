@@ -10,29 +10,26 @@ import (
 
 // TODO: Configure test databases and logs and such?
 
-var testCfg = config.SocialHarvestConf{}
-var testShCfg = config.SocialHarvest{}
+var servicesCfg = config.ServicesConfig{}
 
 func TestNewFacebook(t *testing.T) {
-	testCfg.Services.Facebook.AppToken = "1234567890"
-	testShCfg.Config = testCfg
-	NewFacebook(testShCfg)
+	servicesCfg.Facebook.AppToken = "1234567890"
+	NewFacebook(servicesCfg)
 
 	expected := "1234567890"
-	assert.Equal(t, facebook.appToken, expected, "SocialHarvestConf.Services.Facebook.AppToken should be "+expected)
+	assert.Equal(t, services.facebookAppToken, expected, "SocialHarvestConf.Services.Facebook.AppToken should be "+expected)
 }
 
 func TestNewFacebookTerritoryCredentials(t *testing.T) {
-	testCfg.Services.Facebook.AppToken = "1234567890"
+	servicesCfg.Facebook.AppToken = "1234567890"
 
 	territoryServices := config.ServicesConfig{}
 	territoryServices.Facebook.AppToken = "override"
 
-	testShCfg.Config = testCfg
-	NewFacebook(testShCfg)
+	NewFacebook(servicesCfg)
 
 	expected := "1234567890"
-	assert.Equal(t, facebook.appToken, expected, "SocialHarvestConf.Services.Facebook.AppToken should be "+expected)
+	assert.Equal(t, services.facebookAppToken, expected, "SocialHarvestConf.Services.Facebook.AppToken should be "+expected)
 
 	// TODO: Actually test the override
 
@@ -41,11 +38,10 @@ func TestNewFacebookTerritoryCredentials(t *testing.T) {
 // This is neat, but do benchmark tests make sense? A lot of these functions make HTTP requests, so tat's gonna vary and even if we stop the timer for that...
 // ...Which we can't without re-writing code...I don't know. I'm more interested in seeing benchmarks for things like the gender lookup and any other data filtering.
 func Benchmark_NewFacebook(b *testing.B) {
-	testCfg.Services.Facebook.AppToken = "1234567890"
-	testShCfg.Config = testCfg
+	servicesCfg.Facebook.AppToken = "1234567890"
 
 	for i := 0; i < b.N; i++ { //use b.N for looping
-		NewFacebook(testShCfg)
+		NewFacebook(servicesCfg)
 	}
 }
 
