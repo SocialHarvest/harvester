@@ -151,11 +151,13 @@ func getFunctionName(i interface{}) string {
 
 // Main - initializes, configures, and sets routes for API
 func main() {
-	runtime.SetBlockProfileRate(1)
-	// Start another profile server
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
+	/*
+		runtime.SetBlockProfileRate(1)
+		// Start another profile server
+		go func() {
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	*/
 
 	color.Cyan(" ____             _       _   _   _                           _  ")
 	color.Cyan(`/ ___|  ___   ___(_) __ _| | | | | | __ _ _ ____   _____  ___| |_ ®`)
