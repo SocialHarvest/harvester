@@ -17,7 +17,7 @@
 package config
 
 import (
-	"code.google.com/p/log4go"
+	"github.com/tmaiaroto/log4go"
 )
 
 // All of the output log writers (fluentd or logstash picks up data from these logs, we'll rotate them and they could even be sent to S3, etc.)

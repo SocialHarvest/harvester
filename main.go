@@ -28,6 +28,7 @@ import (
 	"os"
 	"strconv"
 	//"sync"
+	_ "net/http/pprof"
 	"reflect"
 	"runtime"
 	"time"
@@ -150,13 +151,19 @@ func getFunctionName(i interface{}) string {
 
 // Main - initializes, configures, and sets routes for API
 func main() {
+	runtime.SetBlockProfileRate(1)
+	// Start another profile server
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	color.Cyan(" ____             _       _   _   _                           _  ")
 	color.Cyan(`/ ___|  ___   ___(_) __ _| | | | | | __ _ _ ____   _____  ___| |_ ®`)
 	color.Cyan("\\___ \\ / _ \\ / __| |/ _` | | | |_| |/ _` | '__\\ \\ / / _ \\/ __| __|")
 	color.Cyan(" ___) | (_) | (__| | (_| | | |  _  | (_| | |   \\ V /  __/\\__ \\ |_ ")
 	color.Cyan("|____/ \\___/ \\___|_|\\__,_|_| |_| |_|\\__,_|_|    \\_/ \\___||___/\\__|")
 	//	color.Cyan("                                                                  ")
-	color.Yellow("_____________________________________________version 0.3.0-preview")
+	color.Yellow("_____________________________________________version 0.3.1-preview")
 	color.Cyan("   ")
 
 	// Optionally allow a config JSON file to be passed via command line
@@ -195,14 +202,22 @@ func main() {
 	// Set the initial schedule (can be changed via API if available)
 	setInitialSchedule()
 
+	// Immedate calls to use for testing during development
 	// Search Facebook public posts using keywords in Social Harvest config
 	//go FacebookPublicMessagesByKeyword()
 	// Search Facebook public feeds using account ids in Social Harvest config
-	// go FacebookMessagesByAccount()
-	//
+	//go FacebookMessagesByAccount()
+	// Search Twitter using keywords in Social Harvest config
 	//go TwitterPublicMessagesByKeyword()
-	go StoreMessages()
-	go StoreContributors()
+
+	// TODO: Maybe the configuration can specify which data to store? I don't know why anyone would want to restrict what's being stored, but who knows...
+	// Plus, this would only prevent storage/logging. The data would still be harvested. ... Maybe also a StoreAll() function? Note that all of these should be gosubroutines.
+	go StoreMessage()
+	go StoreContributor()
+	go StoreMention()
+	go StoreQuestion()
+	go StoreSharedLink()
+	go StoreSharedMedia()
 
 	//harvester.YoutubeVideoSearch("obama")
 	///
