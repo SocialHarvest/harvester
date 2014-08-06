@@ -52,7 +52,7 @@ func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 
 	// Keep a list of series (tables/collections/series - whatever the database calls them, we're going with series because we're really dealing with time with just about all our data)
 	// These do relate to structures in lib/config/series.go
-	database.Series = []string{"messages", "shared_links", "shared_media", "mentions", "contributors", "questions"}
+	database.Series = []string{"messages", "shared_links", "mentions", "hashtags"}
 
 	// Set some indicies
 	SetupIndicies()
@@ -62,7 +62,7 @@ func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 
 // We'll want to set a unique index on "harvest_id" to mitigate dupes up front so we don't need to worry when querying later (and so those queries execute faster)
 func SetupIndicies() {
-	harvestIdCollections := []string{"messages", "shared_links", "shared_media", "mentions", "contributors", "questions"}
+	harvestIdCollections := []string{"messages", "shared_links", "mentions", "hashtags"}
 	switch database.Type {
 	case "mongodb":
 		sess, err := db.Open(mongo.Adapter, database.Settings)
@@ -202,16 +202,12 @@ func (database *SocialHarvestDB) StoreRow(row interface{}, waitGroup *sync.WaitG
 	switch row.(type) {
 	case SocialHarvestMessage:
 		collection = SeriesCollections["SocialHarvestMessage"]
-	case SocialHarvestQuestion:
-		collection = SeriesCollections["SocialHarvestQuestion"]
 	case SocialHarvestSharedLink:
 		collection = SeriesCollections["SocialHarvestSharedLink"]
-	case SocialHarvestSharedMedia:
-		collection = SeriesCollections["SocialHarvestSharedMedia"]
 	case SocialHarvestMention:
 		collection = SeriesCollections["SocialHarvestMention"]
-	case SocialHarvestContributor:
-		collection = SeriesCollections["SocialHarvestContributor"]
+	case SocialHarvestHashtag:
+		collection = SeriesCollections["SocialHarvestHashtag"]
 	case SocialHarvestHarvest:
 		collection = SeriesCollections["SocialHarvestHarvest"]
 	default:

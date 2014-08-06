@@ -167,6 +167,12 @@ type SocialHarvestMention struct {
 	MentionedIsoLanguageCode string  `json:"mentioned_iso_language_code" db:"mentioned_iso_language_code" bson:"mentioned_iso_language_code"`
 }
 
+// Hashtags are not quite Twitter specific, they're still used all over. Other networks have their own convention too (and their APIs return the tags).
+// So this is all "tags" really, but it's called hashtags (in part to avoid any confusion with a generic "tags" term).
+// While hashtags belong to messages, we need to store data flat for database compatibility.
+type SocialHarvestHashtag struct {
+}
+
 // Changes in growth and reach over time for a contributor.
 // It would be interesting to track all of this for every contributor discovered, but API rate limits restrict us from doing that.
 // So this will only track for accounts under the "accounts" section of the harvest configuration.

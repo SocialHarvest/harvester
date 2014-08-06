@@ -317,30 +317,6 @@ func StoreMessage() {
 	}
 }
 
-// Stores harvested contributors by subscribing to the harvester observable "SocialHarvestContributor" event and storing those messages in the configured database and out to log file
-func StoreContributor() {
-	var waitGroup sync.WaitGroup
-	dbSession := socialHarvest.Database.GetSession()
-
-	streamCh := make(chan interface{})
-	harvester.Subscribe("SocialHarvestContributor", streamCh)
-	for {
-		message := <-streamCh
-
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.ContributorsWriter.Info(string(jsonMsg))
-		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, dbSession)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
-	}
-}
-
 // Stores harvested mentions by subscribing to the harvester observable "SocialHarvestMention" event and storing those messages in the configured database and out to log file
 func StoreMention() {
 	var waitGroup sync.WaitGroup
@@ -365,30 +341,6 @@ func StoreMention() {
 	}
 }
 
-// Stores harvested questions by subscribing to the harvester observable "SocialHarvestQuestion" event and storing those messages in the configured database and out to log file
-func StoreQuestion() {
-	var waitGroup sync.WaitGroup
-	dbSession := socialHarvest.Database.GetSession()
-
-	streamCh := make(chan interface{})
-	harvester.Subscribe("SocialHarvestQuestion", streamCh)
-	for {
-		message := <-streamCh
-
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.QuestionsWriter.Info(string(jsonMsg))
-		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, dbSession)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
-	}
-}
-
 // Stores harvested shared links by subscribing to the harvester observable "SocialHarvestSharedLink" event and storing those messages in the configured database and out to log file
 func StoreSharedLink() {
 	var waitGroup sync.WaitGroup
@@ -403,30 +355,6 @@ func StoreSharedLink() {
 		jsonMsg, err := json.Marshal(message)
 		if err == nil {
 			socialHarvest.Writers.SharedLinksWriter.Info(string(jsonMsg))
-		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, dbSession)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
-	}
-}
-
-// Stores harvested shared media by subscribing to the harvester observable "SocialHarvestSharedMedia" event and storing those messages in the configured database and out to log file
-func StoreSharedMedia() {
-	var waitGroup sync.WaitGroup
-	dbSession := socialHarvest.Database.GetSession()
-
-	streamCh := make(chan interface{})
-	harvester.Subscribe("SocialHarvestSharedMedia", streamCh)
-	for {
-		message := <-streamCh
-
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.SharedMediaWriter.Info(string(jsonMsg))
 		}
 
 		// Write to database (if configured)

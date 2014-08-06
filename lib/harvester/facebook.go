@@ -211,63 +211,6 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 				locationGeoHash = ""
 			}
 
-			// The harvest id here has to be different. It must include the account (user/page) id so we don't have unnecessarily redundant data being stored/logged.
-			// Technically, contributor data can change over time, but for now we're going to assume we only need to retrieve it once and that it won't (drastically) change.
-			// TODO: Think about upserts for contributors...Though is the history important? Maybe only for accounts that are being tracked...
-			contributorharvestId := GetHarvestMd5(post.From.Id + "facebook" + territoryName)
-			//log.Println(contributorharvestId)
-
-			contributorRow := config.SocialHarvestContributor{
-				Time:                        postCreatedTime,
-				HarvestId:                   contributorharvestId,
-				Territory:                   territoryName,
-				Network:                     "facebook",
-				ContributorId:               post.From.Id,
-				ContributorScreenName:       post.From.Name,
-				ContributorFacebookCategory: post.From.Category,
-				IsoLanguageCode:             LocaleToLanguageISO(contributor.Locale),
-				Gender:                      contributorGender,
-				Name:                        contributorName,
-				About:                       contributor.About,
-				Checkins:                    contributor.Checkins,
-				CompanyOverview:             contributor.CompanyOverview,
-				Description:                 contributor.Description,
-				Founded:                     contributor.Founded,
-				GeneralInfo:                 contributor.GeneralInfo,
-				Likes:                       contributor.Likes,
-				Link:                        contributor.Link,
-				// Address (and lat/lon) is flattened coming from Facebook's object
-				Street:            contributor.Location.Street,
-				City:              contributor.Location.City,
-				State:             contributor.Location.State,
-				Zip:               contributor.Location.Zip,
-				Country:           contributor.Location.Country,
-				Longitude:         contributor.Location.Longitude,
-				Latitude:          contributor.Location.Latitude,
-				Geohash:           locationGeoHash,
-				Phone:             contributor.Phone,
-				TalkingAboutCount: contributor.TalkingAboutCount,
-				WereHereCount:     contributor.WereHereCount,
-				Url:               contributor.Website,
-				Products:          contributor.Products,
-			}
-			// Send to the harvester observer
-			Publish("SocialHarvestContributor", contributorRow)
-
-			contributorRow.Time = postCreatedTime
-			contributorRow.HarvestId = contributorharvestId
-
-			// TODO: move all this...we don't even need to be calling json.Marshal here at all.
-			// write contributors out
-			/*contrib, messageMarshalErr := json.Marshal(contributorRow)
-			if messageMarshalErr == nil {
-				//TODO: Use the observer ... writers will subscribe and write.
-				//facebook.socialHarvest.Writers.ContributorsWriter.Info(string(contrib))
-			}*/
-			// TODO: Use the observer
-			//waitGroup.Add(1)
-			//go facebook.socialHarvest.Database.StoreRow(contributorRow, &waitGroup, dbSession)
-
 			// message row
 			messageRow := config.SocialHarvestMessage{
 				Time:                        postCreatedTime,
@@ -285,28 +228,12 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 				Message:                     post.Message,
 				FacebookShares:              post.Shares.Count,
 			}
-			// Send to the harvester observer
-			Publish("SocialHarvestMessage", messageRow)
-
 			// question row (if message is a question)
 			if IsQuestion(post.Message, harvestConfig.QuestionRegex) == true {
-				questionRow := config.SocialHarvestQuestion{
-					Time:                  postCreatedTime,
-					HarvestId:             harvestId,
-					Territory:             territoryName,
-					Network:               "facebook",
-					MessageId:             post.Id,
-					ContributorId:         post.From.Id,
-					ContributorScreenName: post.From.Name,
-					IsoLanguageCode:       LocaleToLanguageISO(contributor.Locale),
-					Longitude:             contributor.Location.Longitude,
-					Latitude:              contributor.Location.Latitude,
-					Geohash:               locationGeoHash,
-					Message:               post.Message,
-				}
-				// Send to the harvester observer
-				Publish("SocialHarvestQuestion", questionRow)
+				messageRow.IsQuestion = 1
 			}
+			// Send to the harvester observer
+			Publish("SocialHarvestMessage", messageRow)
 
 			// shared links row
 			// TODO: expand short urls (Facebook doesn't do it for us unfortunately)
@@ -320,33 +247,15 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 					ContributorId:               post.From.Id,
 					ContributorScreenName:       post.From.Name,
 					ContributorFacebookCategory: post.From.Category,
+					Type:           post.Type,
+					Preview:        post.Picture,
+					Source:         post.Source,
 					Url:            post.Link,
 					Host:           hostName,
 					FacebookShares: post.Shares.Count,
 				}
 				// Send to the harvester observer
 				Publish("SocialHarvestSharedLink", sharedLinksRow)
-			}
-
-			// shared media row
-			if post.Type == "video" || post.Type == "photo" {
-				sharedMediaRow := config.SocialHarvestSharedMedia{
-					Time:                        postCreatedTime,
-					HarvestId:                   harvestId,
-					Territory:                   territoryName,
-					Network:                     "facebook",
-					MessageId:                   post.Id,
-					ContributorId:               post.From.Id,
-					ContributorScreenName:       post.From.Name,
-					ContributorFacebookCategory: post.From.Category,
-					Type:    post.Type,
-					Preview: post.Picture,
-					Source:  post.Source,
-					Url:     post.Link,
-					Host:    hostName,
-				}
-				// Send to the harvester observer
-				Publish("SocialHarvestSharedMedia", sharedMediaRow)
 			}
 
 			// mentions row (note the harvest id in the following - any post that has multiple subobjects to be stored separately will need a different harvest id, else only one of those subobjects would be stored)

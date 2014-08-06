@@ -215,11 +215,9 @@ func main() {
 	// TODO: Maybe the configuration can specify which data to store? I don't know why anyone would want to restrict what's being stored, but who knows...
 	// Plus, this would only prevent storage/logging. The data would still be harvested. ... Maybe also a StoreAll() function? Note that all of these should be gosubroutines.
 	go StoreMessage()
-	go StoreContributor()
 	go StoreMention()
-	go StoreQuestion()
 	go StoreSharedLink()
-	go StoreSharedMedia()
+	// TODO: add hashtags and contributor growth too.
 
 	//harvester.YoutubeVideoSearch("obama")
 	///
