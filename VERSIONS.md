@@ -4,6 +4,11 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.3.1
+-------------
+Fixed log4go package. While not a patch to Social Harvest directly, I'm still incrementing the patch version. 
+This is completely backwards compatible and nothing should have changed. This fixes a data race condition (so _kinda_ important).
+
 ## 0.3.0
 -------------
 It's been long enough that the codebase has presented a clear direction and so it has revealed the need for it's first 

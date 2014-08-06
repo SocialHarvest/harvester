@@ -116,6 +116,7 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				IsoLanguageCode:       tweet.User.Lang,
 				Name:                  tweet.User.Name,
 				Url:                   tweet.User.URL,
+				Description:           tweet.User.Description,
 			}
 			// Send to the harvester observer
 			Publish("SocialHarvestContributor", contributor)
