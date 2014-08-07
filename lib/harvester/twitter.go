@@ -88,11 +88,6 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 
 			// Generate a harvest_id to avoid potential dupes (a unique index is placed on this field and all insert errors ignored).
 			harvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName)
-			// We'll need a different harvest_id for contributors if we used the message to build it, we would have dupes coming in for contributors.
-			// The contributors series only needs one unique contributor per row/document in the database. The ContributorGrowth, however, keeps track of contributor changes.
-			// That's taken care of elsewhere though. We're only interested in messages here (and anything that can be created using those messages).
-			contributorharvestId := GetHarvestMd5(tweet.User.IdStr + "twitter" + territoryName)
-			//log.Println(contributorharvestId)
 
 			message := config.SocialHarvestMessage{
 				Time:                  tweetCreatedTime,
@@ -101,25 +96,10 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				Network:               "twitter",
 				ContributorId:         tweet.User.IdStr,
 				ContributorScreenName: tweet.User.ScreenName,
-				IsoLanguageCode:       tweet.User.Lang,
+				Lang: tweet.User.Lang,
 			}
 			// Send to the harvester observer
 			Publish("SocialHarvestMessage", message)
-
-			contributor := config.SocialHarvestContributor{
-				Time:                  tweetCreatedTime,
-				HarvestId:             contributorharvestId,
-				Territory:             territoryName,
-				Network:               "twitter",
-				ContributorId:         tweet.User.IdStr,
-				ContributorScreenName: tweet.User.ScreenName,
-				IsoLanguageCode:       tweet.User.Lang,
-				Name:                  tweet.User.Name,
-				Url:                   tweet.User.URL,
-				Description:           tweet.User.Description,
-			}
-			// Send to the harvester observer
-			Publish("SocialHarvestContributor", contributor)
 
 		} else {
 			log.Println("Could not parse the time from the Tweet, so I'm throwing it away!")

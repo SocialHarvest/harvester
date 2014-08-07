@@ -75,15 +75,15 @@ type SocialHarvestMessage struct {
 	Network   string    `json:"network" db:"network" bson:"network"`
 	MessageId string    `json:"message_id" db:"message_id" bson:"message_id"`
 	// contributor information (some transient information, we take note at the time of the message - can help with a contributor's influence at the time of message - or we can track how certain messages helped a contributor gain influence - OR we can say only show me messages from contributors who have X followers, etc.)
-	ContributorId              string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
-	ContributorScreenName      string  `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
-	ContributorName            string  `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
-	ContributorGender          int     `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
-	ContributorType            string  `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
-	ContributorLongitude       float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
-	ContributorLatitude        float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
-	ContributorGeohash         string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
-	ContributorIsoLanguageCode string  `json:"contributor_iso_language_code" db:"contributor_iso_language_code" bson:"contributor_iso_language_code"`
+	ContributorId         string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
+	ContributorScreenName string  `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
+	ContributorName       string  `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
+	ContributorGender     int     `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
+	ContributorType       string  `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
+	ContributorLongitude  float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
+	ContributorLatitude   float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
+	ContributorGeohash    string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
+	ContributorLang       string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
 
 	// Stateful data that changes, think about the value of having it...maybe remove it... API calls can always be made to get this current info.
 	// But this kinda gives a user an idea for influencers (at the harvest time at least). So while it's definitely dated...It could be used as a
@@ -99,13 +99,13 @@ type SocialHarvestMessage struct {
 	// i can see a case where people want to understand if users are tweeting from their home address or not. plus we geocode cities and such. so a contributor can
 	// be from "Austin, TX" but tweet in another state or from different and distinct places in the same city. we want to see that movement. it can be visualized
 	// much like mentions can. and it also serves as a location detail with a fallback to the user's assumed location (which may be less accurate).
-	Longitude       float64 `json:"longitude" db:"longitude" bson:"longitude"`
-	Latitude        float64 `json:"latitude" db:"latitude" bson:"latitude"`
-	Geohash         string  `json:"geohash" db:"geohash" bson:"geohash"`
-	IsoLanguageCode string  `json:"iso_language_code" db:"iso_language_code" bson:"iso_language_code"`
-	Message         string  `json:"message" db:"message" bson:"message"`
-	IsQuestion      int     `json:"is_question" db:"is_question" bson:"is_question"`
-	Category        string  `json:"category" db:"category" bson:"category"`
+	Longitude  float64 `json:"longitude" db:"longitude" bson:"longitude"`
+	Latitude   float64 `json:"latitude" db:"latitude" bson:"latitude"`
+	Geohash    string  `json:"geohash" db:"geohash" bson:"geohash"`
+	Lang       string  `json:"lang" db:"lang" bson:"lang"`
+	Message    string  `json:"message" db:"message" bson:"message"`
+	IsQuestion int     `json:"is_question" db:"is_question" bson:"is_question"`
+	Category   string  `json:"category" db:"category" bson:"category"`
 	// Note these values are at the time of harvest. it may be confusing enough to not need these values stored...but how long can we track each message? API rate limits...
 	// TODO: Maybe remove these? (think on it) also these technically don't need prefixes because we have the "network" field.
 	FacebookShares       int `json:"facebook_shares" db:"facebook_shares" bson:"facebook_shares"`
@@ -122,16 +122,44 @@ type SocialHarvestSharedLink struct {
 	Network               string    `json:"network" db:"network" bson:"network"`
 	MessageId             string    `json:"message_id" db:"message_id" bson:"message_id"`
 	ContributorId         string    `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
-	ContributorScreenName string    `json:"contributor_screen_name" db:"contributor_screen_name" db:"contributor_screen_name"`
-	ContributorName       string    `json:"contributor_name" db:"contributor_name" db:"contributor_name"`
+	ContributorScreenName string    `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
+	ContributorName       string    `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
 	ContributorGender     int       `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
 	ContributorType       string    `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
+	ContributorLongitude  float64   `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
+	ContributorLatitude   float64   `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
+	ContributorGeohash    string    `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
+	ContributorLang       string    `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
 	Type                  string    `json:"type" db:"type" bson:"type"`
 	Preview               string    `json:"preview" db:"preview" bson:"preview"`
 	Source                string    `json:"source" db:"source" bson:"source"`
 	Url                   string    `json:"url" db:"url" bson:"url"`
 	ExpandedUrl           string    `json:"expanded_url" db:"expanded_url" bson:"expanded_url"`
 	Host                  string    `json:"host" db:"host" bson:"host"`
+}
+
+// Hashtags are not quite Twitter specific, they're still used all over. Other networks have their own convention too (and their APIs return the tags).
+// So this is all "tags" really, but it's called hashtags (in part to avoid any confusion with a generic "tags" term).
+// This series will likely be joined to messages. Though this series can be analyzed by itself too.
+type SocialHarvestHashtag struct {
+	Time      time.Time `json:"time" db:"time" bson:"time"`
+	HarvestId string    `json:"harvest_id" db:"harvest_id" bson:"harvest_id"`
+	Territory string    `json:"territory" db:"territory" bson:"territory"`
+	Network   string    `json:"network" db:"network" bson:"network"`
+	MessageId string    `json:"message_id" db:"message_id" bson:"message_id"`
+
+	Tag string `json:"tag" db:"tag" bson:"tag"`
+
+	// Much of this becomes redundant if using a JOIN, but we want to stay flexible (a little more data stored for a lot more performance and options)
+	ContributorId         string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
+	ContributorScreenName string  `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
+	ContributorName       string  `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
+	ContributorGender     int     `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
+	ContributorType       string  `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
+	ContributorLongitude  float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
+	ContributorLatitude   float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
+	ContributorGeohash    string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
+	ContributorLang       string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
 }
 
 // When contributors mention other contributors (and from where - useful for tracking customer base for example). This series tells a good story visually (hopefully on a map).
@@ -146,31 +174,25 @@ type SocialHarvestMention struct {
 	Network   string    `json:"network" db:"network" bson:"network"`
 	MessageId string    `json:"message_id" db:"message_id" bson:"message_id"`
 
-	ContributorId              string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
-	ContributorScreenName      string  `json:"contributor_screen_name" db:"contributor_screen_name" db:"contributor_screen_name"`
-	ContributorName            string  `json:"contributor_name" db:"contributor_name" db:"contributor_name"`
-	ContributorGender          int     `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
-	ContributorType            string  `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
-	ContributorLongitude       float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
-	ContributorLatitude        float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
-	ContributorGeohash         string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
-	ContributorIsoLanguageCode string  `json:"contributor_iso_language_code" db:"contributor_iso_language_code" bson:"contributor_iso_language_code"`
+	ContributorId         string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
+	ContributorScreenName string  `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
+	ContributorName       string  `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
+	ContributorGender     int     `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
+	ContributorType       string  `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
+	ContributorLongitude  float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
+	ContributorLatitude   float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
+	ContributorGeohash    string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
+	ContributorLang       string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
 
-	MentionedId              string  `json:"mentioned_id" db:"mentioned_id" bson:"mentioned_id"`
-	MentionedScreenName      string  `json:"mentioned_screen_name" db:"mentioned_screen_name" bson:"mentioned_screen_name"`
-	MentionedName            string  `json:"mentioned_name" db:"mentioned_name" bson:"mentioned_name"`
-	MentionedGender          int     `json:"mentioned_gender" db:"mentioned_gender" bson:"mentioned_gender"`
-	MentionedType            string  `json:"mentioned_type" db:"mentioned_type" bson:"mentioned_type"`
-	MentionedLongitude       float64 `json:"mentioned_longitude" db:"mentioned_longitude" bson:"mentioned_longitude"`
-	MentionedLatitude        float64 `json:"mentioned_latitude" db:"mentioned_latitude" bson:"mentioned_latitude"`
-	MentionedGeohash         string  `json:"mentioned_geohash" db:"mentioned_geohash" bson:"mentioned_geohash"`
-	MentionedIsoLanguageCode string  `json:"mentioned_iso_language_code" db:"mentioned_iso_language_code" bson:"mentioned_iso_language_code"`
-}
-
-// Hashtags are not quite Twitter specific, they're still used all over. Other networks have their own convention too (and their APIs return the tags).
-// So this is all "tags" really, but it's called hashtags (in part to avoid any confusion with a generic "tags" term).
-// While hashtags belong to messages, we need to store data flat for database compatibility.
-type SocialHarvestHashtag struct {
+	MentionedId         string  `json:"mentioned_id" db:"mentioned_id" bson:"mentioned_id"`
+	MentionedScreenName string  `json:"mentioned_screen_name" db:"mentioned_screen_name" bson:"mentioned_screen_name"`
+	MentionedName       string  `json:"mentioned_name" db:"mentioned_name" bson:"mentioned_name"`
+	MentionedGender     int     `json:"mentioned_gender" db:"mentioned_gender" bson:"mentioned_gender"`
+	MentionedType       string  `json:"mentioned_type" db:"mentioned_type" bson:"mentioned_type"`
+	MentionedLongitude  float64 `json:"mentioned_longitude" db:"mentioned_longitude" bson:"mentioned_longitude"`
+	MentionedLatitude   float64 `json:"mentioned_latitude" db:"mentioned_latitude" bson:"mentioned_latitude"`
+	MentionedGeohash    string  `json:"mentioned_geohash" db:"mentioned_geohash" bson:"mentioned_geohash"`
+	MentionedLang       string  `json:"mentioned_lang" db:"mentioned_lang" bson:"mentioned_lang"`
 }
 
 // Changes in growth and reach over time for a contributor.
@@ -184,7 +206,10 @@ type SocialHarvestContributorGrowth struct {
 	Network   string    `json:"network" db:"network" bson:"network"`
 	// We can look up additional contributor details (like name, location, website URL, etc.) via service API calls as needed. It doesn't change often.
 	// So storing in the database would really be wasteful.
-	ContributorId string `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
+	ContributorId        string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
+	ContributorLongitude float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
+	ContributorLatitude  float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
+	ContributorGeohash   string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
 	// NOTE: No need to prefix fields with network...because we have the network field. Unused fields will simply be empty.
 	// It is also possible for networks to share fields (if they use the same semantics / have the same kind of data).
 
