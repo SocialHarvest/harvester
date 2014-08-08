@@ -16,10 +16,6 @@ CREATE TABLE `messages` (
   `network` varchar(75) DEFAULT NULL,
   `contributor_id` varchar(255) DEFAULT NULL,
   `contributor_screen_name` varchar(255) DEFAULT NULL,
-  `lang` varchar(8) DEFAULT NULL,
-  `longitude` double DEFAULT NULL,
-  `latitude` double DEFAULT NULL,
-  `geohash` varchar(100) DEFAULT NULL,
   `facebook_shares` int(11) DEFAULT NULL,
   `message_id` varchar(255) DEFAULT NULL,
   `message` text,
@@ -44,7 +40,7 @@ CREATE TABLE `messages` (
   KEY `msg_message_id_key` (`message_id`),
   KEY `msg_contributor_id_key` (`contributor_id`),
   KEY `msg_time_key` (`time`),
-  KEY `msg_lang_key` (`lang`),
+  KEY `msg_contributor_lang_key` (`contributor_lang`),
   KEY `msg_question_key` (`is_question`),
   KEY `msg_category_key` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

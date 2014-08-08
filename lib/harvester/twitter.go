@@ -107,15 +107,17 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				}
 				break
 			}
-			// Geohash
-			var locationGeoHash = geohash.Encode(statusLatitude, statusLongitude)
-			// This is produced with empty lat/lng values - don't store it.
-			if locationGeoHash == "7zzzzzzzzzzz" {
-				locationGeoHash = ""
+
+			// Contributor location lookup (if no lat/lng was found on the message - try to reduce number of geocode lookups)
+			contributorLat := 0.0
+			contributorLng := 0.0
+			if statusLatitude == 0.0 || statusLatitude == 0 {
+				contributorLat, contributorLng = Geocode(tweet.User.Location)
+			} else {
+				contributorLat = statusLatitude
+				contributorLng = statusLongitude
 			}
 
-			// Contributor location
-			contributorLat, contributorLng := Geocode(tweet.User.Location)
 			// Contributor geohash
 			var contributorLocationGeoHash = geohash.Encode(contributorLat, contributorLng)
 			// This is produced with empty lat/lng values - don't store it.
@@ -142,17 +144,13 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				ContributorVerified:      Btoi(tweet.User.Verified),
 				ContributorFollowers:     tweet.User.FollowersCount,
 				ContributorStatusesCount: int(tweet.User.StatusesCount),
-				Lang:                 tweet.User.Lang,
-				ContributorGender:    contributorGender,
-				ContributorType:      contributorType,
-				Longitude:            statusLongitude,
-				Latitude:             statusLatitude,
-				Geohash:              locationGeoHash,
-				Message:              tweet.Text,
-				IsQuestion:           Btoi(IsQuestion(tweet.Text, harvestConfig.QuestionRegex)),
-				MessageId:            tweet.IdStr,
-				TwitterRetweetCount:  tweet.RetweetCount,
-				TwitterFavoriteCount: tweet.FavoriteCount,
+				ContributorGender:        contributorGender,
+				ContributorType:          contributorType,
+				Message:                  tweet.Text,
+				IsQuestion:               Btoi(IsQuestion(tweet.Text, harvestConfig.QuestionRegex)),
+				MessageId:                tweet.IdStr,
+				TwitterRetweetCount:      tweet.RetweetCount,
+				TwitterFavoriteCount:     tweet.FavoriteCount,
 			}
 			// Send to the harvester observer
 			Publish("SocialHarvestMessage", message)

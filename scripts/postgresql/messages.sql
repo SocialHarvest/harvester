@@ -14,10 +14,6 @@ CREATE TABLE "messages" (
 	"network" varchar(75) COLLATE "default",
 	"contributor_id" varchar(255) COLLATE "default",
 	"contributor_screen_name" varchar(255) COLLATE "default",
-	"lang" varchar(8) COLLATE "default",
-	"longitude" float8,
-	"latitude" float8,
-	"geohash" varchar(100) COLLATE "default",
 	"facebook_shares" int4,
 	"message_id" varchar(255) COLLATE "default",
 	"message" text COLLATE "default",
@@ -55,8 +51,8 @@ ALTER TABLE "messages" ADD CONSTRAINT "messages_harvest_id_unique" UNIQUE ("harv
 -- ----------------------------
 CREATE INDEX  "msg_category_key" ON "messages" USING btree(category COLLATE "default" ASC NULLS LAST);
 CREATE INDEX  "msg_contributor_id_key" ON "messages" USING btree(contributor_id COLLATE "default" DESC NULLS LAST);
-CREATE INDEX  "msg_lang_key" ON "messages" USING btree(lang COLLATE "default" ASC NULLS LAST);
-CREATE INDEX  "msg_lat_lng_key" ON "messages" USING gist("point(latitude, longitude)");
+CREATE INDEX  "msg_contributor_lang_key" ON "messages" USING btree(contributor_lang COLLATE "default" ASC NULLS LAST);
+CREATE INDEX  "msg_lat_lng_key" ON "messages" USING gist("point(contributor_latitude, contributor_longitude)");
 CREATE INDEX  "msg_message_id_key" ON "messages" USING btree(message_id COLLATE "default" DESC NULLS LAST);
 CREATE INDEX  "msg_question_key" ON "messages" USING btree(is_question DESC NULLS LAST);
 CREATE INDEX  "msg_time_key" ON "messages" USING btree("time" DESC NULLS LAST);

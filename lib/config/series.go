@@ -86,7 +86,7 @@ type SocialHarvestMessage struct {
 	ContributorGeohash    string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
 	ContributorLang       string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
 
-	// Stateful data that changes, think about the value of having it...maybe remove it... API calls can always be made to get this current info.
+	// Data that changes, think about the value of having it...maybe remove it... API calls can always be made to get this current info.
 	// But this kinda gives a user an idea for influencers (at the harvest time at least). So while it's definitely dated...It could be used as a
 	// decent filter, ie. only show users who have over a million followers, etc.
 	ContributorLikes         int `json:"contributor_likes" db:"contributor_likes" bson:"contributor_likes"`
@@ -96,17 +96,9 @@ type SocialHarvestMessage struct {
 	// This value is technically stateful, but can be treated as stateless because it doesn't really get revoked and change back...
 	ContributorVerified int `json:"contributor_verified" db:"contributor_verified" bson:"contributor_verified"` // Twitter for sure, but I think other networks too?
 
-	// this is all about the message (location and language may actually differ from the contributor normal values or may be the exact same... leave for now)
-	// i can see a case where people want to understand if users are tweeting from their home address or not. plus we geocode cities and such. so a contributor can
-	// be from "Austin, TX" but tweet in another state or from different and distinct places in the same city. we want to see that movement. it can be visualized
-	// much like mentions can. and it also serves as a location detail with a fallback to the user's assumed location (which may be less accurate).
-	Longitude  float64 `json:"longitude" db:"longitude" bson:"longitude"`
-	Latitude   float64 `json:"latitude" db:"latitude" bson:"latitude"`
-	Geohash    string  `json:"geohash" db:"geohash" bson:"geohash"`
-	Lang       string  `json:"lang" db:"lang" bson:"lang"`
-	Message    string  `json:"message" db:"message" bson:"message"`
-	IsQuestion int     `json:"is_question" db:"is_question" bson:"is_question"`
-	Category   string  `json:"category" db:"category" bson:"category"`
+	Message    string `json:"message" db:"message" bson:"message"`
+	IsQuestion int    `json:"is_question" db:"is_question" bson:"is_question"`
+	Category   string `json:"category" db:"category" bson:"category"`
 	// Note these values are at the time of harvest. it may be confusing enough to not need these values stored...but how long can we track each message? API rate limits...
 	// TODO: Maybe remove these? (think on it) also these technically don't need prefixes because we have the "network" field.
 	FacebookShares       int `json:"facebook_shares" db:"facebook_shares" bson:"facebook_shares"`

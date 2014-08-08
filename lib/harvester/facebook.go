@@ -230,12 +230,8 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 				ContributorLikes:      contributor.Likes,
 				Message:               post.Message,
 				FacebookShares:        post.Shares.Count,
-				Lang:                  LocaleToLanguageISO(contributor.Locale),
 				Category:              contributor.Category,
-			}
-			// question row (if message is a question)
-			if IsQuestion(post.Message, harvestConfig.QuestionRegex) == true {
-				messageRow.IsQuestion = 1
+				IsQuestion:            Btoi(IsQuestion(post.Message, harvestConfig.QuestionRegex)),
 			}
 			// Send to the harvester observer
 			Publish("SocialHarvestMessage", messageRow)
