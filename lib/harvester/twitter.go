@@ -107,12 +107,20 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				}
 				break
 			}
-
 			// Geohash
 			var locationGeoHash = geohash.Encode(statusLatitude, statusLongitude)
 			// This is produced with empty lat/lng values - don't store it.
 			if locationGeoHash == "7zzzzzzzzzzz" {
 				locationGeoHash = ""
+			}
+
+			// Contributor location
+			contributorLat, contributorLng := Geocode(tweet.User.Location)
+			// Contributor geohash
+			var contributorLocationGeoHash = geohash.Encode(contributorLat, contributorLng)
+			// This is produced with empty lat/lng values - don't store it.
+			if contributorLocationGeoHash == "7zzzzzzzzzzz" {
+				contributorLocationGeoHash = ""
 			}
 
 			// Generate a harvest_id to avoid potential dupes (a unique index is placed on this field and all insert errors ignored).
@@ -128,6 +136,9 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				ContributorScreenName:    tweet.User.ScreenName,
 				ContributorName:          tweet.User.Name,
 				ContributorLang:          tweet.User.Lang,
+				ContributorLongitude:     contributorLng,
+				ContributorLatitude:      contributorLat,
+				ContributorGeohash:       contributorLocationGeoHash,
 				ContributorVerified:      Btoi(tweet.User.Verified),
 				ContributorFollowers:     tweet.User.FollowersCount,
 				ContributorStatusesCount: int(tweet.User.StatusesCount),
@@ -170,6 +181,9 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLang:       tweet.User.Lang,
 							ContributorType:       contributorType,
 							ContributorGender:     contributorGender,
+							ContributorLongitude:  contributorLng,
+							ContributorLatitude:   contributorLat,
+							ContributorGeohash:    contributorLocationGeoHash,
 							Url:                   link.Url,
 							ExpandedUrl:           link.Expanded_url,
 							Host:                  linkHostName,
@@ -203,6 +217,9 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLang:       tweet.User.Lang,
 							ContributorType:       contributorType,
 							ContributorGender:     contributorGender,
+							ContributorLongitude:  contributorLng,
+							ContributorLatitude:   contributorLat,
+							ContributorGeohash:    contributorLocationGeoHash,
 							Url:                   media.Url,
 							ExpandedUrl:           media.Expanded_url,
 							Host:                  mediaHostName,
@@ -234,6 +251,9 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLang:       tweet.User.Lang,
 							ContributorType:       contributorType,
 							ContributorGender:     contributorGender,
+							ContributorLongitude:  contributorLng,
+							ContributorLatitude:   contributorLat,
+							ContributorGeohash:    contributorLocationGeoHash,
 							Tag:                   tag.Text,
 						}
 						// Send to the harvester observer
@@ -262,6 +282,9 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLang:       tweet.User.Lang,
 							ContributorType:       contributorType,
 							ContributorGender:     contributorGender,
+							ContributorLongitude:  contributorLng,
+							ContributorLatitude:   contributorLat,
+							ContributorGeohash:    contributorLocationGeoHash,
 
 							MentionedId:         mentionedUser.Id_str,
 							MentionedScreenName: mentionedUser.Screen_name,

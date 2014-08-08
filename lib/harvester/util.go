@@ -17,10 +17,10 @@
 package harvester
 
 import (
-	//"github.com/jasonwinn/geocoder"
 	"crypto/md5"
 	"encoding/csv"
 	"encoding/hex"
+	"github.com/jasonwinn/geocoder"
 	"io"
 	"log"
 	"net/http"
@@ -154,10 +154,8 @@ func DetectGender(name string) int {
 }
 
 // Geocodes using MapQuest API if available
-func Geocode() {
-	// TODO: Also think about using https://github.com/kellydunn/golang-geo
-	// That package will allow the use of google Maps API or Open Street Maps API (though MapQuest has a higher rate limit)
-
+func Geocode(locationQuery string) (float64, float64) {
+	return geocoder.Geocode(locationQuery)
 }
 
 // Gets the final URL given a short URL (or one that has redirects)

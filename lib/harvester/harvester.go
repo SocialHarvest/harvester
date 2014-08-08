@@ -19,6 +19,7 @@ package harvester
 import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
+	"github.com/jasonwinn/geocoder"
 )
 
 type harvesterServices struct {
@@ -35,4 +36,12 @@ func New(configuration config.HarvestConfig, servicesConfiguration config.Servic
 	// Now set up all the services with the configuration
 	NewTwitter(servicesConfiguration)
 	NewFacebook(servicesConfiguration)
+	NewGeocoder(servicesConfiguration)
+}
+
+// Sets the API key from configuration (or possibly Social Harvest API)
+func NewGeocoder(servicesConfiguration config.ServicesConfig) {
+	if servicesConfiguration.MapQuest.ApplicationKey != "" {
+		geocoder.SetAPIKey(servicesConfiguration.MapQuest.ApplicationKey)
+	}
 }
