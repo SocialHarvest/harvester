@@ -19,11 +19,33 @@ package harvester
 import (
 	//"github.com/jasonwinn/geocoder"
 	"crypto/md5"
+	"encoding/csv"
 	"encoding/hex"
+	"io"
 	"log"
+	"net/http"
+	"os"
+	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 )
+
+// For determining gender, we use the US Census database
+// https://www.census.gov/genealogy/www/data/1990surnames/names_files.html
+// Note: we could also stistically guess ethnicity, https://www.census.gov/genealogy/www/data/2000surnames/index.html
+// Frequency is the one we want. Cumulative frequency is in relation to all names in the database.
+// So if there was a tie for example, "Pat" being both a male and female name...We could look at the cumulative to see if the Census saw more Pats who were male vs. female...
+// This should be extremely rare and maybe not a great way to break ties, but works.
+type UsCensusName struct {
+	Name    string
+	Freq    float64
+	CumFreq float64
+	Rank    int
+}
+
+var femaleNames = []UsCensusName{}
+var maleNames = []UsCensusName{}
 
 // Turns the harvest id into an md5 string (a simple concatenation would work but some databases such as MySQL have a limit on unique key values so md5 fits without worry)
 func GetHarvestMd5(text string) string {
@@ -76,9 +98,59 @@ func IsQuestion(text string, regexString ...string) bool {
 	return r.MatchString(text)
 }
 
-// Detects gender based on US Census database
-func DetectGender() {
-	// TODO
+// Attempts to determine the contributor type (person, company, etc.) when not provided by a service API. In order to do this, we need a few values to test.
+// TODO: More work on this...
+func DetectContributorType(name string, gender int) string {
+	// By default assume a person...Technically an actual person had to post the message right? =) ...and this is a safe bet.
+	contributorType := "person"
+
+	// If we have a gender then it's obviously a person (or a person on behalf of a company which is OK too)
+	if gender == 1 || gender == -1 {
+		contributorType = "person"
+	}
+
+	// Test the name, see if there's an LLC or Inc. or something ... Maybe get a CSV of well known brand/company names too
+	r, _ := regexp.Compile(`llc|llp|company|limited|ltd\.|inc\.|\sinc$|corporation|corp\.|\scorp$|s\.a\.|\senterprises$|\sinternational$|\spartners$|associates|\sentertainment$|\sgroup$|\ssystems$|\ssoftware$|\smicrosystems$|\stechnologies$|\scommunications$|\snetworks$|\sindustries$|\spublishing$|\sgames$|\sfoundation$|\ssolutions$|\sholdings$|\sfinancial$`)
+	if r.MatchString(strings.ToLower(name)) == true {
+		contributorType = "company"
+	}
+
+	// TODO: maybe look at the URL and parse OG tags and such looking for a company name...
+
+	return contributorType
+}
+
+// Detects gender based on US Census database, returns 0 for unknown, -1 for female, and 1 for male
+func DetectGender(name string) int {
+
+	firstName := ""
+	nameParts := strings.Fields(name)
+	if len(nameParts) > 0 {
+		// All names in the data set are in uppercase
+		firstName = strings.ToUpper(nameParts[0])
+	}
+
+	freqMale := 0.0
+	freqFemale := 0.0
+	for _, male := range maleNames {
+		if male.Name == firstName {
+			freqMale = male.Freq
+		}
+	}
+	for _, female := range femaleNames {
+		if female.Name == firstName {
+			freqFemale = female.Freq
+		}
+	}
+
+	if freqMale > freqFemale {
+		return 1
+	}
+	if freqFemale > freqMale {
+		return -1
+	}
+
+	return 0
 }
 
 // Geocodes using MapQuest API if available
@@ -86,4 +158,125 @@ func Geocode() {
 	// TODO: Also think about using https://github.com/kellydunn/golang-geo
 	// That package will allow the use of google Maps API or Open Street Maps API (though MapQuest has a higher rate limit)
 
+}
+
+// Gets the final URL given a short URL (or one that has redirects)
+func ExpandUrl(url string) string {
+	resp, err := http.Get(url)
+	if err != nil {
+		return ""
+	}
+	return resp.Request.URL.String()
+}
+
+// Simple boolean to integer
+func Btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// For Gender CSV files --------------
+
+// Load data from CSV files in order to detect gender. If new files are being used, call this again.
+func NewGenderData(femaleFilename string, maleFilename string) {
+	femaleNamesFile, err := os.Open(femaleFilename)
+	if err != nil {
+		// err is printable
+		// elements passed are separated by space automatically
+		log.Println("Error:", err)
+	}
+	// automatically call Close() at the end of current method
+	defer femaleNamesFile.Close()
+	femaleReader := csv.NewReader(femaleNamesFile)
+
+	femaleReader.Comma = ','
+	var fName UsCensusName
+	for {
+		err := unmarshalCensusData(femaleReader, &fName)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			break
+			//panic(err)
+		}
+		femaleNames = append(femaleNames, fName)
+	}
+
+	maleNamesFile, err := os.Open(maleFilename)
+	if err != nil {
+		// err is printable
+		// elements passed are separated by space automatically
+		log.Println("Error:", err)
+	}
+	// automatically call Close() at the end of current method
+	defer maleNamesFile.Close()
+	maleReader := csv.NewReader(maleNamesFile)
+
+	maleReader.Comma = ','
+	var mName UsCensusName
+	for {
+		err := unmarshalCensusData(maleReader, &mName)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			//break
+			panic(err)
+		}
+		maleNames = append(maleNames, mName)
+	}
+
+}
+
+// Reads the census CSV data from files
+func unmarshalCensusData(reader *csv.Reader, v interface{}) error {
+	record, err := reader.Read()
+	if err != nil {
+		return err
+	}
+	s := reflect.ValueOf(v).Elem()
+	if s.NumField() != len(record) {
+		return &csvFieldMismatch{s.NumField(), len(record)}
+	}
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		switch f.Type().String() {
+		case "string":
+			f.SetString(record[i])
+		case "int":
+			ival, err := strconv.ParseInt(record[i], 10, 0)
+			if err != nil {
+				return err
+			}
+			f.SetInt(ival)
+		case "float64":
+			fval, err := strconv.ParseFloat(record[i], 64)
+			if err != nil {
+				return err
+			}
+			f.SetFloat(fval)
+		default:
+			return &csvUnsupportedType{f.Type().String()}
+		}
+	}
+	return nil
+}
+
+type csvFieldMismatch struct {
+	expected, found int
+}
+
+func (e *csvFieldMismatch) Error() string {
+	return "CSV line fields mismatch. Expected " + strconv.Itoa(e.expected) + " found " + strconv.Itoa(e.found)
+}
+
+type csvUnsupportedType struct {
+	Type string
+}
+
+func (e *csvUnsupportedType) Error() string {
+	return "Unsupported type: " + e.Type
 }

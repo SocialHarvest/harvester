@@ -364,3 +364,51 @@ func StoreSharedLink() {
 		waitGroup.Wait()
 	}
 }
+
+// Stores harvested hashtags by subscribing to the harvester observable "SocialHarvestHasthag" event and storing those messages in the configured database and out to log file
+func StoreHashtag() {
+	var waitGroup sync.WaitGroup
+	dbSession := socialHarvest.Database.GetSession()
+
+	streamCh := make(chan interface{})
+	harvester.Subscribe("SocialHarvestHashtag", streamCh)
+	for {
+		message := <-streamCh
+
+		// Log (if configured)
+		jsonMsg, err := json.Marshal(message)
+		if err == nil {
+			socialHarvest.Writers.HashtagsWriter.Info(string(jsonMsg))
+		}
+
+		// Write to database (if configured)
+		waitGroup.Add(1)
+		go socialHarvest.Database.StoreRow(message, &waitGroup, dbSession)
+		// Wait for all the queries to complete.
+		waitGroup.Wait()
+	}
+}
+
+// Stores harvested info about user/account change by subscribing to the harvester observable "SocialHarvestContributorGrowth" event and storing those messages in the configured database and out to log file
+func StoreContributorGrowth() {
+	var waitGroup sync.WaitGroup
+	dbSession := socialHarvest.Database.GetSession()
+
+	streamCh := make(chan interface{})
+	harvester.Subscribe("SocialHarvestContributorGrowth", streamCh)
+	for {
+		message := <-streamCh
+
+		// Log (if configured)
+		jsonMsg, err := json.Marshal(message)
+		if err == nil {
+			socialHarvest.Writers.ContributorGrowthWriter.Info(string(jsonMsg))
+		}
+
+		// Write to database (if configured)
+		waitGroup.Add(1)
+		go socialHarvest.Database.StoreRow(message, &waitGroup, dbSession)
+		// Wait for all the queries to complete.
+		waitGroup.Wait()
+	}
+}

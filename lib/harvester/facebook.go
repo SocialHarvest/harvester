@@ -158,12 +158,6 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 	var latestId = ""
 	var latestTime time.Time
 
-	// TODO: we'll still use waitGroup and all and the same methods, but we'll do it from the main package.
-	// This harvester package does not store or log. It harvests ONLY.
-	// Create a wait group to manage the goroutines.
-	//var waitGroup sync.WaitGroup
-	//dbSession := facebook.socialHarvest.Database.GetSession()
-
 	for _, post := range posts {
 		postCreatedTime, err := time.Parse("2006-01-02T15:04:05-0700", post.CreatedTime)
 		// Only take posts that have a time (and an ID from Facebook)
@@ -204,6 +198,11 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 				contributorName = contributor.FirstName + " " + contributor.LastName
 			}
 
+			var contributorType = "person"
+			if len(contributor.CompanyOverview) > 0 || len(contributor.Founded) > 0 || len(contributor.Category) > 0 {
+				contributorType = "company"
+			}
+
 			// Geohash
 			var locationGeoHash = geohash.Encode(contributor.Location.Latitude, contributor.Location.Longitude)
 			// This is produced with empty lat/lng values - don't store it.
@@ -211,6 +210,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 				locationGeoHash = ""
 			}
 
+			// TODO: Category (use a classifier in the future for this?)
 			// message row
 			messageRow := config.SocialHarvestMessage{
 				Time:                  postCreatedTime,
@@ -222,12 +222,16 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 				ContributorScreenName: post.From.Name,
 				ContributorName:       contributorName,
 				ContributorGender:     contributorGender,
+				ContributorType:       contributorType,
 				ContributorLang:       LocaleToLanguageISO(contributor.Locale),
 				ContributorLongitude:  contributor.Location.Longitude,
 				ContributorLatitude:   contributor.Location.Latitude,
 				ContributorGeohash:    locationGeoHash,
+				ContributorLikes:      contributor.Likes,
 				Message:               post.Message,
 				FacebookShares:        post.Shares.Count,
+				Lang:                  LocaleToLanguageISO(contributor.Locale),
+				Category:              contributor.Category,
 			}
 			// question row (if message is a question)
 			if IsQuestion(post.Message, harvestConfig.QuestionRegex) == true {
@@ -248,17 +252,18 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 					ContributorId:         post.From.Id,
 					ContributorScreenName: post.From.Name,
 					ContributorName:       contributorName,
+					ContributorGender:     contributorGender,
+					ContributorType:       contributorType,
 					ContributorLang:       LocaleToLanguageISO(contributor.Locale),
 					ContributorLongitude:  contributor.Location.Longitude,
 					ContributorLatitude:   contributor.Location.Latitude,
 					ContributorGeohash:    locationGeoHash,
-					// TODO: Contributor type
-
-					Type:    post.Type,
-					Preview: post.Picture,
-					Source:  post.Source,
-					Url:     post.Link,
-					Host:    hostName,
+					Type:                  post.Type,
+					Preview:               post.Picture,
+					Source:                post.Source,
+					Url:                   post.Link,
+					ExpandedUrl:           ExpandUrl(post.Link),
+					Host:                  hostName,
 				}
 				// Send to the harvester observer
 				Publish("SocialHarvestSharedLink", sharedLinksRow)
@@ -270,6 +275,34 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 					// The harvest id is going to have to be a little different in this case too...Otherwise, we would only get one mention per post.
 					storyTagsMentionHarvestId := GetHarvestMd5(post.Id + mention.Id + territoryName)
 
+					// TODO: Keep an eye on this, it may add too many API requests...
+					var mentionedContributor = FacebookAccount{}
+					mentionedContributor = FacebookGetUserInfo(mention.Id)
+
+					var mentionedGender = 0
+					if mentionedContributor.Gender == "male" {
+						mentionedGender = 1
+					}
+					if mentionedContributor.Gender == "female" {
+						mentionedGender = -1
+					}
+
+					var mentionedName = mentionedContributor.Name
+					if len(mentionedContributor.FirstName) > 0 {
+						mentionedName = mentionedContributor.FirstName + " " + mentionedContributor.LastName
+					}
+
+					var mentionedType = "person"
+					if len(mentionedContributor.CompanyOverview) > 0 || len(mentionedContributor.Founded) > 0 || len(mentionedContributor.Category) > 0 {
+						mentionedType = "company"
+					}
+
+					var mentionedLocationGeoHash = geohash.Encode(mentionedContributor.Location.Latitude, mentionedContributor.Location.Longitude)
+					// This is produced with empty lat/lng values - don't store it.
+					if mentionedLocationGeoHash == "7zzzzzzzzzzz" {
+						mentionedLocationGeoHash = ""
+					}
+
 					mentionRow := config.SocialHarvestMention{
 						Time:                  postCreatedTime,
 						HarvestId:             storyTagsMentionHarvestId,
@@ -279,15 +312,22 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 						ContributorId:         post.From.Id,
 						ContributorScreenName: post.From.Name,
 						ContributorName:       contributorName,
-						ContributorLang:       LocaleToLanguageISO(contributor.Locale),
+						ContributorGender:     contributorGender,
+						ContributorType:       contributorType,
 						ContributorLongitude:  contributor.Location.Longitude,
 						ContributorLatitude:   contributor.Location.Latitude,
 						ContributorGeohash:    locationGeoHash,
+						ContributorLang:       LocaleToLanguageISO(contributor.Locale),
 
-						MentionedScreenName: mention.Name,
-						MentionedName:       mention.Name,
 						MentionedId:         mention.Id,
-						MentionedType:       mention.Type,
+						MentionedScreenName: mention.Name,
+						MentionedName:       mentionedName,
+						MentionedGender:     mentionedGender,
+						MentionedType:       mentionedType,
+						MentionedLongitude:  mentionedContributor.Location.Longitude,
+						MentionedLatitude:   mentionedContributor.Location.Latitude,
+						MentionedGeohash:    mentionedLocationGeoHash,
+						MentionedLang:       LocaleToLanguageISO(mentionedContributor.Locale),
 					}
 					// Send to the harvester observer
 					Publish("SocialHarvestMention", mentionRow)
@@ -299,6 +339,35 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 					// Same here, the harvest id is going to have to be a little different in this case too...Otherwise, we would only get one mention per post.
 					MessageTagsMentionHarvestId := GetHarvestMd5(post.Id + mention.Id + territoryName)
 
+					// TODO: Keep an eye on this, it may add too many API requests...
+					// TODO: this is repeated. don't repeat.
+					var mentionedContributor = FacebookAccount{}
+					mentionedContributor = FacebookGetUserInfo(mention.Id)
+
+					var mentionedGender = 0
+					if mentionedContributor.Gender == "male" {
+						mentionedGender = 1
+					}
+					if mentionedContributor.Gender == "female" {
+						mentionedGender = -1
+					}
+
+					var mentionedName = mentionedContributor.Name
+					if len(mentionedContributor.FirstName) > 0 {
+						mentionedName = mentionedContributor.FirstName + " " + mentionedContributor.LastName
+					}
+
+					var mentionedType = "person"
+					if len(mentionedContributor.CompanyOverview) > 0 || len(mentionedContributor.Founded) > 0 || len(mentionedContributor.Category) > 0 {
+						mentionedType = "company"
+					}
+
+					var mentionedLocationGeoHash = geohash.Encode(mentionedContributor.Location.Latitude, mentionedContributor.Location.Longitude)
+					// This is produced with empty lat/lng values - don't store it.
+					if mentionedLocationGeoHash == "7zzzzzzzzzzz" {
+						mentionedLocationGeoHash = ""
+					}
+
 					mentionRow := config.SocialHarvestMention{
 						Time:                  postCreatedTime,
 						HarvestId:             MessageTagsMentionHarvestId,
@@ -308,18 +377,22 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 						ContributorId:         post.From.Id,
 						ContributorScreenName: post.From.Name,
 						ContributorName:       contributorName,
-						ContributorLang:       LocaleToLanguageISO(contributor.Locale),
+						ContributorGender:     contributorGender,
+						ContributorType:       contributorType,
 						ContributorLongitude:  contributor.Location.Longitude,
 						ContributorLatitude:   contributor.Location.Latitude,
 						ContributorGeohash:    locationGeoHash,
+						ContributorLang:       LocaleToLanguageISO(contributor.Locale),
 
 						MentionedId:         mention.Id,
 						MentionedScreenName: mention.Name,
-						MentionedType:       mention.Type,
-						MentionedLang:       LocaleToLanguageISO(contributor.Locale),
-						MentionedLongitude:  contributor.Location.Longitude,
-						MentionedLatitude:   contributor.Location.Latitude,
-						MentionedGeohash:    locationGeoHash,
+						MentionedName:       mentionedName,
+						MentionedGender:     mentionedGender,
+						MentionedType:       mentionedType,
+						MentionedLongitude:  mentionedContributor.Location.Longitude,
+						MentionedLatitude:   mentionedContributor.Location.Latitude,
+						MentionedGeohash:    mentionedLocationGeoHash,
+						MentionedLang:       LocaleToLanguageISO(mentionedContributor.Locale),
 					}
 					// Send to the harvester observer
 					Publish("SocialHarvestMention", mentionRow)
@@ -332,19 +405,6 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 		}
 
 	}
-
-	// Wait for all the queries to complete.
-	//waitGroup.Wait()
-
-	// Remove any empty saves (weird bug)
-	// TODO: Also gets to be moved somewhere else. So nice because this harvseter really doesn't care about one database's issues.
-	/*
-		facebook.socialHarvest.Database.RemoveEmpty("contributors")
-		facebook.socialHarvest.Database.RemoveEmpty("messages")
-		facebook.socialHarvest.Database.RemoveEmpty("shared_links")
-		facebook.socialHarvest.Database.RemoveEmpty("shared_media")
-		facebook.socialHarvest.Database.RemoveEmpty("mentions")
-	*/
 
 	// return the number of items harvested
 	return itemsHarvested, latestId, latestTime

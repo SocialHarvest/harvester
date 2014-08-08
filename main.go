@@ -133,12 +133,22 @@ func StreamTwitter(w rest.ResponseWriter, r *rest.Request) {
 
 // Set the initial schedule entries from config SocialHarvestConf
 func setInitialSchedule() {
+	// Clean up for MongoDB (empty documents on dupe)
+	// TODO: Look into why this happens and fix it properly so we can remove this
+	socialHarvest.Schedule.Cron.AddFunc("*/5 * * * * *", func() {
+		socialHarvest.Database.RemoveEmpty("messages")
+		socialHarvest.Database.RemoveEmpty("shared_links")
+		socialHarvest.Database.RemoveEmpty("hashtags")
+		socialHarvest.Database.RemoveEmpty("mentions")
+		socialHarvest.Database.RemoveEmpty("contributor_growth")
+	}, "MongoDB empty document cleanup")
+
 	for _, territory := range socialHarvest.Config.Harvest.Territories {
 		if territory.Schedule.Everything.Accounts != "" {
-			socialHarvest.Schedule.Cron.AddFunc(territory.Schedule.Everything.Accounts, HarvestAllAccounts, "Harvesting all content - "+territory.Schedule.Everything.Accounts)
+			socialHarvest.Schedule.Cron.AddFunc(territory.Schedule.Everything.Accounts, HarvestAllAccounts, "Harvesting all accounts - "+territory.Schedule.Everything.Accounts)
 		}
 		if territory.Schedule.Everything.Content != "" {
-			socialHarvest.Schedule.Cron.AddFunc(territory.Schedule.Everything.Accounts, HarvestAllAccounts, "Harvesting all content - "+territory.Schedule.Everything.Accounts)
+			socialHarvest.Schedule.Cron.AddFunc(territory.Schedule.Everything.Content, HarvestAllContent, "Harvesting all content - "+territory.Schedule.Everything.Content)
 		}
 
 	}
@@ -188,18 +198,13 @@ func main() {
 	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
 	socialHarvest.Writers = config.NewWriters(socialHarvest.Config)
 
-	// Set up all the channels used by Social Harvest
-	//socialHarvest.Broadcasters = config.NewBroadcasters()
-
-	// Set up the data sources (social media APIs for now) and give them the writers (and database connection) they need (all for now)
-	//harvester.NewTwitter(socialHarvest)
-	//harvester.NewFacebook(socialHarvest)
-	//harvester.NewInstagram(socialHarvest)
-	//
 	// TODO: See about only passing the part of the config needed (Services)
 	// We don't need to pass the entire configuration (port, server, passwords, etc. lots of stuff will come to be in there), but we do need all the API tokens and any territroy API token overrides.
 	// We might need some other harvest settings, likely not the schedule though. But it's ok to pass anyway. TODO: Think about breaking this down farther.
 	harvester.New(socialHarvest.Config.Harvest, socialHarvest.Config.Services)
+	// Load new gender data from CSV files for detecting gender (this is callable so it can be changed during runtime)
+	// TODO: Think about being able to post more gender statistics via the API to add to the data set...
+	harvester.NewGenderData("data/census-female-names.csv", "data/census-male-names.csv")
 
 	// Set the initial schedule (can be changed via API if available)
 	setInitialSchedule()
@@ -217,7 +222,8 @@ func main() {
 	go StoreMessage()
 	go StoreMention()
 	go StoreSharedLink()
-	// TODO: add hashtags and contributor growth too.
+	go StoreHashtag()
+	go StoreContributorGrowth()
 
 	//harvester.YoutubeVideoSearch("obama")
 	///

@@ -63,6 +63,7 @@ var SeriesCollections = map[string]string{
 	"SocialHarvestMessage":           "messages",
 	"SocialHarvestSharedLink":        "shared_links",
 	"SocialHarvestMention":           "mentions",
+	"SocialHarvestHashtag":           "hashtags",
 	"SocialHarvestContributorGrowth": "contributor_growth",
 	"SocialHarvestHarvest":           "harvest",
 }
@@ -93,7 +94,7 @@ type SocialHarvestMessage struct {
 	ContributorListedCount   int `json:"contributor_listed_count" db:"contributor_listed_count" bson:"contributor_listed_count"`
 	ContributorFollowers     int `json:"contributor_followers" db:"contributor_followers" bson:"contributor_followers"`
 	// This value is technically stateful, but can be treated as stateless because it doesn't really get revoked and change back...
-	ContribtuorVerified int `json:"contributor_verified" db:"contributor_verified" bson:"contributor_verified"` // Twitter for sure, but I think other networks too?
+	ContributorVerified int `json:"contributor_verified" db:"contributor_verified" bson:"contributor_verified"` // Twitter for sure, but I think other networks too?
 
 	// this is all about the message (location and language may actually differ from the contributor normal values or may be the exact same... leave for now)
 	// i can see a case where people want to understand if users are tweeting from their home address or not. plus we geocode cities and such. so a contributor can

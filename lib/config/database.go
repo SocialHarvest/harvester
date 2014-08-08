@@ -52,7 +52,7 @@ func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 
 	// Keep a list of series (tables/collections/series - whatever the database calls them, we're going with series because we're really dealing with time with just about all our data)
 	// These do relate to structures in lib/config/series.go
-	database.Series = []string{"messages", "shared_links", "mentions", "hashtags"}
+	database.Series = []string{"messages", "shared_links", "mentions", "hashtags", "contributor_growth"}
 
 	// Set some indicies
 	SetupIndicies()
@@ -208,6 +208,8 @@ func (database *SocialHarvestDB) StoreRow(row interface{}, waitGroup *sync.WaitG
 		collection = SeriesCollections["SocialHarvestMention"]
 	case SocialHarvestHashtag:
 		collection = SeriesCollections["SocialHarvestHashtag"]
+	case SocialHarvestContributorGrowth:
+		collection = SeriesCollections["SocialHarvestContributorGrowth"]
 	case SocialHarvestHarvest:
 		collection = SeriesCollections["SocialHarvestHarvest"]
 	default:

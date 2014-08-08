@@ -23,11 +23,12 @@ import (
 // All of the output log writers (fluentd or logstash picks up data from these logs, we'll rotate them and they could even be sent to S3, etc.)
 // This right here is database agnostic magic (TODO: Allow this to be configured, perhaps use the XML configuration log4go provides)
 type SocialHarvestWriters struct {
-	MessagesWriter    log4go.Logger
-	SharedLinksWriter log4go.Logger
-	MentionsWriter    log4go.Logger
-	HashtagsWriter    log4go.Logger
-	HarvestWriter     log4go.Logger
+	MessagesWriter          log4go.Logger
+	SharedLinksWriter       log4go.Logger
+	MentionsWriter          log4go.Logger
+	HashtagsWriter          log4go.Logger
+	ContributorGrowthWriter log4go.Logger
+	HarvestWriter           log4go.Logger
 }
 
 var writers = SocialHarvestWriters{}
@@ -39,6 +40,7 @@ func NewWriters(config SocialHarvestConf) *SocialHarvestWriters {
 	writers.SharedLinksWriter = make(log4go.Logger)
 	writers.MentionsWriter = make(log4go.Logger)
 	writers.HashtagsWriter = make(log4go.Logger)
+	writers.ContributorGrowthWriter = make(log4go.Logger)
 	writers.HarvestWriter = make(log4go.Logger)
 
 	// We don't need to log at all...
@@ -64,6 +66,11 @@ func NewWriters(config SocialHarvestConf) *SocialHarvestWriters {
 		flwH.SetRotateDaily(true)
 		flwH.SetFormat("%M")
 		writers.HashtagsWriter.AddFilter(config.Logs.Directory+"/hashtags.log", log4go.FINE, flwH)
+		// Contributor growth tracking
+		flwCg := log4go.NewFileLogWriter(config.Logs.Directory+"/contributor_growth.log", false)
+		flwCg.SetRotateDaily(true)
+		flwCg.SetFormat("%M")
+		writers.SharedLinksWriter.AddFilter(config.Logs.Directory+"/contributor_growth.log", log4go.FINE, flwCg)
 		// Harvest log (last harvest info, to reduce duplicate requests for data, keep history, performance, etc.)
 		flwHl := log4go.NewFileLogWriter(config.Logs.Directory+"/harvest.log", false)
 		flwHl.SetRotateDaily(true)

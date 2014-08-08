@@ -19,6 +19,7 @@ package harvester
 import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
+	geohash "github.com/TomiHiltunen/geohash-golang"
 	"log"
 	"net/url"
 	"time"
@@ -57,19 +58,6 @@ func NewTwitterTerritoryCredentials(territory string) {
 // Always passed in first (always): the territory name, and the position in the harvest (HarvestState) ... the rest are going to vary based on the API but typically are the query and options
 // @return options(for pagination), count of items, last id, last time.
 func TwitterSearch(territoryName string, harvestState config.HarvestState, query string, options url.Values) (url.Values, config.HarvestState) {
-	// nope nope nope nope. not here anymore.
-	// TODO: Remove the following from config.SocialHarvest:
-	// Schedule *SocialHarvestSchedule
-	// Database *SocialHarvestDB
-	// Writers  *SocialHarvestWriters
-	// ...they are not needed on there anymore because we will no longer be using those outside of the main package.
-	// whereas before the database and writers were passed to the harvester package... separation of concerns baby.
-	// the schedule wasn't passed to the harvesters but was put on there anyway. that can go too.
-	//
-	// Create a wait group to manage the goroutines.
-	//var waitGroup sync.WaitGroup
-	//dbSession := twitter.socialHarvest.Database.GetSession()
-
 	searchResults, _ := services.twitter.GetSearch(query, options)
 	// The cool thing about Twitter's API is that we have all the user data we need already. So we make less HTTP requests than when using Facebook's API.
 	for _, tweet := range searchResults {
@@ -86,20 +74,204 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				harvestState.LastId = tweet.IdStr
 			}
 
+			// determine gender
+			var contributorGender = DetectGender(tweet.User.Name)
+
+			// TODO: figure out type somehow...
+			var contributorType = DetectContributorType(tweet.User.Name, contributorGender)
+
+			var statusLongitude = 0.0
+			var statusLatitude = 0.0
+			// TODO: is there a better way to do this? sheesh
+			switch coordMap := tweet.Coordinates.(type) {
+			case map[string]interface{}:
+				for k, v := range coordMap {
+					if k == "coordinates" {
+						switch coords := v.(type) {
+						case []interface{}:
+							for i, c := range coords {
+								switch cFloat := c.(type) {
+								case float64:
+									if i == 0 {
+										statusLongitude = cFloat
+									}
+									if i == 1 {
+										statusLatitude = cFloat
+									}
+									break
+								}
+							}
+						}
+
+					}
+				}
+				break
+			}
+
+			// Geohash
+			var locationGeoHash = geohash.Encode(statusLatitude, statusLongitude)
+			// This is produced with empty lat/lng values - don't store it.
+			if locationGeoHash == "7zzzzzzzzzzz" {
+				locationGeoHash = ""
+			}
+
 			// Generate a harvest_id to avoid potential dupes (a unique index is placed on this field and all insert errors ignored).
 			harvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName)
 
+			// TODO: ADD contributor gender, contributor type
 			message := config.SocialHarvestMessage{
-				Time:                  tweetCreatedTime,
-				HarvestId:             harvestId,
-				Territory:             territoryName,
-				Network:               "twitter",
-				ContributorId:         tweet.User.IdStr,
-				ContributorScreenName: tweet.User.ScreenName,
-				Lang: tweet.User.Lang,
+				Time:                     tweetCreatedTime,
+				HarvestId:                harvestId,
+				Territory:                territoryName,
+				Network:                  "twitter",
+				ContributorId:            tweet.User.IdStr,
+				ContributorScreenName:    tweet.User.ScreenName,
+				ContributorName:          tweet.User.Name,
+				ContributorLang:          tweet.User.Lang,
+				ContributorVerified:      Btoi(tweet.User.Verified),
+				ContributorFollowers:     tweet.User.FollowersCount,
+				ContributorStatusesCount: int(tweet.User.StatusesCount),
+				Lang:                 tweet.User.Lang,
+				ContributorGender:    contributorGender,
+				ContributorType:      contributorType,
+				Longitude:            statusLongitude,
+				Latitude:             statusLatitude,
+				Geohash:              locationGeoHash,
+				Message:              tweet.Text,
+				IsQuestion:           Btoi(IsQuestion(tweet.Text, harvestConfig.QuestionRegex)),
+				MessageId:            tweet.IdStr,
+				TwitterRetweetCount:  tweet.RetweetCount,
+				TwitterFavoriteCount: tweet.FavoriteCount,
 			}
 			// Send to the harvester observer
 			Publish("SocialHarvestMessage", message)
+
+			// shared links
+			if len(tweet.Entities.Urls) > 0 {
+				for _, link := range tweet.Entities.Urls {
+					if len(link.Url) > 0 {
+						// Shared link harvest id has to be different because otherwise only one would be stored
+						sharedLinkHarvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName + link.Expanded_url)
+
+						linkHostName := ""
+						pUrl, _ := url.Parse(link.Url)
+						linkHostName = pUrl.Host
+
+						// TODO: ADD contributor gender, contributor type
+						sharedLink := config.SocialHarvestSharedLink{
+							Time:                  tweetCreatedTime,
+							HarvestId:             sharedLinkHarvestId,
+							Territory:             territoryName,
+							Network:               "twitter",
+							MessageId:             tweet.IdStr,
+							ContributorId:         tweet.User.IdStr,
+							ContributorScreenName: tweet.User.ScreenName,
+							ContributorName:       tweet.User.Name,
+							ContributorLang:       tweet.User.Lang,
+							ContributorType:       contributorType,
+							ContributorGender:     contributorGender,
+							Url:                   link.Url,
+							ExpandedUrl:           link.Expanded_url,
+							Host:                  linkHostName,
+						}
+						// Send to the harvester observer
+						Publish("SocialHarvestSharedLink", sharedLink)
+					}
+				}
+			}
+
+			// more shared links (media entities)
+			if len(tweet.Entities.Media) > 0 {
+				for _, media := range tweet.Entities.Media {
+					if len(media.Url) > 0 {
+						sharedMediaHarvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName + media.Expanded_url)
+
+						mediaHostName := ""
+						pUrl, _ := url.Parse(media.Url)
+						mediaHostName = pUrl.Host
+
+						// TODO: ADD contributor gender, contributor type
+						sharedMedia := config.SocialHarvestSharedLink{
+							Time:                  tweetCreatedTime,
+							HarvestId:             sharedMediaHarvestId,
+							Territory:             territoryName,
+							Network:               "twitter",
+							MessageId:             tweet.IdStr,
+							ContributorId:         tweet.User.IdStr,
+							ContributorScreenName: tweet.User.ScreenName,
+							ContributorName:       tweet.User.Name,
+							ContributorLang:       tweet.User.Lang,
+							ContributorType:       contributorType,
+							ContributorGender:     contributorGender,
+							Url:                   media.Url,
+							ExpandedUrl:           media.Expanded_url,
+							Host:                  mediaHostName,
+							Type:                  media.Type,
+							Source:                media.Media_url,
+						}
+						// Send to the harvester observer
+						Publish("SocialHarvestSharedLink", sharedMedia)
+					}
+				}
+			}
+
+			// hashtags
+			if len(tweet.Entities.Hashtags) > 0 {
+				for _, tag := range tweet.Entities.Hashtags {
+					if len(tag.Text) > 0 {
+						hashtagHarvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName + tag.Text)
+
+						// TODO: ADD contributor gender, contributor type
+						hashtag := config.SocialHarvestHashtag{
+							Time:                  tweetCreatedTime,
+							HarvestId:             hashtagHarvestId,
+							Territory:             territoryName,
+							Network:               "twitter",
+							MessageId:             tweet.IdStr,
+							ContributorId:         tweet.User.IdStr,
+							ContributorScreenName: tweet.User.ScreenName,
+							ContributorName:       tweet.User.Name,
+							ContributorLang:       tweet.User.Lang,
+							ContributorType:       contributorType,
+							ContributorGender:     contributorGender,
+							Tag:                   tag.Text,
+						}
+						// Send to the harvester observer
+						Publish("SocialHarvestHashtag", hashtag)
+					}
+				}
+			}
+
+			// mentions
+			if len(tweet.Entities.User_mentions) > 0 {
+				for _, mentionedUser := range tweet.Entities.User_mentions {
+					if len(mentionedUser.Id_str) > 0 {
+						mentionHarvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName + mentionedUser.Id_str)
+
+						// TODO: ADD contributor gender, contributor type
+						// and mentioned user info (another api request)
+						mention := config.SocialHarvestMention{
+							Time:                  tweetCreatedTime,
+							HarvestId:             mentionHarvestId,
+							Territory:             territoryName,
+							Network:               "twitter",
+							MessageId:             tweet.IdStr,
+							ContributorId:         tweet.User.IdStr,
+							ContributorScreenName: tweet.User.ScreenName,
+							ContributorName:       tweet.User.Name,
+							ContributorLang:       tweet.User.Lang,
+							ContributorType:       contributorType,
+							ContributorGender:     contributorGender,
+
+							MentionedId:         mentionedUser.Id_str,
+							MentionedScreenName: mentionedUser.Screen_name,
+							MentionedName:       mentionedUser.Name,
+						}
+						// Send to the harvester observer
+						Publish("SocialHarvestMention", mention)
+					}
+				}
+			}
 
 		} else {
 			log.Println("Could not parse the time from the Tweet, so I'm throwing it away!")
