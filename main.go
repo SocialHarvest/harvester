@@ -21,12 +21,14 @@ import (
 	"flag"
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/SocialHarvest/harvester/lib/harvester"
+	"github.com/advancedlogic/GoOse"
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/fatih/color"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	//"sync"
 	_ "net/http/pprof"
 	"reflect"
@@ -38,9 +40,9 @@ var socialHarvest = config.SocialHarvest{}
 
 var harvestChannel = make(chan interface{})
 
-// --------- Route functions
+// --------- Route functions (maybe move into various go files for organization)
 
-// Shows the harvest schedule as currently configured
+// API: Shows the harvest schedule as currently configured
 func ShowSchedule(w rest.ResponseWriter, r *rest.Request) {
 	res := config.NewHypermediaResource()
 	res.AddCurie("schedule", "/docs/rels/{rel}", true)
@@ -73,7 +75,7 @@ func ShowSchedule(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(res.End("There are " + strconv.Itoa(len(jobs)) + " jobs scheduled."))
 }
 
-// Shows the current harvester configuration
+// API: Shows the current harvester configuration
 func ShowSocialHarvestConfig(w rest.ResponseWriter, r *rest.Request) {
 	res := config.NewHypermediaResource()
 	res.Links["self"] = config.HypermediaLink{
@@ -84,7 +86,7 @@ func ShowSocialHarvestConfig(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(res.End())
 }
 
-// Streams stuff
+// API: Streams stuff
 func StreamTwitter(w rest.ResponseWriter, r *rest.Request) {
 
 	// TODO: allow this stream to be filtered...
@@ -127,6 +129,88 @@ func StreamTwitter(w rest.ResponseWriter, r *rest.Request) {
 			time.Sleep(time.Duration(1) * time.Second)
 		}
 	*/
+}
+
+// API: Territory aggregates (gender, language, etc.) shows a breakdown and count of various values and their percentage of total
+func TerritoryAggregateData(w rest.ResponseWriter, r *rest.Request) {
+	res := config.NewHypermediaResource()
+	res.Links["self"] = config.HypermediaLink{
+		Href: "/territory/aggregate/{territory}/{collection}{?from,to,fields}",
+	}
+
+	territory := r.PathParam("territory")
+	collection := r.PathParam("collection")
+	queryParams := r.URL.Query()
+
+	timeFrom := ""
+	if len(queryParams["from"]) > 0 {
+		timeFrom = queryParams["from"][0]
+	}
+	timeTo := ""
+	if len(queryParams["to"]) > 0 {
+		timeTo = queryParams["to"][0]
+	}
+
+	limit := 0
+	if len(queryParams["limit"]) > 0 {
+		parsedLimit, err := strconv.Atoi(queryParams["limit"][0])
+		if err == nil {
+			limit = parsedLimit
+		}
+	}
+
+	fields := []string{}
+	if len(queryParams["fields"]) > 0 {
+		fields = strings.Split(queryParams["fields"][0], ",")
+		// trim any white space
+		for i, val := range fields {
+			fields[i] = strings.Trim(val, " ")
+		}
+	}
+
+	if territory != "" && collection != "" && len(fields) > 0 {
+		params := config.CommonQueryParams{
+			Collection: collection,
+			Territory:  territory,
+			From:       timeFrom,
+			To:         timeTo,
+			Limit:      limit,
+		}
+
+		res.Data["aggregate"] = socialHarvest.Database.FieldCounts(params, fields)
+		res.Success()
+	}
+
+	w.WriteJson(res.End())
+}
+
+// Retrieves information to provide a summary about a give URL, specifically articles/blog posts.
+// TODO: Make this more robust (more details, videos, etc.). Some of this may eventually also go into the harvest.
+// TODO: Likely fork this package and add in some of the things I did for Virality Score in order to get even more data.
+func LinkDetails(w rest.ResponseWriter, r *rest.Request) {
+	res := config.NewHypermediaResource()
+	res.Links["self"] = config.HypermediaLink{
+		Href: "/link/details{?url}",
+	}
+
+	queryParams := r.URL.Query()
+	if len(queryParams["url"]) > 0 {
+		g := goose.New()
+		article := g.ExtractFromUrl(queryParams["url"][0])
+
+		res.Data["title"] = article.Title
+		res.Data["published"] = article.PublishDate
+		res.Data["favicon"] = article.MetaFavicon
+		res.Data["domain"] = article.Domain
+		res.Data["description"] = article.MetaDescription
+		res.Data["keywords"] = article.MetaKeywords
+		res.Data["content"] = article.CleanedText
+		res.Data["url"] = article.FinalUrl
+		res.Data["image"] = article.TopImage
+		res.Success()
+	}
+
+	w.WriteJson(res.End())
 }
 
 // --------- Initial schedule
@@ -242,6 +326,8 @@ func main() {
 			&rest.Route{"GET", "/schedule/read", ShowSchedule},
 			&rest.Route{"GET", "/config/read", ShowSocialHarvestConfig},
 			&rest.Route{"GET", "/stream/twitter", StreamTwitter},
+			&rest.Route{"GET", "/territory/aggregate/:territory/:collection", TerritoryAggregateData},
+			&rest.Route{"GET", "/link/details", LinkDetails},
 		)
 		if err != nil {
 			log.Fatal(err)

@@ -1,5 +1,5 @@
 /*
- Date: 08/06/2014 23:34:12 PM
+ Date: 08/09/2014 13:33:03 PM
 */
 
 SET NAMES utf8;
@@ -30,6 +30,10 @@ CREATE TABLE `shared_links` (
   `contributor_latitude` double DEFAULT NULL,
   `contributor_geohash` varchar(100) DEFAULT NULL,
   `contributor_name` varchar(255) DEFAULT NULL,
+  `contributor_country` varchar(6) DEFAULT NULL,
+  `contributor_city` varchar(75) DEFAULT NULL,
+  `contributor_state` varchar(50) DEFAULT NULL,
+  `contributor_county` varchar(75) DEFAULT NULL,
   PRIMARY KEY (`harvest_id`),
   UNIQUE KEY `sl_harvest_id_unique` (`harvest_id`),
   KEY `sl_message_id_key` (`message_id`),

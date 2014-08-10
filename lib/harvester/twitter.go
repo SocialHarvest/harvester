@@ -20,6 +20,7 @@ import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
 	geohash "github.com/TomiHiltunen/geohash-golang"
+	"github.com/tmaiaroto/geocoder"
 	"log"
 	"net/url"
 	"time"
@@ -80,6 +81,11 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 			// TODO: figure out type somehow...
 			var contributorType = DetectContributorType(tweet.User.Name, contributorGender)
 
+			var contributorCountry = ""
+			var contributorState = ""
+			var contributorCity = ""
+			var contributorCounty = ""
+
 			var statusLongitude = 0.0
 			var statusLatitude = 0.0
 			// TODO: is there a better way to do this? sheesh
@@ -111,9 +117,24 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 			// Contributor location lookup (if no lat/lng was found on the message - try to reduce number of geocode lookups)
 			contributorLat := 0.0
 			contributorLng := 0.0
-			if statusLatitude == 0.0 || statusLatitude == 0 {
-				contributorLat, contributorLng = Geocode(tweet.User.Location)
+			if statusLatitude == 0.0 || statusLatitude == 0.0 {
+				location, err := geocoder.GeocodeLocation(tweet.User.Location)
+				if err == nil {
+					contributorLat = location.LatLng.Lat
+					contributorLng = location.LatLng.Lng
+					contributorState = location.State
+					contributorCity = location.City
+					contributorCountry = location.CountryCode
+					contributorCounty = location.County
+				}
+				//contributorLat, contributorLng = Geocode(tweet.User.Location)
 			} else {
+				reverseLocation := geocoder.ReverseGeocode(statusLatitude, statusLongitude)
+				contributorState = reverseLocation.State
+				contributorCity = reverseLocation.City
+				contributorCountry = reverseLocation.CountryCode
+				contributorCounty = reverseLocation.County
+				// keep these, no need to change - might change accuracy, etc.
 				contributorLat = statusLatitude
 				contributorLng = statusLongitude
 			}
@@ -141,6 +162,10 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				ContributorLongitude:     contributorLng,
 				ContributorLatitude:      contributorLat,
 				ContributorGeohash:       contributorLocationGeoHash,
+				ContributorCity:          contributorCity,
+				ContributorState:         contributorState,
+				ContributorCountry:       contributorCountry,
+				ContributorCounty:        contributorCounty,
 				ContributorVerified:      Btoi(tweet.User.Verified),
 				ContributorFollowers:     tweet.User.FollowersCount,
 				ContributorStatusesCount: int(tweet.User.StatusesCount),
@@ -182,6 +207,10 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLongitude:  contributorLng,
 							ContributorLatitude:   contributorLat,
 							ContributorGeohash:    contributorLocationGeoHash,
+							ContributorCity:       contributorCity,
+							ContributorState:      contributorState,
+							ContributorCountry:    contributorCountry,
+							ContributorCounty:     contributorCounty,
 							Url:                   link.Url,
 							ExpandedUrl:           link.Expanded_url,
 							Host:                  linkHostName,
@@ -218,6 +247,10 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLongitude:  contributorLng,
 							ContributorLatitude:   contributorLat,
 							ContributorGeohash:    contributorLocationGeoHash,
+							ContributorCity:       contributorCity,
+							ContributorState:      contributorState,
+							ContributorCountry:    contributorCountry,
+							ContributorCounty:     contributorCounty,
 							Url:                   media.Url,
 							ExpandedUrl:           media.Expanded_url,
 							Host:                  mediaHostName,
@@ -252,6 +285,10 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLongitude:  contributorLng,
 							ContributorLatitude:   contributorLat,
 							ContributorGeohash:    contributorLocationGeoHash,
+							ContributorCity:       contributorCity,
+							ContributorState:      contributorState,
+							ContributorCountry:    contributorCountry,
+							ContributorCounty:     contributorCounty,
 							Tag:                   tag.Text,
 						}
 						// Send to the harvester observer

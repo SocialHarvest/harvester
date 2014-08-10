@@ -85,6 +85,10 @@ type SocialHarvestMessage struct {
 	ContributorLatitude   float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
 	ContributorGeohash    string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
 	ContributorLang       string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
+	ContributorCountry    string  `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
+	ContributorCity       string  `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
+	ContributorState      string  `json:"contributor_state" db:"contributor_state" bson:"contributor_state"`
+	ContributorCounty     string  `json:"contributor_county" db:"contributor_county" bson:"contributor_county"`
 
 	// Data that changes, think about the value of having it...maybe remove it... API calls can always be made to get this current info.
 	// But this kinda gives a user an idea for influencers (at the harvest time at least). So while it's definitely dated...It could be used as a
@@ -123,6 +127,10 @@ type SocialHarvestSharedLink struct {
 	ContributorLatitude   float64   `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
 	ContributorGeohash    string    `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
 	ContributorLang       string    `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
+	ContributorCountry    string    `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
+	ContributorCity       string    `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
+	ContributorState      string    `json:"contributor_state" db:"contributor_state" bson:"contributor_state"`
+	ContributorCounty     string    `json:"contributor_county" db:"contributor_county" bson:"contributor_county"`
 	Type                  string    `json:"type" db:"type" bson:"type"`
 	Preview               string    `json:"preview" db:"preview" bson:"preview"`
 	Source                string    `json:"source" db:"source" bson:"source"`
@@ -132,7 +140,10 @@ type SocialHarvestSharedLink struct {
 }
 
 // Hashtags are not quite Twitter specific, they're still used all over. Other networks have their own convention too (and their APIs return the tags).
-// So this is all "tags" really, but it's called hashtags (in part to avoid any confusion with a generic "tags" term).
+// So this is all "tags" really, but it's called hashtags (in part to avoid any confusion with a generic "tags" term). To be less confusing, there is
+// a "keyword" field where extracted keywords can be stored. Only a few will be taken per message and stop words will be ignored. These keywords could
+// assist people in creating new, actual, hashtags to use in their social media marketing. Of course this series also holds (without an association)
+// the contributor's details too. So we can determine popular keywords (and hashtags) by geolocation, gender, etc.
 // This series will likely be joined to messages. Though this series can be analyzed by itself too.
 type SocialHarvestHashtag struct {
 	Time      time.Time `json:"time" db:"time" bson:"time"`
@@ -141,7 +152,8 @@ type SocialHarvestHashtag struct {
 	Network   string    `json:"network" db:"network" bson:"network"`
 	MessageId string    `json:"message_id" db:"message_id" bson:"message_id"`
 
-	Tag string `json:"tag" db:"tag" bson:"tag"`
+	Tag     string `json:"tag" db:"tag" bson:"tag"`
+	Keyword string `json:"keyword" db:"keyword" bson:"keyword"`
 
 	// Much of this becomes redundant if using a JOIN, but we want to stay flexible (a little more data stored for a lot more performance and options)
 	ContributorId         string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
@@ -153,6 +165,10 @@ type SocialHarvestHashtag struct {
 	ContributorLatitude   float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
 	ContributorGeohash    string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
 	ContributorLang       string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
+	ContributorCountry    string  `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
+	ContributorCity       string  `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
+	ContributorState      string  `json:"contributor_state" db:"contributor_state" bson:"contributor_state"`
+	ContributorCounty     string  `json:"contributor_county" db:"contributor_county" bson:"contributor_county"`
 }
 
 // When contributors mention other contributors (and from where - useful for tracking customer base for example). This series tells a good story visually (hopefully on a map).

@@ -1,5 +1,5 @@
 /*
- Date: 08/06/2014 23:23:41 PM
+ Date: 08/09/2014 13:32:46 PM
 */
 
 SET NAMES utf8;
@@ -25,10 +25,16 @@ CREATE TABLE `hashtags` (
   `contributor_geohash` varchar(100) DEFAULT NULL,
   `contributor_name` varchar(255) DEFAULT NULL,
   `tag` varchar(255) DEFAULT NULL,
+  `keyword` varchar(150) DEFAULT NULL,
+  `contributor_country` varchar(6) DEFAULT NULL,
+  `contributor_city` varchar(75) DEFAULT NULL,
+  `contributor_state` varchar(50) DEFAULT NULL,
+  `contributor_county` varchar(75) DEFAULT NULL,
   PRIMARY KEY (`harvest_id`),
   UNIQUE KEY `h_harvest_id_unique` (`harvest_id`),
   KEY `h_time_key` (`time`),
   KEY `h_tag_key` (`tag`),
+  KEY `h_keyword_key` (`keyword`),
   KEY `h_message_id_key` (`message_id`),
   KEY `h_contributor_id_key` (`contributor_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

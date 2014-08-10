@@ -1,6 +1,6 @@
 /*
  PostgreSQL
- Date: 08/06/2014 23:33:17 PM
+ Date: 08/09/2014 13:33:16 PM
 */
 
 -- ----------------------------
@@ -27,9 +27,14 @@ CREATE TABLE "shared_links" (
 	"contributor_longitude" float8,
 	"contributor_latitude" float8,
 	"contributor_geohash" varchar(100) COLLATE "default",
-	"contributor_name" varchar(255) COLLATE "default"
+	"contributor_name" varchar(255) COLLATE "default",
+	"contributor_country" varchar(6) COLLATE "default",
+	"contributor_city" varchar(75) COLLATE "default",
+	"contributor_state" varchar(50) COLLATE "default",
+	"contributor_county" varchar(75) COLLATE "default"
 )
 WITH (OIDS=FALSE);
+ALTER TABLE "shared_links" OWNER TO "upper";
 
 -- ----------------------------
 --  Primary key structure for table shared_links

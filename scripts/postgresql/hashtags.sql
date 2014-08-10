@@ -1,6 +1,6 @@
 /*
  PostgreSQL
- Date: 08/06/2014 22:52:16 PM
+ Date: 08/09/2014 13:33:31 PM
 */
 
 -- ----------------------------
@@ -22,7 +22,12 @@ CREATE TABLE "hashtags" (
 	"contributor_latitude" float8,
 	"contributor_geohash" varchar(100) COLLATE "default",
 	"contributor_name" varchar(255) COLLATE "default",
-	"tag" varchar(255) COLLATE "default"
+	"tag" varchar(255) COLLATE "default",
+	"keyword" varchar(150) COLLATE "default",
+	"contributor_country" varchar(6) COLLATE "default",
+	"contributor_city" varchar(75) COLLATE "default",
+	"contributor_state" varchar(50) COLLATE "default",
+	"contributor_county" varchar(75) COLLATE "default"
 )
 WITH (OIDS=FALSE);
 
@@ -42,5 +47,6 @@ ALTER TABLE "hashtags" ADD CONSTRAINT "hashtags_harvest_id_unique" UNIQUE ("harv
 CREATE INDEX  "h_contributor_id_key" ON "hashtags" USING btree(contributor_id COLLATE "default" DESC NULLS LAST);
 CREATE INDEX  "h_message_id_key" ON "hashtags" USING btree(message_id COLLATE "default" DESC NULLS LAST);
 CREATE INDEX  "h_tag_key" ON "hashtags" USING btree(tag COLLATE "default" ASC NULLS LAST);
+CREATE INDEX  "h_keyword_key" ON "hashtags" USING btree(keyword COLLATE "default" ASC NULLS LAST);
 CREATE INDEX  "h_time_key" ON "hashtags" USING btree("time" DESC NULLS LAST);
 

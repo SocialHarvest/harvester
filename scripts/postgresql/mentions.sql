@@ -48,7 +48,6 @@ ALTER TABLE "mentions" ADD CONSTRAINT "mentions_harvest_id_unique" UNIQUE ("harv
 --  Indexes structure for table mentions
 -- ----------------------------
 CREATE INDEX  "m_contributor_id_key" ON "mentions" USING btree(contributor_id COLLATE "default" DESC NULLS LAST);
-CREATE INDEX  "m_contributor_lat_lng_key" ON "mentions" USING gist("point(contributor_latitude, contributor_longitude)");
 CREATE INDEX  "m_mentioned_id_key" ON "mentions" USING btree(mentioned_id COLLATE "default" DESC NULLS LAST);
 CREATE INDEX  "m_message_id_key" ON "mentions" USING btree(mentioned_id COLLATE "default" DESC NULLS LAST);
 CREATE INDEX  "m_time_key" ON "mentions" USING btree("time" DESC NULLS LAST);

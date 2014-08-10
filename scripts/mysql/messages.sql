@@ -1,5 +1,5 @@
 /*
- Date: 08/06/2014 23:30:00 PM
+ Date: 08/09/2014 13:32:56 PM
 */
 
 SET NAMES utf8;
@@ -16,6 +16,10 @@ CREATE TABLE `messages` (
   `network` varchar(75) DEFAULT NULL,
   `contributor_id` varchar(255) DEFAULT NULL,
   `contributor_screen_name` varchar(255) DEFAULT NULL,
+  `lang` varchar(8) DEFAULT NULL,
+  `longitude` double DEFAULT NULL,
+  `latitude` double DEFAULT NULL,
+  `geohash` varchar(100) DEFAULT NULL,
   `facebook_shares` int(11) DEFAULT NULL,
   `message_id` varchar(255) DEFAULT NULL,
   `message` text,
@@ -31,16 +35,20 @@ CREATE TABLE `messages` (
   `contributor_listed_count` int(11) DEFAULT NULL,
   `contributor_followers` int(11) DEFAULT NULL,
   `contributor_verified` smallint(6) DEFAULT NULL,
-  `is_question` smallint(6) DEFAULT NULL,
+  `is_question` smallint(6) NOT NULL DEFAULT '0',
   `category` varchar(100) DEFAULT NULL,
   `twitter_retweet_count` int(11) DEFAULT NULL,
   `twitter_favorite_count` int(11) DEFAULT NULL,
+  `contributor_country` varchar(6) DEFAULT NULL,
+  `contributor_city` varchar(75) DEFAULT NULL,
+  `contributor_state` varchar(50) DEFAULT NULL,
+  `contributor_county` varchar(75) DEFAULT NULL,
   PRIMARY KEY (`harvest_id`),
   UNIQUE KEY `msg_harvest_id_unique` (`harvest_id`),
   KEY `msg_message_id_key` (`message_id`),
   KEY `msg_contributor_id_key` (`contributor_id`),
   KEY `msg_time_key` (`time`),
-  KEY `msg_contributor_lang_key` (`contributor_lang`),
+  KEY `msg_lang_key` (`lang`),
   KEY `msg_question_key` (`is_question`),
   KEY `msg_category_key` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

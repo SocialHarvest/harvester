@@ -1,6 +1,6 @@
 /*
  PostgreSQL
- Date: 08/06/2014 22:53:32 PM
+ Date: 08/09/2014 13:33:25 PM
 */
 
 -- ----------------------------
@@ -32,7 +32,11 @@ CREATE TABLE "messages" (
 	"is_question" int2,
 	"category" varchar(100) COLLATE "default",
 	"twitter_retweet_count" int4,
-	"twitter_favorite_count" int4
+	"twitter_favorite_count" int4,
+	"contributor_country" varchar(6) COLLATE "default",
+	"contributor_city" varchar(75) COLLATE "default",
+	"contributor_state" varchar(50) COLLATE "default",
+	"contributor_county" varchar(75) COLLATE "default"
 )
 WITH (OIDS=FALSE);
 
@@ -51,8 +55,6 @@ ALTER TABLE "messages" ADD CONSTRAINT "messages_harvest_id_unique" UNIQUE ("harv
 -- ----------------------------
 CREATE INDEX  "msg_category_key" ON "messages" USING btree(category COLLATE "default" ASC NULLS LAST);
 CREATE INDEX  "msg_contributor_id_key" ON "messages" USING btree(contributor_id COLLATE "default" DESC NULLS LAST);
-CREATE INDEX  "msg_contributor_lang_key" ON "messages" USING btree(contributor_lang COLLATE "default" ASC NULLS LAST);
-CREATE INDEX  "msg_lat_lng_key" ON "messages" USING gist("point(contributor_latitude, contributor_longitude)");
 CREATE INDEX  "msg_message_id_key" ON "messages" USING btree(message_id COLLATE "default" DESC NULLS LAST);
 CREATE INDEX  "msg_question_key" ON "messages" USING btree(is_question DESC NULLS LAST);
 CREATE INDEX  "msg_time_key" ON "messages" USING btree("time" DESC NULLS LAST);

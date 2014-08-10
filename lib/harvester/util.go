@@ -20,7 +20,7 @@ import (
 	"crypto/md5"
 	"encoding/csv"
 	"encoding/hex"
-	"github.com/jasonwinn/geocoder"
+	"github.com/tmaiaroto/geocoder"
 	"io"
 	"log"
 	"net/http"
