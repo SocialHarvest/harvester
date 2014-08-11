@@ -39,7 +39,10 @@ type Harvest struct{}
 // The configuration structure mapping from JSON
 type SocialHarvestConf struct {
 	Server struct {
-		Port     int  `json:"port"`
+		Port int `json:"port"`
+		Cors struct {
+			AllowedOrigins []string `json:"allowedOrigins"`
+		} `json:"cors"`
 		Disabled bool `json:"disabled"`
 	} `json:"server"`
 	Database struct {

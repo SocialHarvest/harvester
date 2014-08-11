@@ -19,7 +19,7 @@ package harvester
 import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
-	"github.com/jasonwinn/geocoder"
+	"github.com/tmaiaroto/geocoder"
 )
 
 type harvesterServices struct {

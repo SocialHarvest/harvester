@@ -33,6 +33,10 @@ You will also need to provide your application API keys within this configuratio
 the RESTful API server. All social media services have an access token you will be able to generate and use within Social Harvest. 
 You do not need a web browser to configure Social Harvest. Configurations are porable and can be deployed with each harvester.
 
+Note: If you are working with the Social Harvest Dashboard and are developing locally with ```grunt dev``` then you will likely be
+running the dashboard on a Node.js server with a port of ```8881``` (by default) and you will need to configure CORS for that origin. 
+You can add as many allowed origins as you like in the configuration.
+
 ## Installation
 
 Installation is pretty simple. You'll need to have Go installed, clone this repository and then grab some dependencies before building. 

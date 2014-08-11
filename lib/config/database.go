@@ -288,6 +288,10 @@ type CommonQueryParams struct {
 	Collection string `json:"collection,omitempty"`
 }
 
+type ResultCount struct {
+	Count int `json:"count"`
+}
+
 type ResultAggregateCount struct {
 	Count int    `json:"count"`
 	Value string `json:"value"`
@@ -344,8 +348,9 @@ func SanitizeCommonQueryParams(params CommonQueryParams) CommonQueryParams {
 }
 
 // Groups fields values and returns a count of occurences
-func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fields []string) []ResultAggregateFields {
+func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fields []string) ([]ResultAggregateFields, ResultCount) {
 	var fieldCounts []ResultAggregateFields
+	var total ResultCount
 	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
 
 	switch database.Type {
@@ -374,15 +379,40 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 		defer sess.Close()
 
 		var rows *sql.Rows
+		//var row *sql.Row
 		var drv *sql.DB
 		drv = sess.Driver().(*sql.DB)
 
+		// First get the overall total number of records
+		var buffer bytes.Buffer
+		buffer.WriteString("SELECT COUNT(*) AS count FROM ")
+		buffer.WriteString(sanitizedQueryParams.Collection)
+		buffer.WriteString(" WHERE territory = '")
+		buffer.WriteString(sanitizedQueryParams.Territory)
+		buffer.WriteString("'")
+		// optional date range (can have either or both)
+		if sanitizedQueryParams.From != "" {
+			buffer.WriteString(" AND time >= '")
+			buffer.WriteString(sanitizedQueryParams.From)
+			buffer.WriteString("'")
+		}
+		if sanitizedQueryParams.To != "" {
+			buffer.WriteString(" AND time <= '")
+			buffer.WriteString(sanitizedQueryParams.To)
+			buffer.WriteString("'")
+		}
+
+		rows, err = drv.Query(buffer.String())
+		if err = sqlutil.FetchRow(rows, &total); err != nil {
+			log.Println(err)
+		}
+
 		for _, field := range fields {
 			if len(field) > 0 {
-				var buffer bytes.Buffer
+				buffer.Reset()
 				buffer.WriteString("SELECT COUNT(")
 				buffer.WriteString(field)
-				buffer.WriteString("),")
+				buffer.WriteString(") AS count,")
 				buffer.WriteString(field)
 				buffer.WriteString(" AS value")
 				buffer.WriteString(" FROM ")
@@ -408,7 +438,7 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 
 				buffer.WriteString(" ORDER BY count DESC")
 
-				// optional limit
+				// optional limit (in this case I don't know why one would use it - a date range would be a better limiter)
 				if sanitizedQueryParams.Limit > 0 {
 					buffer.WriteString(" LIMIT ")
 					buffer.WriteString(strconv.FormatInt(int64(sanitizedQueryParams.Limit), 10))
@@ -437,10 +467,10 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 		break
 	}
 
-	return fieldCounts
+	return fieldCounts, total
 }
 
-// Returns total number of records for a given territory, series, and date range (not grouped). Use this to get % of total from FieldCounts()
+// Returns total number of records for a given territory, series, and date range (not grouped).
 // TODO: Maybe make another field on the FieldCounts() results for percentage of total
 func (database *SocialHarvestDB) Totals(queryParams CommonQueryParams, fields []string) []ResultAggregateFields {
 	var fieldCounts []ResultAggregateFields

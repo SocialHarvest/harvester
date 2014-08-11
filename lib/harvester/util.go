@@ -20,7 +20,6 @@ import (
 	"crypto/md5"
 	"encoding/csv"
 	"encoding/hex"
-	"github.com/tmaiaroto/geocoder"
 	"io"
 	"log"
 	"net/http"
@@ -151,11 +150,6 @@ func DetectGender(name string) int {
 	}
 
 	return 0
-}
-
-// Geocodes using MapQuest API if available
-func Geocode(locationQuery string) (float64, float64) {
-	return geocoder.Geocode(locationQuery)
 }
 
 // Gets the final URL given a short URL (or one that has redirects)

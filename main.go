@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"strings"
 	//"sync"
-	_ "net/http/pprof"
+	//_ "net/http/pprof"
 	"reflect"
 	"runtime"
 	"time"
@@ -112,23 +112,6 @@ func StreamTwitter(w rest.ResponseWriter, r *rest.Request) {
 		w.(http.Flusher).Flush()
 		time.Sleep(time.Duration(1) * time.Second)
 	}
-
-	/*
-		member := socialHarvest.Broadcasters.Contributor.Join()
-
-		for {
-			message := member.Recv()
-			//message := <-member.In
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteJson(message)
-			w.(http.ResponseWriter).Write([]byte("\n"))
-			// Flush the buffer to client
-			w.(http.Flusher).Flush()
-			// wait a second between messages (though we don't have to!)
-			// note that long after the broadcasted messages occured this will still be going, so theoretically it's possible to get a big pile up...though messages do timeout)
-			time.Sleep(time.Duration(1) * time.Second)
-		}
-	*/
 }
 
 // API: Territory aggregates (gender, language, etc.) shows a breakdown and count of various values and their percentage of total
@@ -136,6 +119,9 @@ func TerritoryAggregateData(w rest.ResponseWriter, r *rest.Request) {
 	res := config.NewHypermediaResource()
 	res.Links["self"] = config.HypermediaLink{
 		Href: "/territory/aggregate/{territory}/{collection}{?from,to,fields}",
+	}
+	res.Links["territory:list"] = config.HypermediaLink{
+		Href: "/territory/list",
 	}
 
 	territory := r.PathParam("territory")
@@ -177,10 +163,27 @@ func TerritoryAggregateData(w rest.ResponseWriter, r *rest.Request) {
 			Limit:      limit,
 		}
 
-		res.Data["aggregate"] = socialHarvest.Database.FieldCounts(params, fields)
+		var total config.ResultCount
+		res.Data["aggregate"], total = socialHarvest.Database.FieldCounts(params, fields)
+		res.Data["total"] = total.Count
 		res.Success()
 	}
 
+	w.WriteJson(res.End())
+}
+
+// API: Territory list returns all currently configured territories and their settings
+func TerritoryList(w rest.ResponseWriter, r *rest.Request) {
+	res := config.NewHypermediaResource()
+	res.Links["self"] = config.HypermediaLink{
+		Href: "/territory/list",
+	}
+	res.Links["territory:aggregate-data"] = config.HypermediaLink{
+		Href: "/territory/aggregate/{territory}/{collection}{?from,to,fields}",
+	}
+
+	res.Data["territories"] = socialHarvest.Config.Harvest.Territories
+	res.Success()
 	w.WriteJson(res.End())
 }
 
@@ -207,6 +210,7 @@ func LinkDetails(w rest.ResponseWriter, r *rest.Request) {
 		res.Data["content"] = article.CleanedText
 		res.Data["url"] = article.FinalUrl
 		res.Data["image"] = article.TopImage
+		res.Data["movies"] = article.Movies
 		res.Success()
 	}
 
@@ -319,13 +323,42 @@ func main() {
 	// but that would lead to a more confusing configuration.
 	// TODO: Think about accepting command line arguments for adhoc harvesting.
 	if !socialHarvest.Config.Server.Disabled {
+		restMiddleware := []rest.Middleware{}
+
+		// If additional origins were allowed for CORS, handle them
+		if len(socialHarvest.Config.Server.Cors.AllowedOrigins) > 0 {
+			restMiddleware = append(restMiddleware,
+				&rest.CorsMiddleware{
+					RejectNonCorsRequests: false,
+					OriginValidator: func(origin string, request *rest.Request) bool {
+						for _, allowedOrigin := range socialHarvest.Config.Server.Cors.AllowedOrigins {
+							// If the request origin matches one of the allowed origins, return true
+							if origin == allowedOrigin {
+								return true
+							}
+						}
+						return false
+					},
+					AllowedMethods: []string{"GET", "POST", "PUT"},
+					AllowedHeaders: []string{
+						"Accept", "Content-Type", "X-Custom-Header", "Origin"},
+					AccessControlAllowCredentials: true,
+					AccessControlMaxAge:           3600,
+				},
+			)
+		}
+
+		// TODO: allow configured auth?
+
 		handler := rest.ResourceHandler{
 			EnableRelaxedContentType: true,
+			PreRoutingMiddlewares:    restMiddleware,
 		}
 		err := handler.SetRoutes(
 			&rest.Route{"GET", "/schedule/read", ShowSchedule},
 			&rest.Route{"GET", "/config/read", ShowSocialHarvestConfig},
 			&rest.Route{"GET", "/stream/twitter", StreamTwitter},
+			&rest.Route{"GET", "/territory/list", TerritoryList},
 			&rest.Route{"GET", "/territory/aggregate/:territory/:collection", TerritoryAggregateData},
 			&rest.Route{"GET", "/link/details", LinkDetails},
 		)
