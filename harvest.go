@@ -284,8 +284,9 @@ func HarvestAll() {
 
 // Calls all harvest functions that gather content
 func HarvestAllContent() {
-	//FacebookPublicMessagesByKeyword()
-	//FacebookMessagesByAccount()
+	go FacebookPublicMessagesByKeyword()
+	go FacebookMessagesByAccount()
+	go TwitterPublicMessagesByKeyword()
 }
 
 // Calls all harvest functions that gather information about account changes/growth

@@ -39,8 +39,12 @@ You can add as many allowed origins as you like in the configuration.
 
 ## Installation
 
-Installation is pretty simple. You'll need to have Go installed, clone this repository and then grab some dependencies before building. 
-Many of the dependencies will be handled automatically by first calling ```go get```, but you will have the need to get a few packages separately.
+First, you'll need Mercurial and Bazaar since a few packages use those version control systems. On Ubuntu it's as easy as 
+```apt-get install bzr``` and ```apt-get install mercurial```.
+
+Installation is pretty simple. You'll need to have Go installed and with your $GOPATH set: ```go get github.com/SocialHarvest/harvester``` 
+
+The dependencies should be handled automatically but you may need to call ```go get```.
 
 If you're using a SQL database, be sure to setup your tables using the SQL files in the ```scripts``` directory. It'll save you a lot of trouble. 
 However, these will change quite frequently during development until Social Harvest has a stable version released.
@@ -57,7 +61,7 @@ package, you shouldn't need it if you don't plan to use PostgreSQL. MySQL suppor
 Again, all of this is explained in upper.io's documentation.
 
 All other dependencies (with the exception of testify, see below) should be obtained easily enough via ```go get```. Then to run Social Harvest before (or without) 
-building it, you can issue the following command because there are multiple files in the main package (and you don't want to run the _test files):
+building it (at the package src under your $GOPATH), you can issue the following command because there are multiple files in the main package (and you don't want to run the _test files):
 
 ```
 go run main.go harvest.go
