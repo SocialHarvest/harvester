@@ -114,18 +114,23 @@ func StreamTwitter(w rest.ResponseWriter, r *rest.Request) {
 	}
 }
 
-// API: Territory aggregates (gender, language, etc.) shows a breakdown and count of various values and their percentage of total
+// --------- API: Territory end points ---------
+
+// Territory aggregates (gender, language, etc.) shows a breakdown and count of various values and their percentage of total
 func TerritoryAggregateData(w rest.ResponseWriter, r *rest.Request) {
-	res := config.NewHypermediaResource()
+	res := setTerritoryLinks("territory:aggregate")
 	res.Links["self"] = config.HypermediaLink{
-		Href: "/territory/aggregate/{territory}/{collection}{?from,to,fields}",
+		Href: "/territory/aggregate/{territory}/{series}{?from,to,fields,network}",
 	}
 	res.Links["territory:list"] = config.HypermediaLink{
 		Href: "/territory/list",
 	}
+	res.Links["territory:timeseries-aggregate"] = config.HypermediaLink{
+		Href: "/territory/timeseries/aggregate/{territory}/{series}{?from,to,fields,network,resolution}",
+	}
 
 	territory := r.PathParam("territory")
-	collection := r.PathParam("collection")
+	series := r.PathParam("series")
 	queryParams := r.URL.Query()
 
 	timeFrom := ""
@@ -135,6 +140,10 @@ func TerritoryAggregateData(w rest.ResponseWriter, r *rest.Request) {
 	timeTo := ""
 	if len(queryParams["to"]) > 0 {
 		timeTo = queryParams["to"][0]
+	}
+	network := ""
+	if len(queryParams["network"]) > 0 {
+		timeTo = queryParams["network"][0]
 	}
 
 	limit := 0
@@ -154,13 +163,14 @@ func TerritoryAggregateData(w rest.ResponseWriter, r *rest.Request) {
 		}
 	}
 
-	if territory != "" && collection != "" && len(fields) > 0 {
+	if territory != "" && series != "" && len(fields) > 0 {
 		params := config.CommonQueryParams{
-			Collection: collection,
-			Territory:  territory,
-			From:       timeFrom,
-			To:         timeTo,
-			Limit:      limit,
+			Series:    series,
+			Territory: territory,
+			Network:   network,
+			From:      timeFrom,
+			To:        timeTo,
+			Limit:     limit,
 		}
 
 		var total config.ResultCount
@@ -172,20 +182,251 @@ func TerritoryAggregateData(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(res.End())
 }
 
-// API: Territory list returns all currently configured territories and their settings
-func TerritoryList(w rest.ResponseWriter, r *rest.Request) {
-	res := config.NewHypermediaResource()
-	res.Links["self"] = config.HypermediaLink{
-		Href: "/territory/list",
+// This works practically the same way as TerritoryAggregateData, only instead it is a streaming API response that returns multiple slices of time.
+// This makes light work of a potential mount of data and streams the response back to the client for progressive loading. For example, a time series
+// graph can be drawn using JavaScript in an animated sort of fashion. As more data came in, the chart would change. For smaller ranges this should
+// return quite quickly and perhaps not even be necessary...But for large date ranges (or lots of data) this could work around performance issues.
+// Alternative to this, would be storing aggregate report data in a database somewhere, but that limits the use of the "resolution" option.
+// This method makes for greater flexibility and less database storage. Though it may need to be re-evaluated in the future if there proves to be
+// too much data, resulting in slow loads.
+// NOTE: This returns sparse data and an aggregate count of all field values, so it may be difficult to parse on the front-end.
+func TerritoryTimeSeriesAggregateData(w rest.ResponseWriter, r *rest.Request) {
+	territory := r.PathParam("territory")
+	series := r.PathParam("series")
+	queryParams := r.URL.Query()
+
+	timeFrom := ""
+	if len(queryParams["from"]) > 0 {
+		timeFrom = queryParams["from"][0]
 	}
-	res.Links["territory:aggregate-data"] = config.HypermediaLink{
-		Href: "/territory/aggregate/{territory}/{collection}{?from,to,fields}",
+	timeTo := ""
+	if len(queryParams["to"]) > 0 {
+		timeTo = queryParams["to"][0]
+	}
+	network := ""
+	if len(queryParams["network"]) > 0 {
+		network = queryParams["network"][0]
 	}
 
+	// likely not used here
+	limit := 0
+	if len(queryParams["limit"]) > 0 {
+		parsedLimit, err := strconv.Atoi(queryParams["limit"][0])
+		if err == nil {
+			limit = parsedLimit
+		}
+	}
+
+	// in minutes
+	resolution := 0
+	if len(queryParams["resolution"]) > 0 {
+		parsedResolution, err := strconv.Atoi(queryParams["resolution"][0])
+		if err == nil {
+			resolution = parsedResolution
+		}
+	}
+	// TODO: limit the resolution? 5, 10, 15, 30, 45, 60, 180, 1440 etc.? (minutes, hour, 3 hours, day, etc.)
+	// TODO: maybe also add timezone? (this would require changes all over to date picker, other queries, etc.)
+
+	fields := []string{}
+	if len(queryParams["fields"]) > 0 {
+		fields = strings.Split(queryParams["fields"][0], ",")
+		// trim any white space
+		for i, val := range fields {
+			fields[i] = strings.Trim(val, " ")
+		}
+	}
+
+	//log.Println(resolution)
+	if resolution != 0 && territory != "" && series != "" && len(fields) > 0 {
+		// only accepting days for now - not down to minutes or hours (yet)
+		tF, _ := time.Parse("2006-01-02", timeFrom)
+		tT, _ := time.Parse("2006-01-02", timeTo)
+
+		timeRange := tT.Sub(tF)
+		//totalRangeMinutes := int(timeRange.Minutes())
+		periodsInRange := int(timeRange.Minutes() / float64(resolution))
+
+		params := config.CommonQueryParams{
+			Series:    series,
+			Territory: territory,
+			Network:   network,
+			From:      timeFrom,
+			To:        timeTo,
+			Limit:     limit,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		var aggregate []config.ResultAggregateFields
+		//var total config.ResultCount
+		for i := 0; i < periodsInRange; i++ {
+			params.From = tF.Format("2006-01-02 15:04:05")
+			tF = tF.Add(time.Duration(resolution) * time.Minute)
+			params.To = tF.Format("2006-01-02 15:04:05")
+
+			aggregate, _ = socialHarvest.Database.FieldCounts(params, fields)
+			w.WriteJson(aggregate)
+			w.(http.ResponseWriter).Write([]byte("\n"))
+			// Flush the buffer to client immediately
+			// (for most cases, this stream will be quick and short - just how we like it. for the more crazy requests, it may take a little while and that's ok too)
+			w.(http.Flusher).Flush()
+		}
+	}
+}
+
+// Returns a simple count based on various conditions.
+func TerritoryCountData(w rest.ResponseWriter, r *rest.Request) {
+	res := setTerritoryLinks("territory:count")
+
+	territory := r.PathParam("territory")
+	series := r.PathParam("series")
+	field := r.PathParam("field")
+	queryParams := r.URL.Query()
+
+	timeFrom := ""
+	if len(queryParams["from"]) > 0 {
+		timeFrom = queryParams["from"][0]
+	}
+	timeTo := ""
+	if len(queryParams["to"]) > 0 {
+		timeTo = queryParams["to"][0]
+	}
+	fieldValue := ""
+	if len(queryParams["fieldValue"]) > 0 {
+		fieldValue = queryParams["fieldValue"][0]
+	}
+	network := ""
+	if len(queryParams["network"]) > 0 {
+		network = queryParams["network"][0]
+	}
+
+	params := config.CommonQueryParams{
+		Series:    series,
+		Territory: territory,
+		Field:     field,
+		Network:   network,
+		From:      timeFrom,
+		To:        timeTo,
+	}
+
+	var count config.ResultCount
+	count = socialHarvest.Database.Count(params, fieldValue)
+	res.Data["count"] = count.Count
+	res.Meta.From = count.TimeFrom
+	res.Meta.To = count.TimeTo
+
+	res.Success()
+	w.WriteJson(res.End())
+}
+
+// Returns a simple count based on various conditions in a streaming time series.
+func TerritoryTimeseriesCountData(w rest.ResponseWriter, r *rest.Request) {
+	territory := r.PathParam("territory")
+	series := r.PathParam("series")
+	field := r.PathParam("field")
+	queryParams := r.URL.Query()
+
+	timeFrom := ""
+	if len(queryParams["from"]) > 0 {
+		timeFrom = queryParams["from"][0]
+	}
+	timeTo := ""
+	if len(queryParams["to"]) > 0 {
+		timeTo = queryParams["to"][0]
+	}
+	fieldValue := ""
+	if len(queryParams["fieldValue"]) > 0 {
+		fieldValue = queryParams["fieldValue"][0]
+	}
+	network := ""
+	if len(queryParams["network"]) > 0 {
+		network = queryParams["network"][0]
+	}
+
+	params := config.CommonQueryParams{
+		Series:    series,
+		Territory: territory,
+		Field:     field,
+		Network:   network,
+		From:      timeFrom,
+		To:        timeTo,
+	}
+
+	// in minutes
+	resolution := 0
+	if len(queryParams["resolution"]) > 0 {
+		parsedResolution, err := strconv.Atoi(queryParams["resolution"][0])
+		if err == nil {
+			resolution = parsedResolution
+		}
+	}
+
+	if resolution != 0 && territory != "" && series != "" {
+		// only accepting days for now - not down to minutes or hours (yet)
+		tF, _ := time.Parse("2006-01-02", timeFrom)
+		tT, _ := time.Parse("2006-01-02", timeTo)
+
+		timeRange := tT.Sub(tF)
+		//totalRangeMinutes := int(timeRange.Minutes())
+		periodsInRange := int(timeRange.Minutes() / float64(resolution))
+
+		w.Header().Set("Content-Type", "application/json")
+		var count config.ResultCount
+		for i := 0; i < periodsInRange; i++ {
+			params.From = tF.Format("2006-01-02 15:04:05")
+			tF = tF.Add(time.Duration(resolution) * time.Minute)
+			params.To = tF.Format("2006-01-02 15:04:05")
+
+			count = socialHarvest.Database.Count(params, fieldValue)
+			w.WriteJson(count)
+			w.(http.ResponseWriter).Write([]byte("\n"))
+			// Flush the buffer to client immediately
+			// (for most cases, this stream will be quick and short - just how we like it. for the more crazy requests, it may take a little while and that's ok too)
+			w.(http.Flusher).Flush()
+		}
+	}
+
+}
+
+// API: Territory list returns all currently configured territories and their settings
+func TerritoryList(w rest.ResponseWriter, r *rest.Request) {
+	res := setTerritoryLinks("territory:list")
 	res.Data["territories"] = socialHarvest.Config.Harvest.Territories
 	res.Success()
 	w.WriteJson(res.End())
 }
+
+// Sets the hypermedia response "_links" section with all of the routes we have defined for territories.
+func setTerritoryLinks(self string) *config.HypermediaResource {
+	res := config.NewHypermediaResource()
+	res.Links["territory:list"] = config.HypermediaLink{
+		Href: "/territory/list",
+	}
+	res.Links["territory:count"] = config.HypermediaLink{
+		Href: "/territory/count/{territory}/{series}/{field}{?from,to,network,fieldValue}",
+	}
+	res.Links["territory:timeseries-count"] = config.HypermediaLink{
+		Href: "/territory/timeseries/count/{territory}/{series}/{field}{?from,to,network,fieldValue}",
+	}
+	res.Links["territory:aggregate"] = config.HypermediaLink{
+		Href: "/territory/aggregate/{territory}/{series}{?from,to,network,fields}",
+	}
+	res.Links["territory:timeseries-aggregate"] = config.HypermediaLink{
+		Href: "/territory/timeseries/aggregate/{territory}/{series}{?from,to,network,fields,resolution}",
+	}
+
+	selfedRes := config.NewHypermediaResource()
+	for link, _ := range res.Links {
+		if link == self {
+			selfedRes.Links["self"] = res.Links[link]
+		} else {
+			selfedRes.Links[link] = res.Links[link]
+		}
+	}
+	return selfedRes
+}
+
+// --------- API: Utility end points ---------
 
 // Retrieves information to provide a summary about a give URL, specifically articles/blog posts.
 // TODO: Make this more robust (more details, videos, etc.). Some of this may eventually also go into the harvest.
@@ -359,7 +600,15 @@ func main() {
 			&rest.Route{"GET", "/config/read", ShowSocialHarvestConfig},
 			&rest.Route{"GET", "/stream/twitter", StreamTwitter},
 			&rest.Route{"GET", "/territory/list", TerritoryList},
-			&rest.Route{"GET", "/territory/aggregate/:territory/:collection", TerritoryAggregateData},
+			// NOTE: The routes with "timeseries" are streams.
+			// Simple aggregates for a territory
+			&rest.Route{"GET", "/territory/aggregate/:territory/:series", TerritoryAggregateData},
+			&rest.Route{"GET", "/territory/timeseries/aggregate/:territory/:series", TerritoryTimeSeriesAggregateData},
+			// Simple counts for a territory
+			&rest.Route{"GET", "/territory/count/:territory/:series/:field", TerritoryCountData},
+			&rest.Route{"GET", "/territory/timeseries/count/:territory/:series/:field", TerritoryTimeseriesCountData},
+
+			// A utility route to help get some details about any given external web page
 			&rest.Route{"GET", "/link/details", LinkDetails},
 		)
 		if err != nil {

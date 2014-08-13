@@ -42,6 +42,8 @@ type HypermediaMeta struct {
 	Success      bool    `json:"success"`
 	Message      string  `json:"message"`
 	ResponseTime float32 `json:"responseTime,omitempty"`
+	To           string  `json:"to,omitempty"`
+	From         string  `json:"from,omitempty"`
 }
 
 // A simple web link structure (somewhat modeled after HAL's links and http://tools.ietf.org/html/rfc5988).
@@ -49,7 +51,7 @@ type HypermediaMeta struct {
 // Why not support it? Because that changes from {} to [] and changing data types is a burden for others. Plus we have HTTP 301/302.
 // Also, each "_links" key name using this struct should be one of: http://www.iana.org/assignments/link-relations/link-relations.xhtml unless using CURIEs.
 type HypermediaLink struct {
-	Href        string `json:"href"`
+	Href        string `json:"href,omitempty"`
 	Type        string `json:"type,omitempty"`
 	Deprecation string `json:"deprecation,omitempty"`
 	Name        string `json:"name,omitempty"`

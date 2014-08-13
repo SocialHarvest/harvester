@@ -202,6 +202,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}, waitGroup *sync.WaitG
 	}
 	defer sessionCopy.Close()
 
+	// TODO: change to collection to series for consistency - it's a little confusing in some areas because Mongo uses "collection" (but SQL of course is table so...)
 	collection := ""
 
 	// Check if valid type to store and determine the proper table/collection based on it
@@ -281,15 +282,19 @@ func (database *SocialHarvestDB) GetSession() db.Database {
 
 // Some common parameters to make passing them around a bit easier
 type CommonQueryParams struct {
-	From       string `json:"from"`
-	To         string `json:"to"`
-	Territory  string `json:"territory"`
-	Limit      int    `json:"limit,omitempty"`
-	Collection string `json:"collection,omitempty"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+	Territory string `json:"territory"`
+	Network   string `json:"network,omitempty"`
+	Field     string `json:"field,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
+	Series    string `json:"series,omitempty"`
 }
 
 type ResultCount struct {
-	Count int `json:"count"`
+	Count    int    `json:"count"`
+	TimeFrom string `json:"timeFrom"`
+	TimeTo   string `json:"timeTo"`
 }
 
 type ResultAggregateCount struct {
@@ -303,8 +308,11 @@ type ResultAggregateAverage struct {
 }
 
 type ResultAggregateFields struct {
-	Count   map[string][]ResultAggregateCount   `json:"counts,omitempty"`
-	Average map[string][]ResultAggregateAverage `json:"averages,omitempty"`
+	Count    map[string][]ResultAggregateCount   `json:"counts,omitempty"`
+	Average  map[string][]ResultAggregateAverage `json:"averages,omitempty"`
+	TimeFrom string                              `json:"timeFrom"`
+	TimeTo   string                              `json:"timeTo"`
+	Total    int                                 `json:"total"`
 }
 
 // Sanitizes common query params to prevent SQL injection and to ensure proper formatting, etc.
@@ -319,8 +327,8 @@ func SanitizeCommonQueryParams(params CommonQueryParams) CommonQueryParams {
 	// Prepared statements not so good when we let users dynamically chose the table to query (neither are any of the ORMs for Golang either unfortunately).
 	// Only allow tables speicfied in the series slice to be used in a query.
 	for _, v := range database.Series {
-		if params.Collection == v {
-			sanitizedParams.Collection = params.Collection
+		if params.Series == v {
+			sanitizedParams.Series = params.Series
 		}
 	}
 
@@ -329,6 +337,17 @@ func SanitizeCommonQueryParams(params CommonQueryParams) CommonQueryParams {
 	r, _ := regexp.Compile(pattern)
 	if r.MatchString(params.Territory) {
 		sanitizedParams.Territory = params.Territory
+	}
+
+	// Field (column) names and Network names can contain letters, numbers, and underscores
+	pattern = `(?i)[A-z0-9\_]`
+	r, _ = regexp.Compile(pattern)
+	if r.MatchString(params.Field) {
+		sanitizedParams.Field = params.Field
+	}
+	r, _ = regexp.Compile(pattern)
+	if r.MatchString(params.Network) {
+		sanitizedParams.Network = params.Network
 	}
 
 	// to/from are dates and there's only certain characters necessary there too. Fore xample, something like 2014-08-08 12:00:00 is all we need.
@@ -343,7 +362,7 @@ func SanitizeCommonQueryParams(params CommonQueryParams) CommonQueryParams {
 		sanitizedParams.From = strings.Trim(params.From, "-")
 	}
 
-	log.Println(sanitizedParams)
+	//log.Println(sanitizedParams)
 	return sanitizedParams
 }
 
@@ -386,7 +405,7 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 		// First get the overall total number of records
 		var buffer bytes.Buffer
 		buffer.WriteString("SELECT COUNT(*) AS count FROM ")
-		buffer.WriteString(sanitizedQueryParams.Collection)
+		buffer.WriteString(sanitizedQueryParams.Series)
 		buffer.WriteString(" WHERE territory = '")
 		buffer.WriteString(sanitizedQueryParams.Territory)
 		buffer.WriteString("'")
@@ -416,7 +435,7 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 				buffer.WriteString(field)
 				buffer.WriteString(" AS value")
 				buffer.WriteString(" FROM ")
-				buffer.WriteString(sanitizedQueryParams.Collection)
+				buffer.WriteString(sanitizedQueryParams.Series)
 				buffer.WriteString(" WHERE territory = '")
 				buffer.WriteString(sanitizedQueryParams.Territory)
 				buffer.WriteString("'")
@@ -459,10 +478,13 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 				count := map[string][]ResultAggregateCount{}
 				count[field] = valueCounts
 
-				fieldCount := ResultAggregateFields{Count: count}
+				fieldCount := ResultAggregateFields{Count: count, TimeFrom: sanitizedQueryParams.From, TimeTo: sanitizedQueryParams.To, Total: total.Count}
 				fieldCounts = append(fieldCounts, fieldCount)
 			}
 		}
+
+		// Close the pointer
+		rows.Close()
 
 		break
 	}
@@ -470,10 +492,10 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 	return fieldCounts, total
 }
 
-// Returns total number of records for a given territory, series, and date range (not grouped).
-// TODO: Maybe make another field on the FieldCounts() results for percentage of total
-func (database *SocialHarvestDB) Totals(queryParams CommonQueryParams, fields []string) []ResultAggregateFields {
-	var fieldCounts []ResultAggregateFields
+// Returns total number of records for a given territory and series. Optional conditions for network, field/value, and date range. This is just a simple COUNT().
+// However, since it accepts a date range, it could be called a few times to get a time series graph.
+func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue string) ResultCount {
+	var count ResultCount
 	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
 
 	switch database.Type {
@@ -505,50 +527,78 @@ func (database *SocialHarvestDB) Totals(queryParams CommonQueryParams, fields []
 		var drv *sql.DB
 		drv = sess.Driver().(*sql.DB)
 
-		for _, field := range fields {
-			if len(field) > 0 {
-				var buffer bytes.Buffer
-				buffer.WriteString("SELECT COUNT(*) FROM ")
-				buffer.WriteString(sanitizedQueryParams.Collection)
-				buffer.WriteString(" WHERE territory = '")
-				buffer.WriteString(sanitizedQueryParams.Territory)
-				buffer.WriteString("'")
+		var buffer bytes.Buffer
+		buffer.WriteString("SELECT COUNT(*) AS count FROM ")
+		buffer.WriteString(sanitizedQueryParams.Series)
+		buffer.WriteString(" WHERE territory = '")
+		buffer.WriteString(sanitizedQueryParams.Territory)
+		buffer.WriteString("'")
 
-				// optional date range (can have either or both)
-				if sanitizedQueryParams.From != "" {
-					buffer.WriteString(" AND time >= '")
-					buffer.WriteString(sanitizedQueryParams.From)
-					buffer.WriteString("'")
-				}
-				if sanitizedQueryParams.To != "" {
-					buffer.WriteString(" AND time <= '")
-					buffer.WriteString(sanitizedQueryParams.To)
-					buffer.WriteString("'")
-				}
-				///todo; the rest
+		// optional date range (can have either or both)
+		if sanitizedQueryParams.From != "" {
+			buffer.WriteString(" AND time >= '")
+			buffer.WriteString(sanitizedQueryParams.From)
+			buffer.WriteString("'")
+		}
+		if sanitizedQueryParams.To != "" {
+			buffer.WriteString(" AND time <= '")
+			buffer.WriteString(sanitizedQueryParams.To)
+			buffer.WriteString("'")
+		}
 
-				rows, err = drv.Query(buffer.String())
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-
-				var valueCounts []ResultAggregateCount
-				if err = sqlutil.FetchRows(rows, &valueCounts); err != nil {
-					log.Println(err)
-					continue
-				}
-
-				count := map[string][]ResultAggregateCount{}
-				count[field] = valueCounts
-
-				fieldCount := ResultAggregateFields{Count: count}
-				fieldCounts = append(fieldCounts, fieldCount)
+		// Because we're accepting user inuput, use a prepared statement. Sanitizing fieldValue could also be done in the future perhaps (if needed).
+		// The problem with prepared statements everywhere is that we can't put the tables through them. So only a few places will we be able to use them.
+		// Here is one though.
+		if sanitizedQueryParams.Field != "" && fieldValue != "" {
+			buffer.WriteString(" AND ")
+			buffer.WriteString(sanitizedQueryParams.Field)
+			// Must everything be so different?
+			if database.Type == "postgresql" {
+				buffer.WriteString(" = $1")
+			} else {
+				buffer.WriteString(" = ?")
 			}
 		}
+
+		// Again for the network
+		if sanitizedQueryParams.Network != "" {
+			buffer.WriteString(" AND network")
+			// Must everything be so different?
+			if database.Type == "postgresql" {
+				buffer.WriteString(" = $2")
+			} else {
+				buffer.WriteString(" = ?")
+			}
+		}
+
+		// log.Println(buffer.String())
+		stmt, err := drv.Prepare(buffer.String())
+		if err != nil {
+			log.Println(err)
+		}
+		// TODO: There has to be a better way to do this.... This is pretty stupid, but I can't see how to pass a variable number of args.
+		// Prepare() would need to perhaps keep track of how many it was expecting I guess...
+		if fieldValue != "" && sanitizedQueryParams.Network == "" {
+			rows, err = stmt.Query(fieldValue)
+		} else if fieldValue != "" && sanitizedQueryParams.Network != "" {
+			rows, err = stmt.Query(fieldValue, sanitizedQueryParams.Network)
+		} else if fieldValue == "" && sanitizedQueryParams.Network != "" {
+			rows, err = stmt.Query(sanitizedQueryParams.Network)
+		} else {
+			rows, err = stmt.Query()
+		}
+
+		if err = sqlutil.FetchRow(rows, &count); err != nil {
+			log.Println(err)
+		}
+		count.TimeFrom = sanitizedQueryParams.From
+		count.TimeTo = sanitizedQueryParams.To
+
+		// Close the pointer
+		rows.Close()
 
 		break
 	}
 
-	return fieldCounts
+	return count
 }
