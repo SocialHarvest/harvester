@@ -129,11 +129,13 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				}
 				//contributorLat, contributorLng = Geocode(tweet.User.Location)
 			} else {
-				reverseLocation := geocoder.ReverseGeocode(statusLatitude, statusLongitude)
-				contributorState = reverseLocation.State
-				contributorCity = reverseLocation.City
-				contributorCountry = reverseLocation.CountryCode
-				contributorCounty = reverseLocation.County
+				reverseLocation, geoErr := geocoder.ReverseGeocode(statusLatitude, statusLongitude)
+				if geoErr != nil {
+					contributorState = reverseLocation.State
+					contributorCity = reverseLocation.City
+					contributorCountry = reverseLocation.CountryCode
+					contributorCounty = reverseLocation.County
+				}
 				// keep these, no need to change - might change accuracy, etc.
 				contributorLat = statusLatitude
 				contributorLng = statusLongitude

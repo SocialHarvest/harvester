@@ -210,11 +210,13 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 			var contributorCity = ""
 			var contributorCounty = ""
 			if contributor.Location.Latitude != 0.0 && contributor.Location.Latitude != 0.0 {
-				reverseLocation := geocoder.ReverseGeocode(contributor.Location.Latitude, contributor.Location.Longitude)
-				contributorState = reverseLocation.State
-				contributorCity = reverseLocation.City
-				contributorCountry = reverseLocation.CountryCode
-				contributorCounty = reverseLocation.County
+				reverseLocation, geoErr := geocoder.ReverseGeocode(contributor.Location.Latitude, contributor.Location.Longitude)
+				if geoErr != nil {
+					contributorState = reverseLocation.State
+					contributorCity = reverseLocation.City
+					contributorCountry = reverseLocation.CountryCode
+					contributorCounty = reverseLocation.County
+				}
 			}
 
 			// Geohash
