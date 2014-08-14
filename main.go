@@ -504,7 +504,7 @@ func main() {
 	color.Cyan(" ___) | (_) | (__| | (_| | | |  _  | (_| | |   \\ V /  __/\\__ \\ |_ ")
 	color.Cyan("|____/ \\___/ \\___|_|\\__,_|_| |_| |_|\\__,_|_|    \\_/ \\___||___/\\__|")
 	//	color.Cyan("                                                                  ")
-	color.Yellow("_____________________________________________version 0.4.0-preview")
+	color.Yellow("_____________________________________________version 0.4.1-preview")
 	color.Cyan("   ")
 
 	// Optionally allow a config JSON file to be passed via command line
@@ -543,9 +543,9 @@ func main() {
 	// Search Facebook public posts using keywords in Social Harvest config
 	//go FacebookPublicMessagesByKeyword()
 	// Search Facebook public feeds using account ids in Social Harvest config
-	//go FacebookMessagesByAccount()
+	go FacebookMessagesByAccount()
 	// Search Twitter using keywords in Social Harvest config
-	//go TwitterPublicMessagesByKeyword()
+	go TwitterPublicMessagesByKeyword()
 
 	// TODO: Maybe the configuration can specify which data to store? I don't know why anyone would want to restrict what's being stored, but who knows...
 	// Plus, this would only prevent storage/logging. The data would still be harvested. ... Maybe also a StoreAll() function? Note that all of these should be gosubroutines.

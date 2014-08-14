@@ -297,7 +297,9 @@ func HarvestAllAccounts() {
 // Stores harvested messages by subscribing to the harvester observable "SocialHarvestMessage" event and storing those messages in the configured database and out to log file
 func StoreMessage() {
 	var waitGroup sync.WaitGroup
-	dbSession := socialHarvest.Database.GetSession()
+	//dbSession := socialHarvest.Database.GetSession()
+	// we have a session already...the StoreRow() function copies it. no need to keep opening connections.
+	// it could likely lead to issues over time (from what I'm seeing, I'm guessing this was the case).
 
 	streamCh := make(chan interface{})
 	harvester.Subscribe("SocialHarvestMessage", streamCh)
@@ -312,7 +314,7 @@ func StoreMessage() {
 
 		// Write to database (if configured)
 		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, dbSession)
+		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
 		// Wait for all the queries to complete.
 		waitGroup.Wait()
 	}
@@ -321,7 +323,7 @@ func StoreMessage() {
 // Stores harvested mentions by subscribing to the harvester observable "SocialHarvestMention" event and storing those messages in the configured database and out to log file
 func StoreMention() {
 	var waitGroup sync.WaitGroup
-	dbSession := socialHarvest.Database.GetSession()
+	//dbSession := socialHarvest.Database.GetSession()
 
 	streamCh := make(chan interface{})
 	harvester.Subscribe("SocialHarvestMention", streamCh)
@@ -336,7 +338,7 @@ func StoreMention() {
 
 		// Write to database (if configured)
 		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, dbSession)
+		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
 		// Wait for all the queries to complete.
 		waitGroup.Wait()
 	}
@@ -345,7 +347,7 @@ func StoreMention() {
 // Stores harvested shared links by subscribing to the harvester observable "SocialHarvestSharedLink" event and storing those messages in the configured database and out to log file
 func StoreSharedLink() {
 	var waitGroup sync.WaitGroup
-	dbSession := socialHarvest.Database.GetSession()
+	//dbSession := socialHarvest.Database.GetSession()
 
 	streamCh := make(chan interface{})
 	harvester.Subscribe("SocialHarvestSharedLink", streamCh)
@@ -360,7 +362,7 @@ func StoreSharedLink() {
 
 		// Write to database (if configured)
 		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, dbSession)
+		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
 		// Wait for all the queries to complete.
 		waitGroup.Wait()
 	}
@@ -369,7 +371,7 @@ func StoreSharedLink() {
 // Stores harvested hashtags by subscribing to the harvester observable "SocialHarvestHasthag" event and storing those messages in the configured database and out to log file
 func StoreHashtag() {
 	var waitGroup sync.WaitGroup
-	dbSession := socialHarvest.Database.GetSession()
+	//dbSession := socialHarvest.Database.GetSession()
 
 	streamCh := make(chan interface{})
 	harvester.Subscribe("SocialHarvestHashtag", streamCh)
@@ -384,7 +386,7 @@ func StoreHashtag() {
 
 		// Write to database (if configured)
 		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, dbSession)
+		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
 		// Wait for all the queries to complete.
 		waitGroup.Wait()
 	}
@@ -393,7 +395,7 @@ func StoreHashtag() {
 // Stores harvested info about user/account change by subscribing to the harvester observable "SocialHarvestContributorGrowth" event and storing those messages in the configured database and out to log file
 func StoreContributorGrowth() {
 	var waitGroup sync.WaitGroup
-	dbSession := socialHarvest.Database.GetSession()
+	//dbSession := socialHarvest.Database.GetSession()
 
 	streamCh := make(chan interface{})
 	harvester.Subscribe("SocialHarvestContributorGrowth", streamCh)
@@ -408,7 +410,7 @@ func StoreContributorGrowth() {
 
 		// Write to database (if configured)
 		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, dbSession)
+		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
 		// Wait for all the queries to complete.
 		waitGroup.Wait()
 	}
