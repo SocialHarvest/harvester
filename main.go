@@ -524,6 +524,7 @@ func main() {
 	// Set the configuration, DB client, etc. so that it is available to other stuff.
 	socialHarvest.Config = configuration
 	socialHarvest.Database = config.NewDatabase(socialHarvest.Config)
+	defer socialHarvest.Database.Session.Close()
 	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
 	socialHarvest.Writers = config.NewWriters(socialHarvest.Config)
 

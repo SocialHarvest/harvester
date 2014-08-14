@@ -39,7 +39,7 @@ import (
 type SocialHarvestDB struct {
 	Settings db.Settings
 	Type     string
-	Session  *db.Database
+	Session  db.Database
 	Series   []string
 }
 
@@ -62,6 +62,9 @@ func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 
 	// Set some indicies
 	SetupIndicies()
+
+	// Keep a session for queries (writers have their own) - main.go will defer the close of this session.
+	database.Session = database.GetSession()
 
 	return &database
 }
@@ -374,33 +377,15 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 
 	switch database.Type {
 	case "mongodb":
-		sess, err := db.Open(mongo.Adapter, database.Settings)
-		if err != nil {
-			break
-		}
-		// Remember to close the database session.
-		defer sess.Close()
 
 		break
 	case "postgresql", "mysql", "mariadb":
 		// The following query should work for pretty much any SQL database (at least any we're supporting)
 		var err error
-		var sess db.Database
-		if database.Type == "postgresql" {
-			sess, err = db.Open(postgresql.Adapter, database.Settings)
-		} else {
-			sess, err = db.Open(mysql.Adapter, database.Settings)
-		}
-		if err != nil {
-			break
-		}
-		// Remember to close the database session.
-		defer sess.Close()
-
 		var rows *sql.Rows
 		//var row *sql.Row
 		var drv *sql.DB
-		drv = sess.Driver().(*sql.DB)
+		drv = database.Session.Driver().(*sql.DB)
 
 		// First get the overall total number of records
 		var buffer bytes.Buffer
@@ -500,32 +485,14 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 
 	switch database.Type {
 	case "mongodb":
-		sess, err := db.Open(mongo.Adapter, database.Settings)
-		if err != nil {
-			break
-		}
-		// Remember to close the database session.
-		defer sess.Close()
 
 		break
 	case "postgresql", "mysql", "mariadb":
 		// The following query should work for pretty much any SQL database (at least any we're supporting)
 		var err error
-		var sess db.Database
-		if database.Type == "postgresql" {
-			sess, err = db.Open(postgresql.Adapter, database.Settings)
-		} else {
-			sess, err = db.Open(mysql.Adapter, database.Settings)
-		}
-		if err != nil {
-			break
-		}
-		// Remember to close the database session.
-		defer sess.Close()
-
 		var rows *sql.Rows
 		var drv *sql.DB
-		drv = sess.Driver().(*sql.DB)
+		drv = database.Session.Driver().(*sql.DB)
 
 		var buffer bytes.Buffer
 		buffer.WriteString("SELECT COUNT(*) AS count FROM ")
