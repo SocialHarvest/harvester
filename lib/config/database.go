@@ -151,17 +151,19 @@ func (database *SocialHarvestDB) GetLastHarvestTime(territory string, network st
 	col, err := sess.Collection("harvest")
 	if err != nil {
 		log.Fatalf("sess.Collection(): %q\n", err)
+		return lastHarvestTime
 	}
 	result := col.Find(db.Cond{"network": network, "action": action, "value": value, "territory": territory}).Sort("-harvest_time")
+	defer result.Close()
 
 	var lastHarvest SocialHarvestHarvest
 	err = result.One(&lastHarvest)
 	if err != nil {
-		// log.Println(err)
+		log.Println(err)
+		return lastHarvestTime
 	}
 
 	lastHarvestTime = lastHarvest.LastTimeHarvested
-	result.Close()
 
 	return lastHarvestTime
 }
@@ -175,17 +177,19 @@ func (database *SocialHarvestDB) GetLastHarvestId(territory string, network stri
 	col, err := sess.Collection("harvest")
 	if err != nil {
 		log.Println(err)
+		return lastHarvestId
 	}
 	result := col.Find(db.Cond{"network": network, "action": action, "value": value, "territory": territory}).Sort("-harvest_time")
+	defer result.Close()
 
 	var lastHarvest SocialHarvestHarvest
 	err = result.One(&lastHarvest)
 	if err != nil {
 		log.Println(err)
+		return lastHarvestId
 	}
 
 	lastHarvestId = lastHarvest.LastIdHarvested
-	result.Close()
 
 	return lastHarvestId
 }
@@ -265,7 +269,8 @@ func (database *SocialHarvestDB) GetSession() db.Database {
 	// If one is even being used, connect to it and store the data
 	sess, err := db.Open(dbAdapter, database.Settings)
 
-	// Remember to close the database session.
+	// Remember to close the database session. - call this from where ever GetSession() is being called.
+	// Closing it here would be a problem for another function =)
 	//defer sess.Close()
 
 	if err != nil {
@@ -406,9 +411,10 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 			buffer.WriteString("'")
 		}
 
-		rows, err = drv.Query(buffer.String())
-		if err = sqlutil.FetchRow(rows, &total); err != nil {
+		err = drv.QueryRow(buffer.String()).Scan(&total)
+		if err != nil {
 			log.Println(err)
+			return fieldCounts, total
 		}
 
 		for _, field := range fields {
@@ -453,6 +459,8 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 					log.Println(err)
 					continue
 				}
+				// Close the pointer
+				defer rows.Close()
 
 				var valueCounts []ResultAggregateCount
 				if err = sqlutil.FetchRows(rows, &valueCounts); err != nil {
@@ -467,8 +475,7 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 				fieldCounts = append(fieldCounts, fieldCount)
 			}
 		}
-
-		// Close the pointer
+		// harmless to call again to make sure, but use defer above in case something unexpected happens in the loop and it returns, etc.
 		rows.Close()
 
 		break
@@ -480,8 +487,8 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 // Returns total number of records for a given territory and series. Optional conditions for network, field/value, and date range. This is just a simple COUNT().
 // However, since it accepts a date range, it could be called a few times to get a time series graph.
 func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue string) ResultCount {
-	var count ResultCount
 	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
+	var count = ResultCount{Count: 0, TimeFrom: sanitizedQueryParams.From, TimeTo: sanitizedQueryParams.To}
 
 	switch database.Type {
 	case "mongodb":
@@ -490,7 +497,6 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 	case "postgresql", "mysql", "mariadb":
 		// The following query should work for pretty much any SQL database (at least any we're supporting)
 		var err error
-		var rows *sql.Rows
 		var drv *sql.DB
 		drv = database.Session.Driver().(*sql.DB)
 
@@ -542,27 +548,26 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 		stmt, err := drv.Prepare(buffer.String())
 		if err != nil {
 			log.Println(err)
+			return count
 		}
 		// TODO: There has to be a better way to do this.... This is pretty stupid, but I can't see how to pass a variable number of args.
 		// Prepare() would need to perhaps keep track of how many it was expecting I guess...
 		if fieldValue != "" && sanitizedQueryParams.Network == "" {
-			rows, err = stmt.Query(fieldValue)
+			err = stmt.QueryRow(fieldValue).Scan(&count)
+			if err != nil {
+				log.Println(err)
+			}
 		} else if fieldValue != "" && sanitizedQueryParams.Network != "" {
-			rows, err = stmt.Query(fieldValue, sanitizedQueryParams.Network)
+			err = stmt.QueryRow(fieldValue, sanitizedQueryParams.Network).Scan(&count)
+			if err != nil {
+				log.Println(err)
+			}
 		} else if fieldValue == "" && sanitizedQueryParams.Network != "" {
-			rows, err = stmt.Query(sanitizedQueryParams.Network)
-		} else {
-			rows, err = stmt.Query()
+			err = stmt.QueryRow(sanitizedQueryParams.Network).Scan(&count)
+			if err != nil {
+				log.Println(err)
+			}
 		}
-
-		if err = sqlutil.FetchRow(rows, &count); err != nil {
-			log.Println(err)
-		}
-		count.TimeFrom = sanitizedQueryParams.From
-		count.TimeTo = sanitizedQueryParams.To
-
-		// Close the pointer
-		rows.Close()
 
 		break
 	}
