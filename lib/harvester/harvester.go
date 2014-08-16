@@ -42,6 +42,7 @@ func New(configuration config.HarvestConfig, servicesConfiguration config.Servic
 // Sets the API key from configuration (or possibly Social Harvest API)
 func NewGeocoder(servicesConfiguration config.ServicesConfig) {
 	if servicesConfiguration.MapQuest.ApplicationKey != "" {
+		geocoder.NewGeocoder()
 		geocoder.SetAPIKey(servicesConfiguration.MapQuest.ApplicationKey)
 	}
 }
