@@ -304,19 +304,20 @@ func StoreMessage() {
 	streamCh := make(chan interface{})
 	harvester.Subscribe("SocialHarvestMessage", streamCh)
 	for {
-		message := <-streamCh
+		select {
+		case message := <-streamCh:
+			// Log (if configured)
+			jsonMsg, err := json.Marshal(message)
+			if err == nil {
+				socialHarvest.Writers.MessagesWriter.Info(string(jsonMsg))
+			}
 
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.MessagesWriter.Info(string(jsonMsg))
+			// Write to database (if configured)
+			waitGroup.Add(1)
+			go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
+			// Wait for all the queries to complete.
+			waitGroup.Wait()
 		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
 	}
 }
 
@@ -328,19 +329,21 @@ func StoreMention() {
 	streamCh := make(chan interface{})
 	harvester.Subscribe("SocialHarvestMention", streamCh)
 	for {
-		message := <-streamCh
+		select {
+		case message := <-streamCh:
 
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.MentionsWriter.Info(string(jsonMsg))
+			// Log (if configured)
+			jsonMsg, err := json.Marshal(message)
+			if err == nil {
+				socialHarvest.Writers.MentionsWriter.Info(string(jsonMsg))
+			}
+
+			// Write to database (if configured)
+			waitGroup.Add(1)
+			go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
+			// Wait for all the queries to complete.
+			waitGroup.Wait()
 		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
 	}
 }
 
@@ -352,19 +355,21 @@ func StoreSharedLink() {
 	streamCh := make(chan interface{})
 	harvester.Subscribe("SocialHarvestSharedLink", streamCh)
 	for {
-		message := <-streamCh
+		select {
+		case message := <-streamCh:
 
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.SharedLinksWriter.Info(string(jsonMsg))
+			// Log (if configured)
+			jsonMsg, err := json.Marshal(message)
+			if err == nil {
+				socialHarvest.Writers.SharedLinksWriter.Info(string(jsonMsg))
+			}
+
+			// Write to database (if configured)
+			waitGroup.Add(1)
+			go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
+			// Wait for all the queries to complete.
+			waitGroup.Wait()
 		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
 	}
 }
 
@@ -376,19 +381,21 @@ func StoreHashtag() {
 	streamCh := make(chan interface{})
 	harvester.Subscribe("SocialHarvestHashtag", streamCh)
 	for {
-		message := <-streamCh
+		select {
+		case message := <-streamCh:
 
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.HashtagsWriter.Info(string(jsonMsg))
+			// Log (if configured)
+			jsonMsg, err := json.Marshal(message)
+			if err == nil {
+				socialHarvest.Writers.HashtagsWriter.Info(string(jsonMsg))
+			}
+
+			// Write to database (if configured)
+			waitGroup.Add(1)
+			go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
+			// Wait for all the queries to complete.
+			waitGroup.Wait()
 		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
 	}
 }
 
@@ -400,18 +407,20 @@ func StoreContributorGrowth() {
 	streamCh := make(chan interface{})
 	harvester.Subscribe("SocialHarvestContributorGrowth", streamCh)
 	for {
-		message := <-streamCh
+		select {
+		case message := <-streamCh:
 
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.ContributorGrowthWriter.Info(string(jsonMsg))
+			// Log (if configured)
+			jsonMsg, err := json.Marshal(message)
+			if err == nil {
+				socialHarvest.Writers.ContributorGrowthWriter.Info(string(jsonMsg))
+			}
+
+			// Write to database (if configured)
+			waitGroup.Add(1)
+			go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
+			// Wait for all the queries to complete.
+			waitGroup.Wait()
 		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
 	}
 }
