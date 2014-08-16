@@ -412,6 +412,7 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 		}
 
 		err = drv.QueryRow(buffer.String()).Scan(&total)
+		buffer.Reset()
 		if err != nil {
 			log.Println(err)
 			return fieldCounts, total
@@ -455,6 +456,7 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 				}
 
 				rows, err = drv.Query(buffer.String())
+				buffer.Reset()
 				if err != nil {
 					log.Println(err)
 					continue
@@ -546,6 +548,7 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 
 		// log.Println(buffer.String())
 		stmt, err := drv.Prepare(buffer.String())
+		buffer.Reset()
 		if err != nil {
 			log.Println(err)
 			return count
