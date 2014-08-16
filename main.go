@@ -103,14 +103,16 @@ func StreamTwitter(w rest.ResponseWriter, r *rest.Request) {
 	// and that means select{} is going to be our filter. of course we could merge the data or call w.WriteJson() multiple times that's fine too.
 	// but selecting the right channel may be more efficient if set up properly.
 	for {
-		data := <-streamCh
-		//fmt.Printf("sub3: %v\n", data)
+		select {
+		case data := <-streamCh:
+			//fmt.Printf("sub3: %v\n", data)
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteJson(data)
-		w.(http.ResponseWriter).Write([]byte("\n"))
-		w.(http.Flusher).Flush()
-		time.Sleep(time.Duration(1) * time.Second)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteJson(data)
+			w.(http.ResponseWriter).Write([]byte("\n"))
+			w.(http.Flusher).Flush()
+			time.Sleep(time.Duration(1) * time.Second)
+		}
 	}
 }
 
