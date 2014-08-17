@@ -413,9 +413,10 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 			buffer.WriteString("'")
 		}
 
-		err = drv.QueryRow(buffer.String()).Scan(&total)
+		rows, err = drv.Query(buffer.String())
 		buffer.Reset()
-		if err != nil {
+		defer rows.Close()
+		if err = sqlutil.FetchRow(rows, &total); err != nil {
 			log.Println(err)
 			return fieldCounts, total
 		}
@@ -567,14 +568,17 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 		} else {
 			rows, err = stmt.Query()
 		}
+		// Close the pointer
+		defer rows.Close()
 
 		if err = sqlutil.FetchRow(rows, &count); err != nil {
 			log.Println(err)
+			return count
 		}
 		count.TimeFrom = sanitizedQueryParams.From
 		count.TimeTo = sanitizedQueryParams.To
 
-		// Close the pointer
+		// harmless to call again to make sure, but use defer above in case something unexpected happens in the loop and it returns, etc.
 		rows.Close()
 
 		break
