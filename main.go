@@ -511,11 +511,11 @@ func main() {
 
 	// Immedate calls to use for testing during development
 	// Search Facebook public posts using keywords in Social Harvest config
-	go FacebookPublicMessagesByKeyword()
+	//go FacebookPublicMessagesByKeyword()
 	// Search Facebook public feeds using account ids in Social Harvest config
-	go FacebookMessagesByAccount()
+	//go FacebookMessagesByAccount()
 	// Search Twitter using keywords in Social Harvest config
-	go TwitterPublicMessagesByKeyword()
+	//go TwitterPublicMessagesByKeyword()
 
 	//harvester.YoutubeVideoSearch("obama")
 	///
