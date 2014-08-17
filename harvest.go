@@ -272,6 +272,7 @@ func TwitterPublicMessagesByKeyword() {
 			}
 		}
 	}
+	log.Println("done twitter public message search")
 }
 
 // Simply calls every other function here, harvesting everything

@@ -98,7 +98,11 @@ func Log(event []byte, channelName string) {
 	select {
 	case logChannels[channelName] <- event:
 	case <-time.After(5 * time.Second):
+		return // do we need this? i feel like while memory stops climbing after a harvest...it isn't being released. would this force GC?
+		// or would i need to close all the logChannels and open them back up again on next harvest?
 		// throw away the message, so sad
+	default:
+		// need this? if there's a timeout?
 	}
 }
 

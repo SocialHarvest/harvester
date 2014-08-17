@@ -234,7 +234,9 @@ func (database *SocialHarvestDB) StoreRow(row interface{}, waitGroup *sync.WaitG
 	//col, colErr := dbSession.Collection(collection)
 	col, colErr := sessionCopy.Collection(collection)
 	if colErr != nil {
-		log.Fatalf("sessionCopy.Collection(): %q\n", colErr)
+		//log.Fatalf("sessionCopy.Collection(): %q\n", colErr)
+		log.Printf("sessionCopy.Collection(%s): %q\n", collection, colErr)
+		return
 	}
 
 	if collection != "" {
@@ -499,6 +501,7 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 	case "postgresql", "mysql", "mariadb":
 		// The following query should work for pretty much any SQL database (at least any we're supporting)
 		var err error
+		var rows *sql.Rows
 		var drv *sql.DB
 		drv = database.Session.Driver().(*sql.DB)
 
@@ -556,21 +559,23 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 		// TODO: There has to be a better way to do this.... This is pretty stupid, but I can't see how to pass a variable number of args.
 		// Prepare() would need to perhaps keep track of how many it was expecting I guess...
 		if fieldValue != "" && sanitizedQueryParams.Network == "" {
-			err = stmt.QueryRow(fieldValue).Scan(&count)
-			if err != nil {
-				log.Println(err)
-			}
+			rows, err = stmt.Query(fieldValue)
 		} else if fieldValue != "" && sanitizedQueryParams.Network != "" {
-			err = stmt.QueryRow(fieldValue, sanitizedQueryParams.Network).Scan(&count)
-			if err != nil {
-				log.Println(err)
-			}
+			rows, err = stmt.Query(fieldValue, sanitizedQueryParams.Network)
 		} else if fieldValue == "" && sanitizedQueryParams.Network != "" {
-			err = stmt.QueryRow(sanitizedQueryParams.Network).Scan(&count)
-			if err != nil {
-				log.Println(err)
-			}
+			rows, err = stmt.Query(sanitizedQueryParams.Network)
+		} else {
+			rows, err = stmt.Query()
 		}
+
+		if err = sqlutil.FetchRow(rows, &count); err != nil {
+			log.Println(err)
+		}
+		count.TimeFrom = sanitizedQueryParams.From
+		count.TimeTo = sanitizedQueryParams.To
+
+		// Close the pointer
+		rows.Close()
 
 		break
 	}

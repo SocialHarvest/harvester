@@ -219,7 +219,7 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							Host:                  linkHostName,
 						}
 						// Send to the harvester observer
-						go StoreHarvestedData(sharedLink)
+						StoreHarvestedData(sharedLink)
 						LogJson(sharedLink, "shared_links")
 					}
 				}
@@ -262,7 +262,7 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							Source:                media.Media_url,
 						}
 						// Send to the harvester observer
-						go StoreHarvestedData(sharedMedia)
+						StoreHarvestedData(sharedMedia)
 						LogJson(sharedMedia, "shared_links")
 					}
 				}
@@ -297,7 +297,7 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							Tag:                   tag.Text,
 						}
 						// Send to the harvester observer
-						go StoreHarvestedData(hashtag)
+						StoreHarvestedData(hashtag)
 						LogJson(hashtag, "hashtags")
 					}
 				}
@@ -332,7 +332,7 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							MentionedName:       mentionedUser.Name,
 						}
 						// Send to the harvester observer
-						go StoreHarvestedData(mention)
+						StoreHarvestedData(mention)
 						LogJson(mention, "mentions")
 					}
 				}

@@ -253,8 +253,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 				Category:              contributor.Category,
 				IsQuestion:            Btoi(IsQuestion(post.Message, harvestConfig.QuestionRegex)),
 			}
-			// Send to the harvester observer
-			go StoreHarvestedData(messageRow)
+			StoreHarvestedData(messageRow)
 			LogJson(messageRow, "messages")
 
 			// shared links row
@@ -286,8 +285,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 					ExpandedUrl:           ExpandUrl(post.Link),
 					Host:                  hostName,
 				}
-				// Send to the harvester observer
-				go StoreHarvestedData(sharedLinksRow)
+				StoreHarvestedData(sharedLinksRow)
 				LogJson(sharedLinksRow, "shared_links")
 			}
 
@@ -351,8 +349,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 						MentionedGeohash:    mentionedLocationGeoHash,
 						MentionedLang:       LocaleToLanguageISO(mentionedContributor.Locale),
 					}
-					// Send to the harvester observer
-					go StoreHarvestedData(mentionRow)
+					StoreHarvestedData(mentionRow)
 					LogJson(mentionRow, "mentions")
 				}
 			}
@@ -417,8 +414,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 						MentionedGeohash:    mentionedLocationGeoHash,
 						MentionedLang:       LocaleToLanguageISO(mentionedContributor.Locale),
 					}
-					// Send to the harvester observer
-					go StoreHarvestedData(mentionRow)
+					StoreHarvestedData(mentionRow)
 					LogJson(mentionRow, "mentions")
 				}
 			}
