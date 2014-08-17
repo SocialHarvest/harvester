@@ -254,7 +254,8 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 				IsQuestion:            Btoi(IsQuestion(post.Message, harvestConfig.QuestionRegex)),
 			}
 			// Send to the harvester observer
-			Publish("SocialHarvestMessage", messageRow)
+			go StoreHarvestedData(messageRow)
+			LogJson(messageRow, "messages")
 
 			// shared links row
 			// TODO: expand short urls (Facebook doesn't do it for us unfortunately)
@@ -286,7 +287,8 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 					Host:                  hostName,
 				}
 				// Send to the harvester observer
-				Publish("SocialHarvestSharedLink", sharedLinksRow)
+				go StoreHarvestedData(sharedLinksRow)
+				LogJson(sharedLinksRow, "shared_links")
 			}
 
 			// mentions row (note the harvest id in the following - any post that has multiple subobjects to be stored separately will need a different harvest id, else only one of those subobjects would be stored)
@@ -350,7 +352,8 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 						MentionedLang:       LocaleToLanguageISO(mentionedContributor.Locale),
 					}
 					// Send to the harvester observer
-					Publish("SocialHarvestMention", mentionRow)
+					go StoreHarvestedData(mentionRow)
+					LogJson(mentionRow, "mentions")
 				}
 			}
 			// Also try MessageTags (which exist on user and page feeds, whereas StoryTags are available on public posts search)
@@ -415,7 +418,8 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 						MentionedLang:       LocaleToLanguageISO(mentionedContributor.Locale),
 					}
 					// Send to the harvester observer
-					Publish("SocialHarvestMention", mentionRow)
+					go StoreHarvestedData(mentionRow)
+					LogJson(mentionRow, "mentions")
 				}
 			}
 

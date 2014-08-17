@@ -17,13 +17,13 @@
 package main
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/SocialHarvest/harvester/lib/harvester"
 	"log"
 	"net/url"
 	"strconv"
-	"sync"
+	//"sync"
 	"time"
 )
 
@@ -294,6 +294,7 @@ func HarvestAllAccounts() {
 	//FacebookGrowthByAccount()
 }
 
+/*
 // Stores harvested messages by subscribing to the harvester observable "SocialHarvestMessage" event and storing those messages in the configured database and out to log file
 func StoreMessage() {
 	var waitGroup sync.WaitGroup
@@ -415,3 +416,4 @@ func StoreContributorGrowth() {
 		waitGroup.Wait()
 	}
 }
+*/

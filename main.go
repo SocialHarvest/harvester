@@ -86,36 +86,6 @@ func ShowSocialHarvestConfig(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(res.End())
 }
 
-// API: Streams stuff
-func StreamTwitter(w rest.ResponseWriter, r *rest.Request) {
-
-	// TODO: allow this stream to be filtered...
-	// we can have event names like: SocialHarvestMessage:twitter
-	// or by territory, SocialHarvestMessage:territoryName
-	// or both, SocialHarvestMessage:territoryName:twitter
-	// (or alter the observer to take and pass back more arguments)
-	// then we can simply use switches to ensure the proper messages are being put into WriteJson
-	// i think we can also use select{} too...
-
-	streamCh := make(chan interface{})
-	harvester.Subscribe("SocialHarvestMessage", streamCh)
-	// harvester.Subscribe("sub1", streamCh) // this seemingly had no affect...(can only subscribe to one event per channel) which means we will need to have multiple channels here
-	// and that means select{} is going to be our filter. of course we could merge the data or call w.WriteJson() multiple times that's fine too.
-	// but selecting the right channel may be more efficient if set up properly.
-	for {
-		select {
-		case data := <-streamCh:
-			//fmt.Printf("sub3: %v\n", data)
-
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteJson(data)
-			w.(http.ResponseWriter).Write([]byte("\n"))
-			w.(http.Flusher).Flush()
-			time.Sleep(time.Duration(1) * time.Second)
-		}
-	}
-}
-
 // --------- API: Territory end points ---------
 
 // Territory aggregates (gender, language, etc.) shows a breakdown and count of various values and their percentage of total
@@ -506,7 +476,7 @@ func main() {
 	color.Cyan(" ___) | (_) | (__| | (_| | | |  _  | (_| | |   \\ V /  __/\\__ \\ |_ ")
 	color.Cyan("|____/ \\___/ \\___|_|\\__,_|_| |_| |_|\\__,_|_|    \\_/ \\___||___/\\__|")
 	//	color.Cyan("                                                                  ")
-	color.Yellow("_____________________________________________version 0.4.1-preview")
+	color.Yellow("_____________________________________________version 0.5.0-preview")
 	color.Cyan("   ")
 
 	// Optionally allow a config JSON file to be passed via command line
@@ -525,15 +495,13 @@ func main() {
 
 	// Set the configuration, DB client, etc. so that it is available to other stuff.
 	socialHarvest.Config = configuration
+	// TODO: Make db conneciton optional
 	socialHarvest.Database = config.NewDatabase(socialHarvest.Config)
 	defer socialHarvest.Database.Session.Close()
 	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
-	socialHarvest.Writers = config.NewWriters(socialHarvest.Config)
 
-	// TODO: See about only passing the part of the config needed (Services)
-	// We don't need to pass the entire configuration (port, server, passwords, etc. lots of stuff will come to be in there), but we do need all the API tokens and any territroy API token overrides.
-	// We might need some other harvest settings, likely not the schedule though. But it's ok to pass anyway. TODO: Think about breaking this down farther.
-	harvester.New(socialHarvest.Config.Harvest, socialHarvest.Config.Services)
+	// this gets the configuration and the database. TODO: Make database optional
+	harvester.New(socialHarvest.Config, socialHarvest.Database)
 	// Load new gender data from CSV files for detecting gender (this is callable so it can be changed during runtime)
 	// TODO: Think about being able to post more gender statistics via the API to add to the data set...
 	harvester.NewGenderData("data/census-female-names.csv", "data/census-male-names.csv")
@@ -548,14 +516,6 @@ func main() {
 	go FacebookMessagesByAccount()
 	// Search Twitter using keywords in Social Harvest config
 	go TwitterPublicMessagesByKeyword()
-
-	// TODO: Maybe the configuration can specify which data to store? I don't know why anyone would want to restrict what's being stored, but who knows...
-	// Plus, this would only prevent storage/logging. The data would still be harvested. ... Maybe also a StoreAll() function? Note that all of these should be gosubroutines.
-	go StoreMessage()
-	go StoreMention()
-	go StoreSharedLink()
-	go StoreHashtag()
-	go StoreContributorGrowth()
 
 	//harvester.YoutubeVideoSearch("obama")
 	///
@@ -601,7 +561,6 @@ func main() {
 		err := handler.SetRoutes(
 			&rest.Route{"GET", "/schedule/read", ShowSchedule},
 			&rest.Route{"GET", "/config/read", ShowSocialHarvestConfig},
-			&rest.Route{"GET", "/stream/twitter", StreamTwitter},
 			&rest.Route{"GET", "/territory/list", TerritoryList},
 			// NOTE: The routes with "timeseries" are streams.
 			// Simple aggregates for a territory

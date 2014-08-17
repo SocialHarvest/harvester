@@ -20,6 +20,7 @@ import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/tmaiaroto/geocoder"
+	"sync"
 )
 
 type harvesterServices struct {
@@ -29,14 +30,21 @@ type harvesterServices struct {
 
 var harvestConfig = config.HarvestConfig{}
 var services = harvesterServices{}
+var socialHarvestDB *config.SocialHarvestDB
 
 // Sets up a new harvester with the given configuration (which is comprised of several "services")
-func New(configuration config.HarvestConfig, servicesConfiguration config.ServicesConfig) {
-	harvestConfig = configuration
+func New(configuration config.SocialHarvestConf, database *config.SocialHarvestDB) {
+	harvestConfig = configuration.Harvest
 	// Now set up all the services with the configuration
-	NewTwitter(servicesConfiguration)
-	NewFacebook(servicesConfiguration)
-	NewGeocoder(servicesConfiguration)
+	NewTwitter(configuration.Services)
+	NewFacebook(configuration.Services)
+	NewGeocoder(configuration.Services)
+
+	// StoreHarvestedData() needs this now
+	socialHarvestDB = database
+
+	// Internal logging (log4go became problematic for concurrency and I've found a better solution in less than 100 lines now anyway)
+	NewLoggers(configuration.Logs.Directory)
 }
 
 // Sets the API key from configuration (or possibly Social Harvest API)
@@ -45,4 +53,17 @@ func NewGeocoder(servicesConfiguration config.ServicesConfig) {
 		geocoder.NewGeocoder()
 		geocoder.SetAPIKey(servicesConfiguration.MapQuest.ApplicationKey)
 	}
+}
+
+// Rather than using an observer, just call this function instead (the observer was causing memory leaks)
+// TODO: Look back into channels in the future because I like the idea of pub/sub. In the future it could expand into something useful.
+// The thing I don't like (and why I used the observer) is passing all the configuration stuff around.
+func StoreHarvestedData(message interface{}) {
+	// Write to database (if configured)
+	// maybe socialHarvest.Database.Session.Ping() ?? but every time? would be good to check if the database is configured and/or available...maybe not here.
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(1)
+	go socialHarvestDB.StoreRow(message, &waitGroup, socialHarvestDB.Session)
+	// Wait for all the queries to complete.
+	waitGroup.Wait()
 }

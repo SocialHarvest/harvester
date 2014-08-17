@@ -24,7 +24,6 @@ type SocialHarvest struct {
 	Config   SocialHarvestConf
 	Schedule *SocialHarvestSchedule
 	Database *SocialHarvestDB
-	Writers  *SocialHarvestWriters
 }
 
 type HarvestState struct {

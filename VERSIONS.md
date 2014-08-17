@@ -4,6 +4,25 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.5.0 
+-------------
+
+Changed logging altogether because it wasn't really the HTTP issues so much as that there was a memory leak. The observer pattern 
+being used led to a very rapid memory leak. After removing that, log4go was blocking and created another issue. So a completely new, 
+concurrent friendly, logging method was created. This slims down the codebase a bit too. One less dependency.
+
+
+## 0.4.1
+-------------
+
+Fixed a bug with HTTP requests and the geocoder. This was creating issues elsewhere causing a timeout.
+
+
+## 0.4.0 
+-------------
+
+New API methods to get data back out including some streaming API methods.
+
 ## 0.3.1
 -------------
 Fixed log4go package. While not a patch to Social Harvest directly, I'm still incrementing the patch version. 
