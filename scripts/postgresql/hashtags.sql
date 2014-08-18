@@ -45,6 +45,7 @@ ALTER TABLE "hashtags" ADD CONSTRAINT "hashtags_harvest_id_unique" UNIQUE ("harv
 --  Indexes structure for table hashtags
 -- ----------------------------
 CREATE INDEX  "h_contributor_id_key" ON "hashtags" USING btree(contributor_id COLLATE "default" DESC NULLS LAST);
+CREATE INDEX  "h_contributor_geohash_key" ON "hashtags" USING btree(contributor_geohash COLLATE "default" ASC NULLS LAST);
 CREATE INDEX  "h_message_id_key" ON "hashtags" USING btree(message_id COLLATE "default" DESC NULLS LAST);
 CREATE INDEX  "h_tag_key" ON "hashtags" USING btree(tag COLLATE "default" ASC NULLS LAST);
 CREATE INDEX  "h_keyword_key" ON "hashtags" USING btree(keyword COLLATE "default" ASC NULLS LAST);

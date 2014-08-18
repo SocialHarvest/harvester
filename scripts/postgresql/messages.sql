@@ -55,6 +55,7 @@ ALTER TABLE "messages" ADD CONSTRAINT "messages_harvest_id_unique" UNIQUE ("harv
 -- ----------------------------
 CREATE INDEX  "msg_category_key" ON "messages" USING btree(category COLLATE "default" ASC NULLS LAST);
 CREATE INDEX  "msg_contributor_id_key" ON "messages" USING btree(contributor_id COLLATE "default" DESC NULLS LAST);
+CREATE INDEX  "msg_contributor_geohash_key" ON "messages" USING btree(contributor_geohash COLLATE "default" ASC NULLS LAST);
 CREATE INDEX  "msg_message_id_key" ON "messages" USING btree(message_id COLLATE "default" DESC NULLS LAST);
 CREATE INDEX  "msg_question_key" ON "messages" USING btree(is_question DESC NULLS LAST);
 CREATE INDEX  "msg_time_key" ON "messages" USING btree("time" DESC NULLS LAST);

@@ -37,6 +37,7 @@ CREATE TABLE `shared_links` (
   PRIMARY KEY (`harvest_id`),
   UNIQUE KEY `sl_harvest_id_unique` (`harvest_id`),
   KEY `sl_message_id_key` (`message_id`),
+  KEY `sl_contributor_geohash_key` (`contributor_geohash`),
   KEY `sl_contributor_id_key` (`contributor_id`),
   KEY `sl_url_key` (`url`),
   KEY `sl_expanded_url_key` (`expanded_url`),

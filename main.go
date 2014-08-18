@@ -142,7 +142,7 @@ func TerritoryAggregateData(w rest.ResponseWriter, r *rest.Request) {
 			Network:   network,
 			From:      timeFrom,
 			To:        timeTo,
-			Limit:     limit,
+			Limit:     uint(limit),
 		}
 
 		var total config.ResultCount
@@ -225,7 +225,7 @@ func TerritoryTimeSeriesAggregateData(w rest.ResponseWriter, r *rest.Request) {
 			Network:   network,
 			From:      timeFrom,
 			To:        timeTo,
-			Limit:     limit,
+			Limit:     uint(limit),
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -360,6 +360,95 @@ func TerritoryTimeseriesCountData(w rest.ResponseWriter, r *rest.Request) {
 
 }
 
+// API: Returns the messages (paginated) for a territory with the ability to filter by question or not, etc.
+func TerritoryMessages(w rest.ResponseWriter, r *rest.Request) {
+	res := setTerritoryLinks("territory:messages")
+
+	territory := r.PathParam("territory")
+	queryParams := r.URL.Query()
+
+	timeFrom := ""
+	if len(queryParams["from"]) > 0 {
+		timeFrom = queryParams["from"][0]
+	}
+	timeTo := ""
+	if len(queryParams["to"]) > 0 {
+		timeTo = queryParams["to"][0]
+	}
+	network := ""
+	if len(queryParams["network"]) > 0 {
+		network = queryParams["network"][0]
+	}
+	// Limit and Skip
+	limit := uint(100)
+	if len(queryParams["limit"]) > 0 {
+		l, lErr := strconv.ParseUint(queryParams["limit"][0], 10, 64)
+		if lErr == nil {
+			limit = uint(l)
+		}
+		if limit > 100 {
+			limit = 100
+		}
+		if limit < 1 {
+			limit = 1
+		}
+	}
+	skip := uint(0)
+	if len(queryParams["skip"]) > 0 {
+		sk, skErr := strconv.ParseUint(queryParams["skip"][0], 10, 64)
+		if skErr == nil {
+			skip = uint(sk)
+		}
+		if skip < 0 {
+			skip = 0
+		}
+	}
+
+	// Build the conditions
+	var conditions = config.MessageConditions{}
+
+	// Condition for questions
+	if len(queryParams["questions"]) > 0 {
+		conditions.IsQuestion = 1
+	}
+	// Gender condition
+	if len(queryParams["gender"]) > 0 {
+		conditions.Gender = queryParams["gender"][0]
+	}
+	// Language condition
+	if len(queryParams["lang"]) > 0 {
+		conditions.Lang = queryParams["lang"][0]
+	}
+	// Country condition
+	if len(queryParams["country"]) > 0 {
+		conditions.Country = queryParams["country"][0]
+	}
+	// Geohash condition (nearby)
+	if len(queryParams["geohash"]) > 0 {
+		conditions.Geohash = queryParams["geohash"][0]
+	}
+
+	params := config.CommonQueryParams{
+		Series:    "messages",
+		Territory: territory,
+		Network:   network,
+		From:      timeFrom,
+		To:        timeTo,
+		Limit:     limit,
+		Skip:      skip,
+	}
+
+	messages, total, skip, limit := socialHarvest.Database.Messages(params, conditions)
+	res.Data["messages"] = messages
+	res.Data["total"] = total
+	res.Data["limit"] = limit
+	res.Data["skip"] = skip
+
+	res.Success()
+	w.WriteJson(res.End())
+
+}
+
 // API: Territory list returns all currently configured territories and their settings
 func TerritoryList(w rest.ResponseWriter, r *rest.Request) {
 	res := setTerritoryLinks("territory:list")
@@ -385,6 +474,9 @@ func setTerritoryLinks(self string) *config.HypermediaResource {
 	}
 	res.Links["territory:timeseries-aggregate"] = config.HypermediaLink{
 		Href: "/territory/timeseries/aggregate/{territory}/{series}{?from,to,network,fields,resolution}",
+	}
+	res.Links["territory:messages"] = config.HypermediaLink{
+		Href: "/territory/messages/{territory}{?from,to,limit,skip,network,lang,country,geohash,gender,questions}",
 	}
 
 	selfedRes := config.NewHypermediaResource()
@@ -569,6 +661,8 @@ func main() {
 			// Simple counts for a territory
 			&rest.Route{"GET", "/territory/count/:territory/:series/:field", TerritoryCountData},
 			&rest.Route{"GET", "/territory/timeseries/count/:territory/:series/:field", TerritoryTimeseriesCountData},
+			// Messages for a territory
+			&rest.Route{"GET", "/territory/messages/:territory", TerritoryMessages},
 
 			// A utility route to help get some details about any given external web page
 			&rest.Route{"GET", "/link/details", LinkDetails},

@@ -46,6 +46,7 @@ CREATE TABLE `messages` (
   PRIMARY KEY (`harvest_id`),
   UNIQUE KEY `msg_harvest_id_unique` (`harvest_id`),
   KEY `msg_message_id_key` (`message_id`),
+  KEY `msg_contributor_geohash_key` (`contributor_geohash`),
   KEY `msg_contributor_id_key` (`contributor_id`),
   KEY `msg_time_key` (`time`),
   KEY `msg_lang_key` (`lang`),

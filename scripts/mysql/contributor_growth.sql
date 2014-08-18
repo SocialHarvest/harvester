@@ -31,6 +31,7 @@ CREATE TABLE `contributor_growth` (
   PRIMARY KEY (`harvest_id`),
   UNIQUE KEY `cg_harvest_id_unique` (`harvest_id`),
   KEY `cg_time_key` (`time`),
+  KEY `cg_contributor_geohash_key` (`contributor_geohash`),
   KEY `cg_contributor_id_key` (`contributor_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

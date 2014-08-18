@@ -36,6 +36,7 @@ CREATE TABLE `hashtags` (
   KEY `h_tag_key` (`tag`),
   KEY `h_keyword_key` (`keyword`),
   KEY `h_message_id_key` (`message_id`),
+  KEY `h_contributor_geohash_key` (`contributor_geohash`),
   KEY `h_contributor_id_key` (`contributor_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

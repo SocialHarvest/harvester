@@ -38,6 +38,7 @@ CREATE TABLE `mentions` (
   KEY `m_message_id_key` (`message_id`),
   KEY `m_contributor_id_key` (`contributor_id`),
   KEY `m_time_key` (`time`),
+  KEY `m_contributor_geohash_key` (`contributor_geohash`),
   KEY `m_mentioned_id_key` (`mentioned_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

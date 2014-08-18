@@ -262,8 +262,7 @@ func (database *SocialHarvestDB) GetSession() db.Database {
 	case "postgresql":
 		dbAdapter = postgresql.Adapter
 		break
-	case "mysql":
-	case "mariadb":
+	case "mysql", "mariadb":
 		dbAdapter = mysql.Adapter
 		break
 	}
@@ -297,8 +296,9 @@ type CommonQueryParams struct {
 	Territory string `json:"territory"`
 	Network   string `json:"network,omitempty"`
 	Field     string `json:"field,omitempty"`
-	Limit     int    `json:"limit,omitempty"`
+	Limit     uint   `json:"limit,omitempty"`
 	Series    string `json:"series,omitempty"`
+	Skip      uint   `json:"skip,omitempty"`
 }
 
 type ResultCount struct {
@@ -325,6 +325,14 @@ type ResultAggregateFields struct {
 	Total    int                                 `json:"total"`
 }
 
+type MessageConditions struct {
+	Gender     string `json:"contributor_gender,omitempty"`
+	Lang       string `json:"contributor_lang,omitempty"`
+	Country    string `json:"contributor_country,omitempty"`
+	IsQuestion int    `json:"is_question,omitempty"`
+	Geohash    string `json:"contributor_geohash,omitempty"`
+}
+
 // Sanitizes common query params to prevent SQL injection and to ensure proper formatting, etc.
 func SanitizeCommonQueryParams(params CommonQueryParams) CommonQueryParams {
 	sanitizedParams := CommonQueryParams{}
@@ -332,6 +340,9 @@ func SanitizeCommonQueryParams(params CommonQueryParams) CommonQueryParams {
 	// Just double check it's positive
 	if params.Limit > 0 {
 		sanitizedParams.Limit = params.Limit
+	}
+	if params.Skip > 0 {
+		sanitizedParams.Skip = params.Skip
 	}
 
 	// Prepared statements not so good when we let users dynamically chose the table to query (neither are any of the ORMs for Golang either unfortunately).
@@ -585,4 +596,125 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 	}
 
 	return count
+}
+
+// Allows the messages series to be queried in some general ways.
+func (database *SocialHarvestDB) Messages(queryParams CommonQueryParams, conds MessageConditions) ([]SocialHarvestMessage, uint64, uint, uint) {
+	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
+	var results = []SocialHarvestMessage{}
+
+	var err error
+	var sess db.Database
+	var col db.Collection
+	var conditions = db.Cond{}
+
+	var dbAdapter = ""
+	switch database.Type {
+	case "mongodb":
+		dbAdapter = mongo.Adapter
+		break
+	case "postgresql":
+		dbAdapter = postgresql.Adapter
+		break
+	case "mysql", "mariadb":
+		dbAdapter = mysql.Adapter
+		break
+	}
+
+	// If one is even being used, connect to it and store the data
+	sess, err = db.Open(dbAdapter, database.Settings)
+	if err != nil {
+		log.Println(err)
+		return results, 0, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
+	}
+	defer sess.Close()
+
+	col, err = sess.Collection("messages")
+	if err != nil {
+		log.Println(err)
+		return results, 0, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
+	}
+
+	// optional date range (can have either or both)
+	if sanitizedQueryParams.From != "" {
+		switch database.Type {
+		case "mongodb":
+			conditions["time $gte"] = sanitizedQueryParams.From
+			break
+		default:
+			conditions["time >="] = sanitizedQueryParams.From
+			break
+		}
+	}
+	if sanitizedQueryParams.To != "" {
+		switch database.Type {
+		case "mongodb":
+			conditions["time $lte"] = sanitizedQueryParams.To
+			break
+		default:
+			conditions["time <="] = sanitizedQueryParams.To
+			break
+		}
+	}
+	if sanitizedQueryParams.Network != "" {
+		conditions["network"] = sanitizedQueryParams.Network
+	}
+
+	if sanitizedQueryParams.Territory != "" {
+		conditions["territory"] = sanitizedQueryParams.Territory
+	}
+
+	// MessageConditions (specific conditions for messages series)
+	if conds.Lang != "" {
+		conditions["contributor_lang"] = conds.Lang
+	}
+	if conds.Country != "" {
+		conditions["contributor_country"] = conds.Country
+	}
+	if conds.Geohash != "" {
+		// Ensure the goehash is alphanumeric.
+		// TODO: Pass these conditions through a sanitizer too, though the ORM should use prepared statements and take care of SQL injection....right? TODO: Check that too.
+		pattern := `(?i)[A-z0-9]`
+		r, _ := regexp.Compile(pattern)
+		if r.MatchString(conds.Geohash) {
+			switch database.Type {
+			case "mongodb":
+				conditions["contributor_geohash"] = "/" + conds.Geohash + ".*/"
+				break
+			default:
+				conditions["contributor_geohash LIKE"] = conds.Geohash + "%"
+				break
+			}
+		}
+	}
+	if conds.Gender != "" {
+		switch conds.Gender {
+		case "-1", "f", "female":
+			conditions["contributor_gender"] = -1
+			break
+		case "1", "m", "male":
+			conditions["contributor_gender"] = 1
+			break
+		case "0", "u", "unknown":
+			conditions["contributor_gender"] = 0
+			break
+		}
+	}
+	if conds.IsQuestion != 0 {
+		conditions["is_question"] = 1
+	}
+
+	// TODO: Allow other sorting options? I'm not sure it matters because people likely want timely data. More important would be a search.
+	res := col.Find(conditions).Skip(sanitizedQueryParams.Skip).Limit(sanitizedQueryParams.Limit).Sort("-time")
+	defer res.Close()
+	total, resCountErr := res.Count()
+	if resCountErr != nil {
+		return results, 0, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
+	}
+	resErr := res.All(&results)
+	if resErr != nil {
+		return results, total, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
+	}
+
+	return results, total, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
 }

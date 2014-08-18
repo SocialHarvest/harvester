@@ -50,6 +50,7 @@ ALTER TABLE "shared_links" ADD CONSTRAINT "shared_links_harvest_id_unique" UNIQU
 --  Indexes structure for table shared_links
 -- ----------------------------
 CREATE INDEX  "sl_contributor_id_key" ON "shared_links" USING btree(contributor_id COLLATE "default" DESC NULLS LAST);
+CREATE INDEX  "sl_contributor_geohash_key" ON "shared_links" USING btree(contributor_geohash COLLATE "default" ASC NULLS LAST);
 CREATE INDEX  "sl_expanded_url_key" ON "shared_links" USING btree(expanded_url COLLATE "default" DESC NULLS LAST);
 CREATE INDEX  "sl_host_key" ON "shared_links" USING btree("host" COLLATE "default" ASC NULLS LAST);
 CREATE INDEX  "sl_message_id_key" ON "shared_links" USING btree(message_id COLLATE "default" DESC NULLS LAST);
