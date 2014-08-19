@@ -31,6 +31,7 @@ import (
 	"strings"
 	//"sync"
 	//_ "net/http/pprof"
+	"github.com/bugsnag/bugsnag-go"
 	"reflect"
 	"runtime"
 	"time"
@@ -561,6 +562,10 @@ func main() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
 	*/
+	bugsnag.Configure(bugsnag.Configuration{
+		APIKey:       os.Getenv("BUGSNAG"),
+		ReleaseStage: "development",
+	})
 
 	color.Cyan(" ____             _       _   _   _                           _  ")
 	color.Cyan(`/ ___|  ___   ___(_) __ _| | | | | | __ _ _ ____   _____  ___| |_ ®`)
@@ -678,6 +683,6 @@ func main() {
 			p = "3000"
 		}
 		log.Println("Social Harvest API listening on port " + p)
-		log.Fatal(http.ListenAndServe(":"+p, &handler))
+		http.ListenAndServe(":"+p, bugsnag.Handler(&handler))
 	}
 }

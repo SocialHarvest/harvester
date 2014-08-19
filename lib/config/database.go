@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"database/sql"
 	//"github.com/asaskevich/govalidator"
+	"github.com/bugsnag/bugsnag-go"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"log"
@@ -196,6 +197,8 @@ func (database *SocialHarvestDB) GetLastHarvestId(territory string, network stri
 
 // Stores a harvested row of data into the configured database.
 func (database *SocialHarvestDB) StoreRow(row interface{}, waitGroup *sync.WaitGroup, dbSession db.Database) {
+	defer bugsnag.Recover()
+
 	// Decrement the wait group count so the program knows this
 	// has been completed once the goroutine exits.
 	defer waitGroup.Done()
