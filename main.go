@@ -31,6 +31,7 @@ import (
 	"strings"
 	//"sync"
 	//_ "net/http/pprof"
+	"fmt"
 	"github.com/bugsnag/bugsnag-go"
 	"reflect"
 	"runtime"
@@ -566,7 +567,7 @@ func main() {
 		APIKey:       os.Getenv("BUGSNAG"),
 		ReleaseStage: "development",
 	})
-	bugsnag.Notify("application started")
+	bugsnag.Notify(fmt.Errorf("application started"))
 
 	color.Cyan(" ____             _       _   _   _                           _  ")
 	color.Cyan(`/ ___|  ___   ___(_) __ _| | | | | | __ _ _ ____   _____  ___| |_ ®`)
