@@ -20,7 +20,6 @@ import (
 	//"encoding/json"
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/SocialHarvest/harvester/lib/harvester"
-	"github.com/bugsnag/bugsnag-go"
 	"log"
 	"net/url"
 	"strconv"
@@ -42,8 +41,6 @@ import (
 
 // Harvest Facebook publicly accessible posts by searching keyword criteria
 func FacebookPublicMessagesByKeyword() {
-	defer bugsnag.Recover()
-
 	params := harvester.FacebookParams{}
 	posts := []harvester.FacebookPost{}
 
@@ -129,8 +126,6 @@ func FacebookPublicMessagesByKeyword() {
 
 // Harvest Facebook publicly accessible posts from a specific account (user or page)
 func FacebookMessagesByAccount() {
-	defer bugsnag.Recover()
-
 	params := harvester.FacebookParams{}
 	posts := []harvester.FacebookPost{}
 
@@ -199,8 +194,6 @@ func FacebookGrowthByAccount() {
 
 // Searches Twitter for status updates by territory keyword criteria
 func TwitterPublicMessagesByKeyword() {
-	defer bugsnag.Recover()
-
 	for _, territory := range socialHarvest.Config.Harvest.Territories {
 		// If different credentials were set for the territory, this will find and set them
 		harvester.NewTwitterTerritoryCredentials(territory.Name)
