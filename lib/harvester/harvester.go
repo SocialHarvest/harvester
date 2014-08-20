@@ -20,7 +20,6 @@ import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/tmaiaroto/geocoder"
-	"sync"
 )
 
 type harvesterServices struct {
@@ -60,10 +59,5 @@ func NewGeocoder(servicesConfiguration config.ServicesConfig) {
 // The thing I don't like (and why I used the observer) is passing all the configuration stuff around.
 func StoreHarvestedData(message interface{}) {
 	// Write to database (if configured)
-	// maybe socialHarvest.Database.Session.Ping() ?? but every time? would be good to check if the database is configured and/or available...maybe not here.
-	var waitGroup sync.WaitGroup
-	waitGroup.Add(1)
-	go socialHarvestDB.StoreRow(message, &waitGroup, socialHarvestDB.Session)
-	// Wait for all the queries to complete.
-	waitGroup.Wait()
+	socialHarvestDB.StoreRow(message, socialHarvestDB.Session)
 }

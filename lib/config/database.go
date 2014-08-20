@@ -27,7 +27,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"upper.io/db"
 	"upper.io/db/mongo"
@@ -132,14 +131,9 @@ func (database *SocialHarvestDB) SetLastHarvestTime(territory string, network st
 	lastHarvestRow := SocialHarvestHarvest{territory, network, action, value, lastTimeHarvested, lastIdHarvested, itemsHarvested, time.Now()}
 
 	log.Println(lastTimeHarvested)
-	// Create a wait group to manage the goroutines (don't think we need concurrency for this particular call since it's not as frequent, but keep for now purely to be compatible with the StoreRow() function).
-	var waitGroup sync.WaitGroup
 	dbSession := database.GetSession()
-	waitGroup.Add(1)
-	go database.StoreRow(lastHarvestRow, &waitGroup, dbSession)
-
-	// Wait for the query to complete.
-	waitGroup.Wait()
+	defer dbSession.Close()
+	database.StoreRow(lastHarvestRow, dbSession)
 }
 
 // Gets the last harvest time for a given action, value, and network (NOTE: This doesn't necessarily need to have been set, it could be empty...check with time.IsZero()).
@@ -195,19 +189,7 @@ func (database *SocialHarvestDB) GetLastHarvestId(territory string, network stri
 }
 
 // Stores a harvested row of data into the configured database.
-func (database *SocialHarvestDB) StoreRow(row interface{}, waitGroup *sync.WaitGroup, dbSession db.Database) {
-	// Decrement the wait group count so the program knows this
-	// has been completed once the goroutine exits.
-	defer waitGroup.Done()
-
-	// Request a socket connection from the session to process our query.
-	// Close the session when the goroutine exits and put the connection back
-	// into the pool.
-	sessionCopy, err := dbSession.Clone()
-	if err != nil {
-		log.Println(err)
-	}
-	defer sessionCopy.Close()
+func (database *SocialHarvestDB) StoreRow(row interface{}, dbSession db.Database) {
 
 	// TODO: change to collection to series for consistency - it's a little confusing in some areas because Mongo uses "collection" (but SQL of course is table so...)
 	collection := ""
@@ -232,10 +214,10 @@ func (database *SocialHarvestDB) StoreRow(row interface{}, waitGroup *sync.WaitG
 	//log.Println("saving to collection: " + collection)
 
 	//col, colErr := dbSession.Collection(collection)
-	col, colErr := sessionCopy.Collection(collection)
+	col, colErr := dbSession.Collection(collection)
 	if colErr != nil {
 		//log.Fatalf("sessionCopy.Collection(): %q\n", colErr)
-		log.Printf("sessionCopy.Collection(%s): %q\n", collection, colErr)
+		log.Printf("dbSession.Collection(%s): %q\n", collection, colErr)
 		return
 	}
 
