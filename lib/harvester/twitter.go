@@ -118,14 +118,17 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 			contributorLat := 0.0
 			contributorLng := 0.0
 			if statusLatitude == 0.0 || statusLatitude == 0.0 {
-				location, err := geocoder.GeocodeLocation(tweet.User.Location)
-				if err == nil {
-					contributorLat = location.LatLng.Lat
-					contributorLng = location.LatLng.Lng
-					contributorState = location.State
-					contributorCity = location.City
-					contributorCountry = location.CountryCode
-					contributorCounty = location.County
+				// Do not make a request for nothing (there are no 1 character locations either).
+				if len(tweet.User.Location) > 1 {
+					location, err := geocoder.GeocodeLocation(tweet.User.Location)
+					if err == nil {
+						contributorLat = location.LatLng.Lat
+						contributorLng = location.LatLng.Lng
+						contributorState = location.State
+						contributorCity = location.City
+						contributorCountry = location.CountryCode
+						contributorCounty = location.County
+					}
 				}
 				//contributorLat, contributorLng = Geocode(tweet.User.Location)
 			} else {
