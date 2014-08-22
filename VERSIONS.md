@@ -4,6 +4,17 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.5.1
+-------------
+
+Fixed a memory leak! The Facebook harvesting was opening up a lot of goroutines that never returned (or at least not before the program crashed). 
+I couldn't figure out exactly what was causing it (I suspect something with the HTTP requests or session stuff in the package I was using). 
+So I just replaced that package dependency with my own HTTP requests (with timeouts) and pprof showed goroutine counts increasing and decreasing. 
+Since goroutines return now, too many don't seem to be open. It could have been waiting that caused the crash too and not necessarily the 
+goroutinues persay.
+
+This leak took 4 evenings to figure out and really delayed some things, but I'm glad to have fixed it (let's hope). 
+
 ## 0.5.0 
 -------------
 

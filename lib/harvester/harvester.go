@@ -20,6 +20,9 @@ import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/tmaiaroto/geocoder"
+	"net"
+	"net/http"
+	"time"
 )
 
 type harvesterServices struct {
@@ -30,6 +33,7 @@ type harvesterServices struct {
 var harvestConfig = config.HarvestConfig{}
 var services = harvesterServices{}
 var socialHarvestDB *config.SocialHarvestDB
+var httpClient *http.Client
 
 // Sets up a new harvester with the given configuration (which is comprised of several "services")
 func New(configuration config.SocialHarvestConf, database *config.SocialHarvestDB) {
@@ -44,6 +48,23 @@ func New(configuration config.SocialHarvestConf, database *config.SocialHarvestD
 
 	// Internal logging (log4go became problematic for concurrency and I've found a better solution in less than 100 lines now anyway)
 	NewLoggers(configuration.Logs.Directory)
+
+	// Set up an http.Client for a variety of uses including expanding shortened URLs.
+	httpClient = &http.Client{
+		Transport: &TimeoutTransport{
+			Transport: http.Transport{
+				Dial: func(netw, addr string) (net.Conn, error) {
+					//log.Printf("dial to %s://%s", netw, addr)
+					return net.Dial(netw, addr) // Regular ass dial.
+				},
+			},
+			// RoundTripTimeout: time.Millisecond * 200, // <--- what the author had
+			// RoundTripTimeout: time.Nanosecond * 10, // <--- still was completing requests in this amount of time (holy smokes that's fast)!
+			// I'm going to go a little tiny bit longer because I don't know what kind of machine this will run on.
+			// Though the geocoding service is fast and the payload small, so requests should be fast.
+			RoundTripTimeout: time.Millisecond * 300,
+		},
+	}
 }
 
 // Sets the API key from configuration (or possibly Social Harvest API)

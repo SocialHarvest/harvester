@@ -19,127 +19,150 @@ package harvester
 import (
 	"github.com/SocialHarvest/harvester/lib/config"
 	geohash "github.com/TomiHiltunen/geohash-golang"
-	fb "github.com/huandu/facebook"
+	"github.com/google/go-querystring/query"
 	"github.com/tmaiaroto/geocoder"
 	//"github.com/mitchellh/mapstructure"
+	"bytes"
+	"encoding/json"
 	"log"
+	"net"
+	"net/http"
 	"net/url"
 	//"sync"
 	"time"
 )
 
 type PagingResult struct {
-	Next     string
-	Previous string
+	Next     string `json:"next" url:"next"`
+	Previous string `json:"previous" url:"previous"`
 }
 
 type FacebookParams struct {
-	IncludeEntities string
-	Limit           string
-	Count           string
-	Type            string
-	Lang            string
-	Q               string
-	AccessToken     string
-	Until           string
-	Since           string
+	IncludeEntities string `url:"include_entities,omitempty"`
+	Limit           string `url:"limit,omitempty"`
+	Count           string `url:"count,omitempty"`
+	Type            string `url:"type,omitempty"`
+	Lang            string `url:"lang,omitempty"`
+	Q               string `url:"q,omitempty"`
+	AccessToken     string `url:"access_token,omitempty"`
+	Until           string `url:"until,omitempty"`
+	Since           string `url:"since,omitempty"`
 	//Previous        string // Facebook uses __previous ...not sure if MakeParams() supports that...and not sure we even need to go backwards anyway.
 	//Paging          *PagingResult
 	//HasNextPage     bool
 }
 
 type MessageTag struct {
-	Id   string
-	Name string
-	Type string
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type FacebookPost struct {
 	// "id" must exist in response. note the leading comma.
-	Id   string `facebook:"id,required"`
+	Id   string `json:"id,required"`
 	From struct {
-		Id       string `facebook:"id"`
-		Name     string `facebook:"name"`
-		Category string `facebook:"category"`
-	} `facebook:"from"`
+		Id       string `json:"id"`
+		Name     string `json:"name"`
+		Category string `json:"category"`
+	} `json:"from"`
 	To struct {
-		Id       string `facebook:"id"`
-		Name     string `facebook:"name"`
-		Category string `facebook:"category"`
-	} `facebook:"to"`
-	CreatedTime string `facebook:"created_time"`
-	UpdatedTime string `facebook:"updated_time"`
-	Message     string `facebook:"message"`
-	Description string `facebook:"description"`
-	Caption     string `facebook:"caption"`
-	Picture     string `facebook:"picture"`
-	Source      string `facebook:"source"`
-	Link        string `facebook:"link"`
+		Data []struct {
+			Id       string `json:"id"`
+			Name     string `json:"name"`
+			Category string `json:"category"`
+		} `json:"data"`
+	} `json:"to"`
+	CreatedTime string `json:"created_time"`
+	UpdatedTime string `json:"updated_time"`
+	Message     string `json:"message"`
+	Description string `json:"description"`
+	Caption     string `json:"caption"`
+	Picture     string `json:"picture"`
+	Source      string `json:"source"`
+	Link        string `json:"link"`
 	Shares      struct {
-		Count int `facebook:"count"`
-	} `facebook:"shares"`
-	Name string `facebook:"name"`
-	// Should always be "post" right? No, Facebook also includes "status" and "link" and "photo" in there, even with the type param set to post. Seems like something changed/broke.
-	Type string `facebook:"type"`
+		Count int `json:"count"`
+	} `json:"shares"`
+	Name string `json:"name"`
+	// Should always be "post" right? No, facebook also includes "status" and "link" and "photo" in there, even with the type param set to post. Seems like something changed/broke.
+	Type string `json:"type"`
 	// This can tell us if the user is posting from a mobile device...with some logic. Or just which client apps/SaaS' are most popular to post from (also true for Twitter and could be good data to have).
 	Application struct {
-		Name      string `facebook:"name"`
-		Namespace string `facebook:"namespace"`
-		Id        string `facebook:"id"`
-	} `facebook:"application"`
-	MessageTags map[string][]*MessageTag `facebook:"message_tags"`
-	StoryTags   map[string][]*MessageTag `facebook:"story_tags"`
-	Story       string                   `facebook:"story"`
+		Name      string `json:"name"`
+		Namespace string `json:"namespace"`
+		Id        string `json:"id"`
+	} `json:"application"`
+	MessageTags map[string][]*MessageTag `json:"message_tags"`
+	StoryTags   map[string][]*MessageTag `json:"story_tags"`
+	Story       string                   `json:"story"`
 	// Typically accompanies items of type photo.
-	ObjectId string `facebook:"object_id"`
+	ObjectId string `json:"object_id"`
 	// TODO Comments []struct{}
 	// Comments have paging though. So care needs to be taken...Do we make more requests and get all comments? Do we limit?
 	// What about API request limits?
 
 	// This only exists on user/page /feed items...and it'll usually be "shared_story" but sometimes I've seen "mobile_status_update" ... which tells us the user is on a mobile device.
 	// Is it important to keep? I don't know. Probably not right now.
-	StatusType string `facebook:"status_type"`
+	StatusType string `json:"status_type"`
 }
 
 // Facebook accounts can be for a user or a page
 type FacebookAccount struct {
 	// "id" must exist in response. note the leading comma.
-	Id              string `facebook:"id,required"`
-	About           string `facebook:"about"`
-	Category        string `facebook:"category"`
-	Checkins        int    `facebook:"checkins"`
-	CompanyOverview string `facebook:"company_overview"`
-	Description     string `facebook:"description"`
-	Founded         string `facebook:"founded"`
-	GeneralInfo     string `facebook:"general_info"`
-	Likes           int    `facebook:"likes"`
-	Link            string `facebook:"link"`
+	Id              string `json:"id,required"`
+	About           string `json:"about"`
+	Category        string `json:"category"`
+	Checkins        int    `json:"checkins"`
+	CompanyOverview string `json:"company_overview"`
+	Description     string `json:"description"`
+	Founded         string `json:"founded"`
+	GeneralInfo     string `json:"general_info"`
+	Likes           int    `json:"likes"`
+	Link            string `json:"link"`
 	Location        struct {
-		Street    string  `facebook:"street"`
-		City      string  `facebook:"city"`
-		State     string  `facebook:"state"`
-		Zip       string  `facebook:"zip"`
-		Country   string  `facebook:"country"`
-		Longitude float64 `facebook:"longitude"`
-		Latitude  float64 `facebook:"latitude"`
-	} `facebook:"location"`
-	Name              string `facebook:"name"`
-	Phone             string `facebook:"phone"`
-	TalkingAboutCount int    `facebook:"talking_about_count"`
-	WereHereCount     int    `facebook:"were_here_count"`
-	Username          string `facebook:"username"`
-	Website           string `facebook:"website"`
-	Products          string `facebook:"products"`
+		Street    string  `json:"street"`
+		City      string  `json:"city"`
+		State     string  `json:"state"`
+		Zip       string  `json:"zip"`
+		Country   string  `json:"country"`
+		Longitude float64 `json:"longitude"`
+		Latitude  float64 `json:"latitude"`
+	} `json:"location"`
+	Name              string `json:"name"`
+	Phone             string `json:"phone"`
+	TalkingAboutCount int    `json:"talking_about_count"`
+	WereHereCount     int    `json:"were_here_count"`
+	Username          string `json:"username"`
+	Website           string `json:"website"`
+	Products          string `json:"products"`
 	// User specific (the above is a mix of page and user)
-	Gender    string `facebook:"gender"`
-	Locale    string `facebook:"locale"`
-	FirstName string `facebook:"first_name"`
-	LastName  string `facebook:"last_name"`
+	Gender    string `json:"gender"`
+	Locale    string `json:"locale"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
+
+var fbToken string
+var fbHttpClient *http.Client
+var fbGraphApiBaseUrl = "https://graph.facebook.com/"
 
 // Set the appToken for future use (global)
 func NewFacebook(servicesConfig config.ServicesConfig) {
-	services.facebookAppToken = servicesConfig.Facebook.AppToken
+	fbToken = servicesConfig.Facebook.AppToken
+
+	fbHttpClient = &http.Client{
+		Transport: &TimeoutTransport{
+			Transport: http.Transport{
+				Dial: func(netw, addr string) (net.Conn, error) {
+					//log.Printf("dial to %s://%s", netw, addr)
+					return net.Dial(netw, addr) // Regular ass dial.
+				},
+			},
+			// Facebook's payload (especially with 100 results) will take a little while to download
+			RoundTripTimeout: time.Second * 10,
+		},
+	}
 }
 
 // If the territory has a different appToken to use
@@ -147,6 +170,8 @@ func NewFacebookTerritoryCredentials(territory string) {
 	for _, t := range harvestConfig.Territories {
 		if t.Name == territory {
 			if t.Services.Facebook.AppToken != "" {
+				// TODO: This actually should be passed on each harvest. Because otherwise it'd overwrite the harvest wide token.
+
 				services.facebookAppToken = t.Services.Facebook.AppToken
 			}
 		}
@@ -154,7 +179,7 @@ func NewFacebookTerritoryCredentials(territory string) {
 }
 
 // Takes an array of Post structs and converts it to JSON and logs to file (to be picked up by Fluentd, Logstash, Ik, etc.)
-func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, time.Time) {
+func FacebookPostsOut(posts []FacebookPost, territoryName string, params FacebookParams) (int, string, time.Time) {
 	var itemsHarvested = 0
 	var latestId = ""
 	var latestTime time.Time
@@ -184,7 +209,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 			// NOTE: This is synchronous...but that's ok because while I'd love to use channels and make a bunch of requests at once, there's rate limits from these APIs...
 			// Plus the contributor info tells us a few things about the message, such as locale. Other series will use this data.
 			var contributor = FacebookAccount{}
-			contributor = FacebookGetUserInfo(post.From.Id)
+			contributor = FacebookGetUserInfo(post.From.Id, params)
 
 			var contributorGender = 0
 			if contributor.Gender == "male" {
@@ -297,7 +322,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 
 					// TODO: Keep an eye on this, it may add too many API requests...
 					var mentionedContributor = FacebookAccount{}
-					mentionedContributor = FacebookGetUserInfo(mention.Id)
+					mentionedContributor = FacebookGetUserInfo(mention.Id, params)
 
 					var mentionedGender = 0
 					if mentionedContributor.Gender == "male" {
@@ -362,7 +387,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 					// TODO: Keep an eye on this, it may add too many API requests...
 					// TODO: this is repeated. don't repeat.
 					var mentionedContributor = FacebookAccount{}
-					mentionedContributor = FacebookGetUserInfo(mention.Id)
+					mentionedContributor = FacebookGetUserInfo(mention.Id, params)
 
 					var mentionedGender = 0
 					if mentionedContributor.Gender == "male" {
@@ -433,107 +458,200 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string) (int, string, 
 // -------------- API CALLS
 
 // Searches public posts on Facebook
-func FacebookSearch(params FacebookParams) ([]FacebookPost, FacebookParams) {
-	// Get the access token from the configuration if not passed (shouldn't need to be passed, but can be)
+func FacebookSearch(territoryName string, harvestState config.HarvestState, params FacebookParams) (FacebookParams, config.HarvestState) {
+	// Look for access_token override, if not present, use default fbToken from config
 	if params.AccessToken == "" {
-		params.AccessToken = services.facebookAppToken
+		params.AccessToken = fbToken
 	}
-	var fbParams = fb.MakeParams(params)
+	// If that happens to be empty, just return.
+	if params.AccessToken == "" {
+		return params, harvestState
+	}
 
-	// Get the results using the passed parameters including the search query
-	var res = fb.Result{}
-	res, _ = fb.Get("/search", fbParams)
+	var buffer bytes.Buffer
+	buffer.WriteString(fbGraphApiBaseUrl)
+	buffer.WriteString("/search?")
 
-	// Decode the results
-	var posts []FacebookPost
-	res.DecodeField("data", &posts)
+	// convert struct to querystring params
+	v, err := query.Values(params)
+	if err != nil {
+		return params, harvestState
+	}
+	buffer.WriteString(v.Encode())
 
-	// Get additional pages
-	var paging PagingResult
-	res.DecodeField("paging", &paging)
+	// set up the request
+	// log.Println(buffer.String())
+	req, err := http.NewRequest("GET", buffer.String(), nil)
+	buffer.Reset()
+	if err != nil {
+		return params, harvestState
+	}
+	// doo it
+	resp, err := fbHttpClient.Do(req)
+	if err != nil {
+		log.Println(err)
+		return params, harvestState
+	}
+	defer resp.Body.Close()
 
-	// Return a set of new params (so we don't have the access token coming back)
-	newParams := FacebookParams{}
-	newParams.Q = params.Q
-	newParams.Type = params.Type
-	newParams.Limit = params.Limit
-	// Set the following to 0, this will help stop pagination. However if there are multiple pages, the values will not be returned as 0.
-	newParams.Until = "0"
-	// newParams.Since = "0"
+	// now to parse response, store and contine along.
+	data := struct {
+		Posts  []FacebookPost `json:"data"`
+		Paging struct {
+			Previous string `json:"previous"`
+			Next     string `json:"next"`
+		} `json:"paging"`
+	}{}
 
-	u, err := url.Parse(paging.Next)
-	if err == nil {
-		m, _ := url.ParseQuery(u.RawQuery)
+	dec := json.NewDecoder(resp.Body)
+	dec.Decode(&data)
+	//log.Println(data)
+	// close the response now, we don't need it anymore - otherwise it'll stay open while we write to the database. best to close it.
+	resp.Body.Close()
 
-		// Adjust the params if there are multiple pages.
-		if until, ok := m["until"]; ok {
-			newParams.Until = until[0]
+	// parse the querystring of "next" so we can get the "until" value for params
+	if data.Paging.Next != "" {
+		u, err := url.Parse(data.Paging.Next)
+		if err == nil {
+			m, _ := url.ParseQuery(u.RawQuery)
+			if _, ok := m["until"]; ok {
+				params.Until = m["until"][0]
+			} else {
+				// By setting this empty, we'll know not to loop again. This is up to date and should be the last request for this harvest.
+				params.Until = ""
+			}
+		} else {
+			// log.Println(err)
 		}
-
-		//if since, ok := m["since"]; ok {
-		//	newParams.Since = since[0]
-		//}
-
-		//log.Println(newParams)
 	}
 
-	return posts, newParams
+	// Only attempt to store if we have some results.
+	if len(data.Posts) > 0 {
+		// Save, then return updated params and harvest state for next round (if there is another one)
+		harvestState.ItemsHarvested, harvestState.LastId, harvestState.LastTime = FacebookPostsOut(data.Posts, territoryName, params)
+	}
+
+	return params, harvestState
 }
 
 // Gets the public posts for a given user or page id (or name actually)
-func FacebookFeed(id string, params FacebookParams) ([]FacebookPost, FacebookParams) {
+func FacebookFeed(territoryName string, harvestState config.HarvestState, account string, params FacebookParams) (FacebookParams, config.HarvestState) {
 	// XBox page feed for example...
 	// https://graph.facebook.com/xbox
 	// 16547831022
+
+	// Look for access_token override, if not present, use default fbToken from config
 	if params.AccessToken == "" {
-		params.AccessToken = services.facebookAppToken
+		params.AccessToken = fbToken
 	}
-	var fbParams = fb.MakeParams(params)
+	// If that happens to be empty, just return.
+	if params.AccessToken == "" {
+		return params, harvestState
+	}
 
-	res, _ := fb.Get("/"+id+"/feed", fbParams)
+	var buffer bytes.Buffer
+	buffer.WriteString(fbGraphApiBaseUrl)
+	buffer.WriteString(account)
+	buffer.WriteString("/feed?")
 
-	var posts []FacebookPost
-	res.DecodeField("data", &posts)
+	// convert struct to querystring params
+	v, err := query.Values(params)
+	if err != nil {
+		return params, harvestState
+	}
+	buffer.WriteString(v.Encode())
 
-	// Get additional pages
-	var paging PagingResult
-	res.DecodeField("paging", &paging)
+	// set up the request
+	req, err := http.NewRequest("GET", buffer.String(), nil)
+	buffer.Reset()
+	if err != nil {
+		return params, harvestState
+	}
+	// doo it
+	resp, err := fbHttpClient.Do(req)
+	if err != nil {
+		log.Println(err)
+		return params, harvestState
+	}
+	defer resp.Body.Close()
 
-	// Return a set of new params (so we don't have the access token coming back)
-	newParams := FacebookParams{}
-	newParams.Limit = params.Limit
-	// Set the following to 0, this will help stop pagination. However if there are multiple pages, the values will not be returned as 0.
-	newParams.Until = "0"
-	//newParams.Since = "0"
+	// now to parse response, store and contine along.
+	data := struct {
+		Posts  []FacebookPost `json:"data"`
+		Paging struct {
+			Previous string `json:"previous"`
+			Next     string `json:"next"`
+		} `json:"paging"`
+	}{}
 
-	u, err := url.Parse(paging.Next)
-	if err == nil {
-		m, _ := url.ParseQuery(u.RawQuery)
-		// Adjust the params if there are multiple pages.
-		if until, ok := m["until"]; ok {
-			newParams.Until = until[0]
+	dec := json.NewDecoder(resp.Body)
+	dec.Decode(&data)
+	//log.Println(data)
+	// close the response now, we don't need it anymore - otherwise it'll stay open while we write to the database. best to close it.
+	resp.Body.Close()
+
+	// parse the querystring of "next" so we can get the "until" value for params
+	if data.Paging.Next != "" {
+		u, err := url.Parse(data.Paging.Next)
+		if err == nil {
+			m, _ := url.ParseQuery(u.RawQuery)
+			if _, ok := m["until"]; ok {
+				params.Until = m["until"][0]
+			} else {
+				// By setting this empty, we'll know not to loop again. This is up to date and should be the last request for this harvest.
+				params.Until = ""
+			}
+		} else {
+			// log.Println(err)
 		}
-		//if since, ok := m["since"]; ok {
-		//	newParams.Since = since[0]
-		//}
-
-		//log.Println(newParams)
 	}
 
-	return posts, newParams
+	// Only attempt to store if we have some results.
+	if len(data.Posts) > 0 {
+		// Save, then return updated params and harvest state for next round (if there is another one)
+		harvestState.ItemsHarvested, harvestState.LastId, harvestState.LastTime = FacebookPostsOut(data.Posts, territoryName, params)
+	}
+
+	return params, harvestState
 }
 
 // Gets basic info about an account on Facebook
-func FacebookGetUserInfo(id string) FacebookAccount {
-	res, _ := fb.Get("/"+id, fb.Params{
-		// This actually isn't required...Though I'm curious about rate limits. I can't find any real concrete numbers.
-		// App tokens (which are counted as: app token + ip) have a pretty high limit for basic harvests. So I'm not overly concerned.
-		// I imagine requests without access tokens are limited even more, so leave this in for now.
-		"access_token": services.facebookAppToken,
-	})
-
+func FacebookGetUserInfo(id string, params FacebookParams) FacebookAccount {
 	var account FacebookAccount
-	res.Decode(&account)
+
+	if id != "" {
+		var buffer bytes.Buffer
+		buffer.WriteString(fbGraphApiBaseUrl)
+		buffer.WriteString(id)
+		buffer.WriteString("?")
+
+		// convert struct to querystring params (for now, only pass the access_token, the other stuff doesn't matter for our use here)
+		userInfoParams := FacebookParams{AccessToken: params.AccessToken}
+		v, err := query.Values(userInfoParams)
+		if err != nil {
+			return account
+		}
+		buffer.WriteString(v.Encode())
+
+		// set up the request
+		req, err := http.NewRequest("GET", buffer.String(), nil)
+		buffer.Reset()
+		if err != nil {
+			return account
+		}
+		// doo it
+		resp, err := fbHttpClient.Do(req)
+		if err != nil {
+			log.Println(err)
+			return account
+		}
+		defer resp.Body.Close()
+
+		dec := json.NewDecoder(resp.Body)
+		dec.Decode(&account)
+		// close the response now, we don't need it anymore - otherwise it'll stay open while we write to the database. best to close it.
+		resp.Body.Close()
+	}
 
 	return account
 }

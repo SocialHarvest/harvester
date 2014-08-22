@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"strings"
 	//"sync"
-	//_ "net/http/pprof"
+	_ "net/http/pprof"
 	"reflect"
 	"runtime"
 	"time"
@@ -554,13 +554,12 @@ func getFunctionName(i interface{}) string {
 
 // Main - initializes, configures, and sets routes for API
 func main() {
-	/*
-		runtime.SetBlockProfileRate(1)
-		// Start another profile server
-		go func() {
-			log.Println(http.ListenAndServe("localhost:6060", nil))
-		}()
-	*/
+
+	runtime.SetBlockProfileRate(1)
+	// Start another profile server
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	color.Cyan(" ____             _       _   _   _                           _  ")
 	color.Cyan(`/ ___|  ___   ___(_) __ _| | | | | | __ _ _ ____   _____  ___| |_ ®`)
@@ -568,7 +567,7 @@ func main() {
 	color.Cyan(" ___) | (_) | (__| | (_| | | |  _  | (_| | |   \\ V /  __/\\__ \\ |_ ")
 	color.Cyan("|____/ \\___/ \\___|_|\\__,_|_| |_| |_|\\__,_|_|    \\_/ \\___||___/\\__|")
 	//	color.Cyan("                                                                  ")
-	color.Yellow("_____________________________________________version 0.5.0-preview")
+	color.Yellow("_____________________________________________version 0.5.1-preview")
 	color.Cyan("   ")
 
 	// Optionally allow a config JSON file to be passed via command line
@@ -603,11 +602,11 @@ func main() {
 
 	// Immedate calls to use for testing during development
 	// Search Facebook public posts using keywords in Social Harvest config
-	//go FacebookPublicMessagesByKeyword()
+	go FacebookPublicMessagesByKeyword()
 	// Search Facebook public feeds using account ids in Social Harvest config
-	//go FacebookMessagesByAccount()
+	go FacebookMessagesByAccount()
 	// Search Twitter using keywords in Social Harvest config
-	//go TwitterPublicMessagesByKeyword()
+	go TwitterPublicMessagesByKeyword()
 
 	//harvester.YoutubeVideoSearch("obama")
 	///

@@ -42,149 +42,144 @@ import (
 // Harvest Facebook publicly accessible posts by searching keyword criteria
 func FacebookPublicMessagesByKeyword() {
 	params := harvester.FacebookParams{}
-	posts := []harvester.FacebookPost{}
 
 	for _, territory := range socialHarvest.Config.Harvest.Territories {
 		// If different credentials were set for the territory, this will find and set them
-		harvester.NewFacebookTerritoryCredentials(territory.Name)
+		// TODO: Change this. Always pass the credentials for overrides. OR, always set them back on each harvest (harvests do happen one by one).
+		// NOTE: Pass to the params strut. simple.
+		//harvester.NewFacebookTerritoryCredentials(territory.Name)
 
-		if len(territory.Content.Options.Lang) > 0 {
-			params.Lang = territory.Content.Options.Lang
-		}
+		for _, keyword := range territory.Content.Keywords {
+			// Reset Until and Since, just in case. The for loop below could have changed it for the next keyword.
+			params.Until = ""
+			params.Since = ""
+			// Set some other params
+			params.Type = "post"
+			params.Q = keyword
+			//log.Print("Searching for: " + keyword)
+			if territory.Limits.ResultsPerPage != "" {
+				params.Limit = territory.Limits.ResultsPerPage
+			} else {
+				params.Limit = "100"
+			}
 
-		// Search all keywords
-		if len(territory.Content.Keywords) > 0 {
-			for _, keyword := range territory.Content.Keywords {
-				//log.Print("Searching for: " + keyword)
-				params.Type = "post"
-				params.Q = keyword
-				// A globally set limit in the Social Harvest config (or default of "100")
-				if territory.Limits.ResultsPerPage != "" {
-					params.Limit = territory.Limits.ResultsPerPage
-				} else {
-					params.Limit = "100"
+			harvestState := config.HarvestState{
+				LastId:         "",
+				LastTime:       time.Now(),
+				PagesHarvested: 1,
+				ItemsHarvested: 0,
+			}
+
+			// Limit to 10 pages max. Anything more will simply take too long and cause issues.
+			maxPages := territory.Limits.MaxResultsPages
+			if maxPages == 0 {
+				maxPages = 10
+			}
+
+			// Fetch X pages of results
+			for i := 0; i < maxPages; i++ {
+				lastHarvestTime := socialHarvest.Database.GetLastHarvestTime(territory.Name, "facebook", "FacebookPublicMessagesByKeyword", keyword)
+				sinceStr := ""
+				if !lastHarvestTime.IsZero() {
+					sinceTimeUnix := lastHarvestTime.Unix()
+					if sinceTimeUnix > 0 {
+						sinceStr = strconv.FormatInt(sinceTimeUnix, 10)
+					}
+				}
+				if sinceStr != "" {
+					params.Since = sinceStr
 				}
 
-				lastIdHarvested := ""
-				pagesHarvested := 1
-				itemsHarvested := 0
-				lastTimeHarvested := time.Now() // set something...but this should be changed by the data being harvested
+				// No need to pass the keyword to this function by itself, it's set in params.Q because it's not part of the API URL path, it's in the querystring.
+				updatedParams, updatedHarvestState := harvester.FacebookSearch(territory.Name, harvestState, params)
+				params = updatedParams
+				harvestState = updatedHarvestState
+				log.Println("harvested a page of results from facebook")
 
-				// Fetch all pages (it keeps going until there are no more, but that could be problematic for API rate limits - so in the Social Harvest config, a limit can be put on number of pages returned)
-				for {
-					// Note: The "since" seems to get removed in the "next" pagination link.
-					// It would have worked perfectly and stopped if they held on to it as a limiter. Now, we need to hold on to it in the harvester and watch.
-					// When results start coming in that have a time older than this "since" value - break the loop (also note, configuration can limit pages too).
-					// However. If nothing has truly been posted since the last harvest, then no results will be returned when passing "since" and that will help a little.
-					// So always pass it. Since we only get the "next" page, we don't need to change it (and it does help particularly with account feeds).
-					lastHarvestTime := socialHarvest.Database.GetLastHarvestTime(territory.Name, "facebook", "FacebookPublicMessagesByKeyword", keyword)
-					sinceStr := ""
-					if !lastHarvestTime.IsZero() {
-						sinceTimeUnix := lastHarvestTime.Unix()
-						if sinceTimeUnix > 0 {
-							sinceStr = strconv.FormatInt(sinceTimeUnix, 10)
-						}
-					}
-					if sinceStr != "" {
-						params.Since = sinceStr
-					}
+				// Always save this on each page. Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
+				socialHarvest.Database.SetLastHarvestTime(territory.Name, "facebook", "FacebookPublicMessagesByKeyword", keyword, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
 
-					// TODO: Refactor. We shouldn't need this second FacebookPostsOut() function.
-					// I know that it was done because there were two different search API endpoints and both returned different responses.
-					// So rather than some duplicate code everything was first mapped to a "post" and then that post was mapped to a social harvest message...Something like that.
-					// Refactor it though. For some reason Twitter is so sparkly clean. I want them all to be like that.
-					posts, params = harvester.FacebookSearch(params)
-					// Process the data (number of items, the latest item's time and id will be returned so the next harvest can pick up where it left off)
-					items, lastId, lastTime := harvester.FacebookPostsOut(posts, territory.Name)
-					itemsHarvested += items
-					lastIdHarvested = lastId
-					lastTimeHarvested = lastTime
-
-					// Just check Until, Since would be for going backwards in the pagination which we don't need to do here...
-					if params.Until == "0" {
-						log.Println("done for " + keyword)
-						// Save the last harvest time for this task with the keyword
-						socialHarvest.Database.SetLastHarvestTime(territory.Name, "facebook", "FacebookPublicMessagesByKeyword", keyword, lastTimeHarvested, lastIdHarvested, itemsHarvested)
-						break
-					}
-
-					// Limit the number of pages of results if specified in the Social Harvest Config
-					if territory.Limits.MaxResultsPages != 0 {
-						if pagesHarvested >= territory.Limits.MaxResultsPages {
-							log.Println("done for " + keyword)
-							socialHarvest.Database.SetLastHarvestTime(territory.Name, "facebook", "FacebookPublicMessagesByKeyword", keyword, lastTimeHarvested, lastIdHarvested, itemsHarvested)
-							break
-						}
-					}
-					// Count pages of results
-					pagesHarvested++
+				// We also avoid using "break" because the for loop is now based on number of pages to harvest.
+				// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
+				// Since every call to FacebookFeed() should return with a new Until value, we'll look to see if it's empty. If so, it was the latest page of results from FB. Break the loop.
+				if params.Until == "" {
+					// log.Println("completed search - ran into page limit set by config")
+					break
 				}
 			}
+
 		}
 	}
+	return
 }
 
 // Harvest Facebook publicly accessible posts from a specific account (user or page)
 func FacebookMessagesByAccount() {
 	params := harvester.FacebookParams{}
-	posts := []harvester.FacebookPost{}
 
 	for _, territory := range socialHarvest.Config.Harvest.Territories {
-		if len(territory.Accounts.Facebook) > 0 {
-			// If different credentials were set for the territory, this will find and set them
-			harvester.NewFacebookTerritoryCredentials(territory.Name)
+		// If different credentials were set for the territory, this will find and set them
+		// TODO: Change this. Always pass the credentials for overrides. OR, always set them back on each harvest (harvests do happen one by one).
+		// NOTE: Pass to the params strut. simple.
+		//harvester.NewFacebookTerritoryCredentials(territory.Name)
 
-			//log.Print(territory.Accounts.Facebook)
-			for _, account := range territory.Accounts.Facebook {
-				//log.Print("Getting feed for: " + account)
-				// A globally set limit in the Social Harvest config (or default of "100")
-				if territory.Limits.ResultsPerPage != "" {
-					params.Limit = territory.Limits.ResultsPerPage
-				} else {
-					params.Limit = "100"
-				}
-
-				lastIdHarvested := ""
-				itemsHarvested := 0
-				pagesHarvested := 1
-				lastTimeHarvested := time.Now() // set something...but this should be changed by the data being harvested
-				for {
-					// Pass the last harvest time in for "since" to help avoid duplicate data in API requests
-					// (helps a lot more in this case since individual accounts don't post as frequently as the masses in a public post search).
-					lastHarvestTime := socialHarvest.Database.GetLastHarvestTime(territory.Name, "facebook", "FacebookMessagesByAccount", account)
-					if !lastHarvestTime.IsZero() {
-						params.Since = strconv.FormatInt(lastHarvestTime.Unix(), 10)
-					}
-
-					posts, params = harvester.FacebookFeed(account, params)
-					items, lastId, lastTime := harvester.FacebookPostsOut(posts, territory.Name)
-					itemsHarvested += items
-					lastIdHarvested = lastId
-					lastTimeHarvested = lastTime
-
-					// Just check Until, Since would be for going backwards in the pagination which we don't need to do here...
-					if params.Until == "0" {
-						log.Println("done for " + account)
-						// Save the last harvest time for this task with the keyword
-						socialHarvest.Database.SetLastHarvestTime(territory.Name, "facebook", "FacebookMessagesByAccount", account, lastTimeHarvested, lastIdHarvested, itemsHarvested)
-						break
-					}
-
-					// Limit the number of pages of results if specified in the Social Harvest config
-					if territory.Limits.MaxResultsPages != 0 {
-						if pagesHarvested >= territory.Limits.MaxResultsPages {
-							log.Println("done for " + account)
-							socialHarvest.Database.SetLastHarvestTime(territory.Name, "facebook", "FacebookMessagesByAccount", account, lastTimeHarvested, lastIdHarvested, itemsHarvested)
-							break
-						}
-					}
-					// Count pages of results
-					pagesHarvested++
-				}
-
+		for _, account := range territory.Accounts.Facebook {
+			// Reset Until and Since, just in case. The for loop below could have changed it for the next account.
+			params.Until = ""
+			params.Since = ""
+			if territory.Limits.ResultsPerPage != "" {
+				params.Limit = territory.Limits.ResultsPerPage
+			} else {
+				params.Limit = "100"
 			}
+
+			harvestState := config.HarvestState{
+				LastId:         "",
+				LastTime:       time.Now(),
+				PagesHarvested: 1,
+				ItemsHarvested: 0,
+			}
+
+			// Limit to 10 pages max. Anything more will simply take too long and cause issues.
+			maxPages := territory.Limits.MaxResultsPages
+			if maxPages == 0 {
+				maxPages = 10
+			}
+
+			// Fetch X pages of results
+			for i := 0; i < maxPages; i++ {
+				lastHarvestTime := socialHarvest.Database.GetLastHarvestTime(territory.Name, "facebook", "FacebookMessagesByAccount", account)
+				sinceStr := ""
+				if !lastHarvestTime.IsZero() {
+					sinceTimeUnix := lastHarvestTime.Unix()
+					if sinceTimeUnix > 0 {
+						sinceStr = strconv.FormatInt(sinceTimeUnix, 10)
+					}
+				}
+				if sinceStr != "" {
+					params.Since = sinceStr
+				}
+
+				updatedParams, updatedHarvestState := harvester.FacebookFeed(territory.Name, harvestState, account, params)
+				params = updatedParams
+				harvestState = updatedHarvestState
+				// log.Println("harvested a page of results from facebook")
+
+				// Always save this on each page. Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
+				socialHarvest.Database.SetLastHarvestTime(territory.Name, "facebook", "FacebookMessagesByAccount", account, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+
+				// We also avoid using "break" because the for loop is now based on number of pages to harvest.
+				// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
+				// Since every call to FacebookFeed() should return with a new Until value, we'll look to see if it's empty. If so, it was the latest page of results from FB. Break the loop.
+				if params.Until == "" {
+					// log.Println("completed search - ran into page limit set by config")
+					break
+				}
+			}
+
 		}
 	}
+	return
 }
 
 // Track Facebook account changes for public pages (without extended permissions, we can't determine personal account growth/number of friends)
@@ -231,6 +226,7 @@ func TwitterPublicMessagesByKeyword() {
 					ItemsHarvested: 0,
 				}
 
+				// TODO: Make like Facebook and look at maxpages...
 				// Fetch all pages (it keeps going until there are no more, but that could be problematic for API rate limits - so in the Social Harvest config, a limit can be put on number of pages returned)
 				for {
 					// Note: The "since" seems to get removed in the "next" pagination link.
@@ -246,8 +242,9 @@ func TwitterPublicMessagesByKeyword() {
 					updatedParams, updatedHarvestState := harvester.TwitterSearch(territory.Name, harvestState, keyword, params)
 					params = updatedParams
 					harvestState = updatedHarvestState
-					log.Println("harvested a page of results")
+					//log.Println("harvested a page of results from twitter")
 
+					// TODO: Look at facebook and do something similar for the following
 					// Just check Until, Since would be for going backwards in the pagination which we don't need to do here...
 					/*
 						if params.Until == "0" {
@@ -261,7 +258,7 @@ func TwitterPublicMessagesByKeyword() {
 					// Limit the number of pages of results if specified in the Social Harvest Config
 					if territory.Limits.MaxResultsPages != 0 {
 						if harvestState.PagesHarvested >= territory.Limits.MaxResultsPages {
-							log.Println("done for " + keyword + "(twitter)")
+							// log.Println("done for " + keyword + "(twitter)")
 							socialHarvest.Database.SetLastHarvestTime(territory.Name, "twitter", "TwitterPublicMessagesByKeyword", keyword, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
 							break
 						}
@@ -273,6 +270,7 @@ func TwitterPublicMessagesByKeyword() {
 		}
 	}
 	log.Println("done twitter public message search")
+	return
 }
 
 // Simply calls every other function here, harvesting everything
@@ -294,127 +292,3 @@ func HarvestAllContent() {
 func HarvestAllAccounts() {
 	//FacebookGrowthByAccount()
 }
-
-/*
-// Stores harvested messages by subscribing to the harvester observable "SocialHarvestMessage" event and storing those messages in the configured database and out to log file
-func StoreMessage() {
-	var waitGroup sync.WaitGroup
-	//dbSession := socialHarvest.Database.GetSession()
-	// we have a session already...the StoreRow() function copies it. no need to keep opening connections.
-	// it could likely lead to issues over time (from what I'm seeing, I'm guessing this was the case).
-
-	streamCh := make(chan interface{})
-	harvester.Subscribe("SocialHarvestMessage", streamCh)
-	for {
-		message := <-streamCh
-
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.MessagesWriter.Info(string(jsonMsg))
-		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
-	}
-}
-
-// Stores harvested mentions by subscribing to the harvester observable "SocialHarvestMention" event and storing those messages in the configured database and out to log file
-func StoreMention() {
-	var waitGroup sync.WaitGroup
-	//dbSession := socialHarvest.Database.GetSession()
-
-	streamCh := make(chan interface{})
-	harvester.Subscribe("SocialHarvestMention", streamCh)
-	for {
-		message := <-streamCh
-
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.MentionsWriter.Info(string(jsonMsg))
-		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
-	}
-}
-
-// Stores harvested shared links by subscribing to the harvester observable "SocialHarvestSharedLink" event and storing those messages in the configured database and out to log file
-func StoreSharedLink() {
-	var waitGroup sync.WaitGroup
-	//dbSession := socialHarvest.Database.GetSession()
-
-	streamCh := make(chan interface{})
-	harvester.Subscribe("SocialHarvestSharedLink", streamCh)
-	for {
-		message := <-streamCh
-
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.SharedLinksWriter.Info(string(jsonMsg))
-		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
-	}
-}
-
-// Stores harvested hashtags by subscribing to the harvester observable "SocialHarvestHasthag" event and storing those messages in the configured database and out to log file
-func StoreHashtag() {
-	var waitGroup sync.WaitGroup
-	//dbSession := socialHarvest.Database.GetSession()
-
-	streamCh := make(chan interface{})
-	harvester.Subscribe("SocialHarvestHashtag", streamCh)
-	for {
-		message := <-streamCh
-
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.HashtagsWriter.Info(string(jsonMsg))
-		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
-	}
-}
-
-// Stores harvested info about user/account change by subscribing to the harvester observable "SocialHarvestContributorGrowth" event and storing those messages in the configured database and out to log file
-func StoreContributorGrowth() {
-	var waitGroup sync.WaitGroup
-	//dbSession := socialHarvest.Database.GetSession()
-
-	streamCh := make(chan interface{})
-	harvester.Subscribe("SocialHarvestContributorGrowth", streamCh)
-	for {
-		message := <-streamCh
-
-		// Log (if configured)
-		jsonMsg, err := json.Marshal(message)
-		if err == nil {
-			socialHarvest.Writers.ContributorGrowthWriter.Info(string(jsonMsg))
-		}
-
-		// Write to database (if configured)
-		waitGroup.Add(1)
-		go socialHarvest.Database.StoreRow(message, &waitGroup, socialHarvest.Database.Session)
-		// Wait for all the queries to complete.
-		waitGroup.Wait()
-	}
-}
-*/

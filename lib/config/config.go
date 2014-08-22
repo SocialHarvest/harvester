@@ -121,7 +121,9 @@ type ServicesConfig struct {
 		AccessTokenSecret string `json:"accessTokenSecret"`
 	} `json:"twitter"`
 	Facebook struct {
-		AppToken string `json:"appToken"`
+		AppId     string `json:"appId"`
+		AppSecret string `json:"appSecret"`
+		AppToken  string `json:"appToken"`
 	} `json:"facebook"`
 	Google struct {
 		ServerKey string `json:"serverKey"`

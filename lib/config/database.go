@@ -190,7 +190,6 @@ func (database *SocialHarvestDB) GetLastHarvestId(territory string, network stri
 
 // Stores a harvested row of data into the configured database.
 func (database *SocialHarvestDB) StoreRow(row interface{}, dbSession db.Database) {
-
 	// TODO: change to collection to series for consistency - it's a little confusing in some areas because Mongo uses "collection" (but SQL of course is table so...)
 	collection := ""
 

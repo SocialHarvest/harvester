@@ -20,6 +20,7 @@ import (
 	"crypto/md5"
 	"encoding/csv"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -28,6 +29,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // For determining gender, we use the US Census database
@@ -154,7 +156,12 @@ func DetectGender(name string) int {
 
 // Gets the final URL given a short URL (or one that has redirects)
 func ExpandUrl(url string) string {
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := httpClient.Do(req)
+	// resp, err := http.Get(url)
 	if err != nil {
 		return ""
 	}
@@ -271,4 +278,47 @@ type csvUnsupportedType struct {
 
 func (e *csvUnsupportedType) Error() string {
 	return "Unsupported type: " + e.Type
+}
+
+// From https://gist.github.com/seantalts/11266762
+// For use with http.Client, to provide some additional options for timeout, etc.
+
+type TimeoutTransport struct {
+	http.Transport
+	RoundTripTimeout time.Duration
+}
+
+type respAndErr struct {
+	resp *http.Response
+	err  error
+}
+
+type netTimeoutError struct {
+	error
+}
+
+func (ne netTimeoutError) Timeout() bool { return true }
+
+// If you don't set RoundTrip on TimeoutTransport, this will always timeout at 0
+func (t *TimeoutTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	timeout := time.After(t.RoundTripTimeout)
+	resp := make(chan respAndErr, 1)
+
+	go func() {
+		r, e := t.Transport.RoundTrip(req)
+		resp <- respAndErr{
+			resp: r,
+			err:  e,
+		}
+	}()
+
+	select {
+	case <-timeout: // A round trip timeout has occurred.
+		t.Transport.CancelRequest(req)
+		return nil, netTimeoutError{
+			error: fmt.Errorf("timed out after %s", t.RoundTripTimeout),
+		}
+	case r := <-resp: // Success!
+		return r.resp, r.err
+	}
 }
