@@ -19,7 +19,7 @@ package config
 import (
 	//"net/http"
 	"bytes"
-	"database/sql"
+	//"database/sql"
 	//"github.com/asaskevich/govalidator"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -32,7 +32,7 @@ import (
 	"upper.io/db/mongo"
 	"upper.io/db/mysql"
 	"upper.io/db/postgresql"
-	"upper.io/db/util/sqlutil"
+	//"upper.io/db/util/sqlutil"
 )
 
 type SocialHarvestDB struct {
@@ -280,16 +280,17 @@ type CommonQueryParams struct {
 	Limit     uint   `json:"limit,omitempty"`
 	Series    string `json:"series,omitempty"`
 	Skip      uint   `json:"skip,omitempty"`
+	Sort      string `json:"sort,omitempty"`
 }
 
 type ResultCount struct {
-	Count    int    `json:"count"`
+	Count    uint64 `json:"count"`
 	TimeFrom string `json:"timeFrom"`
 	TimeTo   string `json:"timeTo"`
 }
 
 type ResultAggregateCount struct {
-	Count int    `json:"count"`
+	Count uint64 `json:"count"`
 	Value string `json:"value"`
 }
 
@@ -303,7 +304,7 @@ type ResultAggregateFields struct {
 	Average  map[string][]ResultAggregateAverage `json:"averages,omitempty"`
 	TimeFrom string                              `json:"timeFrom"`
 	TimeTo   string                              `json:"timeTo"`
-	Total    int                                 `json:"total"`
+	Total    uint64                              `json:"total"`
 }
 
 type MessageConditions struct {
@@ -312,6 +313,7 @@ type MessageConditions struct {
 	Country    string `json:"contributor_country,omitempty"`
 	IsQuestion int    `json:"is_question,omitempty"`
 	Geohash    string `json:"contributor_geohash,omitempty"`
+	Search     string `json:"search,omitempty"`
 }
 
 // Sanitizes common query params to prevent SQL injection and to ensure proper formatting, etc.
@@ -352,6 +354,13 @@ func SanitizeCommonQueryParams(params CommonQueryParams) CommonQueryParams {
 		sanitizedParams.Network = params.Network
 	}
 
+	// Sort can contain letters, numbers, underscores, and commas
+	pattern = `(?i)[A-z0-9\_\,]`
+	r, _ = regexp.Compile(pattern)
+	if r.MatchString(params.Sort) {
+		sanitizedParams.Sort = params.Sort
+	}
+
 	// to/from are dates and there's only certain characters necessary there too. Fore xample, something like 2014-08-08 12:00:00 is all we need.
 	// TODO: Maybe timezone too? All dates should be UTC so there may really be no need.
 	// Look for anything other than numbers, a single dash, colons, and spaces. Then also trim a dash at the end of the string in case. It's an invalid query really, but let it work still (for now).
@@ -373,108 +382,123 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 	var fieldCounts []ResultAggregateFields
 	var total ResultCount
 	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
+	total.TimeTo = sanitizedQueryParams.To
+	total.TimeFrom = sanitizedQueryParams.From
+
+	var err error
+	var sess db.Database
+	var col db.Collection
+	var conditions = db.Cond{}
+
+	var dbAdapter = ""
+	switch database.Type {
+	case "mongodb":
+		dbAdapter = mongo.Adapter
+		break
+	case "postgresql":
+		dbAdapter = postgresql.Adapter
+		break
+	case "mysql", "mariadb":
+		dbAdapter = mysql.Adapter
+		break
+	}
+
+	// If one is even being used, connect to it and store the data
+	sess, err = db.Open(dbAdapter, database.Settings)
+	if err != nil {
+		log.Println(err)
+		return fieldCounts, total
+	}
+	defer sess.Close()
+
+	col, err = sess.Collection(sanitizedQueryParams.Series)
+	if err != nil {
+		log.Println(err)
+		return fieldCounts, total
+	}
+
+	// optional date range (can have either or both)
+	if sanitizedQueryParams.From != "" {
+		switch database.Type {
+		case "mongodb":
+			conditions["time $gte"] = sanitizedQueryParams.From
+			break
+		default:
+			conditions["time >="] = sanitizedQueryParams.From
+			break
+		}
+	}
+	if sanitizedQueryParams.To != "" {
+		switch database.Type {
+		case "mongodb":
+			conditions["time $lte"] = sanitizedQueryParams.To
+			break
+		default:
+			conditions["time <="] = sanitizedQueryParams.To
+			break
+		}
+	}
+	if sanitizedQueryParams.Network != "" {
+		networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
+		switch database.Type {
+		case "mongodb":
+			conditions["network $in"] = networkMultiple
+			break
+		default:
+			conditions["network"] = db.Func{"IN", networkMultiple}
+			break
+		}
+		// singular
+		// conditions["network"] = sanitizedQueryParams.Network
+	}
+	if sanitizedQueryParams.Territory != "" {
+		conditions["territory"] = sanitizedQueryParams.Territory
+	}
+
+	res := col.Find(conditions)
+	defer res.Close()
+
+	total.Count, err = res.Count()
+	if err != nil {
+		res.Close()
+		log.Println(err)
+		return fieldCounts, total
+	}
 
 	switch database.Type {
 	case "mongodb":
-
+		// TODO: The GROUP query here, it'll differ from the SQL version below
 		break
 	case "postgresql", "mysql", "mariadb":
-		// The following query should work for pretty much any SQL database (at least any we're supporting)
-		var err error
-		var rows *sql.Rows
-		//var row *sql.Row
-		var drv *sql.DB
-		drv = database.Session.Driver().(*sql.DB)
-
-		// First get the overall total number of records
-		var buffer bytes.Buffer
-		buffer.WriteString("SELECT COUNT(*) AS count FROM ")
-		buffer.WriteString(sanitizedQueryParams.Series)
-		buffer.WriteString(" WHERE territory = '")
-		buffer.WriteString(sanitizedQueryParams.Territory)
-		buffer.WriteString("'")
-		// optional date range (can have either or both)
-		if sanitizedQueryParams.From != "" {
-			buffer.WriteString(" AND time >= '")
-			buffer.WriteString(sanitizedQueryParams.From)
-			buffer.WriteString("'")
-		}
-		if sanitizedQueryParams.To != "" {
-			buffer.WriteString(" AND time <= '")
-			buffer.WriteString(sanitizedQueryParams.To)
-			buffer.WriteString("'")
-		}
-
-		rows, err = drv.Query(buffer.String())
-		buffer.Reset()
-		defer rows.Close()
-		if err = sqlutil.FetchRow(rows, &total); err != nil {
-			log.Println(err)
-			return fieldCounts, total
-		}
-
 		for _, field := range fields {
-			if len(field) > 0 {
-				buffer.Reset()
-				buffer.WriteString("SELECT COUNT(")
-				buffer.WriteString(field)
-				buffer.WriteString(") AS count,")
-				buffer.WriteString(field)
-				buffer.WriteString(" AS value")
-				buffer.WriteString(" FROM ")
-				buffer.WriteString(sanitizedQueryParams.Series)
-				buffer.WriteString(" WHERE territory = '")
-				buffer.WriteString(sanitizedQueryParams.Territory)
-				buffer.WriteString("'")
-
-				// optional date range (can have either or both)
-				if sanitizedQueryParams.From != "" {
-					buffer.WriteString(" AND time >= '")
-					buffer.WriteString(sanitizedQueryParams.From)
-					buffer.WriteString("'")
-				}
-				if sanitizedQueryParams.To != "" {
-					buffer.WriteString(" AND time <= '")
-					buffer.WriteString(sanitizedQueryParams.To)
-					buffer.WriteString("'")
-				}
-
-				buffer.WriteString(" GROUP BY ")
-				buffer.WriteString(field)
-
-				buffer.WriteString(" ORDER BY count DESC")
-
-				// optional limit (in this case I don't know why one would use it - a date range would be a better limiter)
-				if sanitizedQueryParams.Limit > 0 {
-					buffer.WriteString(" LIMIT ")
-					buffer.WriteString(strconv.FormatInt(int64(sanitizedQueryParams.Limit), 10))
-				}
-
-				rows, err = drv.Query(buffer.String())
-				buffer.Reset()
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-				// Close the pointer
-				defer rows.Close()
-
-				var valueCounts []ResultAggregateCount
-				if err = sqlutil.FetchRows(rows, &valueCounts); err != nil {
-					log.Println(err)
-					continue
-				}
-
+			res = col.Find(conditions).Select(db.Raw{"COUNT(" + field + ") AS count," + field + " AS value"}).Group(field).Sort("-count")
+			var results []map[string]interface{}
+			if err = res.All(&results); err != nil {
+				res.Close()
+				log.Println(err)
+			} else {
 				count := map[string][]ResultAggregateCount{}
+				var valueCounts []ResultAggregateCount
+				// Loop each field and take the value counts
+				for _, f := range results {
+					cnt, cntErr := strconv.ParseUint(f["count"].(string), 10, 64)
+					if cntErr == nil {
+						c := ResultAggregateCount{
+							Value: f["value"].(string),
+							Count: cnt,
+						}
+						valueCounts = append(valueCounts, c)
+					} else {
+						res.Close()
+					}
+				}
 				count[field] = valueCounts
-
+				// Append the field value counts on to the main struct to return
 				fieldCount := ResultAggregateFields{Count: count, TimeFrom: sanitizedQueryParams.From, TimeTo: sanitizedQueryParams.To, Total: total.Count}
 				fieldCounts = append(fieldCounts, fieldCount)
 			}
+			res.Close()
 		}
-		// harmless to call again to make sure, but use defer above in case something unexpected happens in the loop and it returns, etc.
-		rows.Close()
-
 		break
 	}
 
@@ -487,93 +511,88 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
 	var count = ResultCount{Count: 0, TimeFrom: sanitizedQueryParams.From, TimeTo: sanitizedQueryParams.To}
 
+	var err error
+	var sess db.Database
+	var col db.Collection
+	var conditions = db.Cond{}
+
+	var dbAdapter = ""
 	switch database.Type {
 	case "mongodb":
-
+		dbAdapter = mongo.Adapter
 		break
-	case "postgresql", "mysql", "mariadb":
-		// The following query should work for pretty much any SQL database (at least any we're supporting)
-		var err error
-		var rows *sql.Rows
-		var drv *sql.DB
-		drv = database.Session.Driver().(*sql.DB)
-
-		var buffer bytes.Buffer
-		buffer.WriteString("SELECT COUNT(*) AS count FROM ")
-		buffer.WriteString(sanitizedQueryParams.Series)
-		buffer.WriteString(" WHERE territory = '")
-		buffer.WriteString(sanitizedQueryParams.Territory)
-		buffer.WriteString("'")
-
-		// optional date range (can have either or both)
-		if sanitizedQueryParams.From != "" {
-			buffer.WriteString(" AND time >= '")
-			buffer.WriteString(sanitizedQueryParams.From)
-			buffer.WriteString("'")
-		}
-		if sanitizedQueryParams.To != "" {
-			buffer.WriteString(" AND time <= '")
-			buffer.WriteString(sanitizedQueryParams.To)
-			buffer.WriteString("'")
-		}
-
-		// Because we're accepting user inuput, use a prepared statement. Sanitizing fieldValue could also be done in the future perhaps (if needed).
-		// The problem with prepared statements everywhere is that we can't put the tables through them. So only a few places will we be able to use them.
-		// Here is one though.
-		if sanitizedQueryParams.Field != "" && fieldValue != "" {
-			buffer.WriteString(" AND ")
-			buffer.WriteString(sanitizedQueryParams.Field)
-			// Must everything be so different?
-			if database.Type == "postgresql" {
-				buffer.WriteString(" = $1")
-			} else {
-				buffer.WriteString(" = ?")
-			}
-		}
-
-		// Again for the network
-		if sanitizedQueryParams.Network != "" {
-			buffer.WriteString(" AND network")
-			// Must everything be so different?
-			if database.Type == "postgresql" {
-				buffer.WriteString(" = $2")
-			} else {
-				buffer.WriteString(" = ?")
-			}
-		}
-
-		// log.Println(buffer.String())
-		stmt, err := drv.Prepare(buffer.String())
-		buffer.Reset()
-		if err != nil {
-			log.Println(err)
-			return count
-		}
-		// TODO: There has to be a better way to do this.... This is pretty stupid, but I can't see how to pass a variable number of args.
-		// Prepare() would need to perhaps keep track of how many it was expecting I guess...
-		if fieldValue != "" && sanitizedQueryParams.Network == "" {
-			rows, err = stmt.Query(fieldValue)
-		} else if fieldValue != "" && sanitizedQueryParams.Network != "" {
-			rows, err = stmt.Query(fieldValue, sanitizedQueryParams.Network)
-		} else if fieldValue == "" && sanitizedQueryParams.Network != "" {
-			rows, err = stmt.Query(sanitizedQueryParams.Network)
-		} else {
-			rows, err = stmt.Query()
-		}
-		// Close the pointer
-		defer rows.Close()
-
-		if err = sqlutil.FetchRow(rows, &count); err != nil {
-			log.Println(err)
-			return count
-		}
-		count.TimeFrom = sanitizedQueryParams.From
-		count.TimeTo = sanitizedQueryParams.To
-
-		// harmless to call again to make sure, but use defer above in case something unexpected happens in the loop and it returns, etc.
-		rows.Close()
-
+	case "postgresql":
+		dbAdapter = postgresql.Adapter
 		break
+	case "mysql", "mariadb":
+		dbAdapter = mysql.Adapter
+		break
+	}
+
+	// If one is even being used, connect to it and store the data
+	sess, err = db.Open(dbAdapter, database.Settings)
+	if err != nil {
+		log.Println(err)
+		return count
+	}
+	defer sess.Close()
+
+	col, err = sess.Collection(sanitizedQueryParams.Series)
+	if err != nil {
+		log.Println(err)
+		return count
+	}
+
+	// optional date range (can have either or both)
+	if sanitizedQueryParams.From != "" {
+		switch database.Type {
+		case "mongodb":
+			conditions["time $gte"] = sanitizedQueryParams.From
+			break
+		default:
+			conditions["time >="] = sanitizedQueryParams.From
+			break
+		}
+	}
+	if sanitizedQueryParams.To != "" {
+		switch database.Type {
+		case "mongodb":
+			conditions["time $lte"] = sanitizedQueryParams.To
+			break
+		default:
+			conditions["time <="] = sanitizedQueryParams.To
+			break
+		}
+	}
+	if sanitizedQueryParams.Network != "" {
+		networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
+		switch database.Type {
+		case "mongodb":
+			conditions["network $in"] = networkMultiple
+			break
+		default:
+			conditions["network"] = db.Func{"IN", networkMultiple}
+			break
+		}
+		// singular
+		// conditions["network"] = sanitizedQueryParams.Network
+	}
+	if sanitizedQueryParams.Territory != "" {
+		conditions["territory"] = sanitizedQueryParams.Territory
+	}
+
+	if sanitizedQueryParams.Field != "" && fieldValue != "" {
+		conditions[sanitizedQueryParams.Field] = fieldValue
+	}
+
+	res := col.Find(conditions)
+	defer res.Close()
+
+	count.Count, err = res.Count()
+	if err != nil {
+		res.Close()
+		log.Println(err)
+		count.Count = 0
 	}
 
 	return count
@@ -638,7 +657,18 @@ func (database *SocialHarvestDB) Messages(queryParams CommonQueryParams, conds M
 		}
 	}
 	if sanitizedQueryParams.Network != "" {
-		conditions["network"] = sanitizedQueryParams.Network
+		networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
+		switch database.Type {
+		case "mongodb":
+			conditions["network $in"] = networkMultiple
+			break
+		default:
+			conditions["network"] = db.Func{"IN", networkMultiple}
+			break
+		}
+		// conditions["network"] = db.Func{"IN", networkMultiple)
+		// singular
+		// conditions["network"] = networkMultiple
 	}
 
 	if sanitizedQueryParams.Territory != "" {
@@ -660,7 +690,7 @@ func (database *SocialHarvestDB) Messages(queryParams CommonQueryParams, conds M
 		if r.MatchString(conds.Geohash) {
 			switch database.Type {
 			case "mongodb":
-				conditions["contributor_geohash"] = "/" + conds.Geohash + ".*/"
+				conditions["contributor_geohash"] = "/" + conds.Geohash + "."
 				break
 			default:
 				conditions["contributor_geohash LIKE"] = conds.Geohash + "%"
@@ -668,6 +698,18 @@ func (database *SocialHarvestDB) Messages(queryParams CommonQueryParams, conds M
 			}
 		}
 	}
+	if conds.Search != "" {
+		// TODO: Ensure this is not a SQL injection problem
+		switch database.Type {
+		case "mongodb":
+			conditions["message"] = "/" + conds.Search + ".*/"
+			break
+		default:
+			conditions["message LIKE"] = "%" + conds.Search + "%"
+			break
+		}
+	}
+
 	if conds.Gender != "" {
 		switch conds.Gender {
 		case "-1", "f", "female":
@@ -685,8 +727,32 @@ func (database *SocialHarvestDB) Messages(queryParams CommonQueryParams, conds M
 		conditions["is_question"] = 1
 	}
 
+	sortBy := "-time"
+	if sanitizedQueryParams.Sort != "" {
+		sortDirection := "-"
+		sortField := sanitizedQueryParams.Sort
+		sortPieces := strings.Split(sortField, ",")
+		if len(sortPieces) > 0 {
+			sortField = sortPieces[0]
+		}
+		if len(sortPieces) > 1 {
+			sortDirection = sortPieces[1]
+			if sortDirection == "desc" || sortDirection == "dsc" {
+				sortDirection = "-"
+			}
+			if sortDirection == "asc" {
+				sortDirection = "+"
+			}
+		}
+		var buffer bytes.Buffer
+		buffer.WriteString(sortDirection)
+		buffer.WriteString(sortField)
+		sortBy = buffer.String()
+		buffer.Reset()
+	}
+
 	// TODO: Allow other sorting options? I'm not sure it matters because people likely want timely data. More important would be a search.
-	res := col.Find(conditions).Skip(sanitizedQueryParams.Skip).Limit(sanitizedQueryParams.Limit).Sort("-time")
+	res := col.Find(conditions).Skip(sanitizedQueryParams.Skip).Limit(sanitizedQueryParams.Limit).Sort(sortBy)
 	defer res.Close()
 	total, resCountErr := res.Count()
 	if resCountErr != nil {

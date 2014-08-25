@@ -91,15 +91,6 @@ func ShowSocialHarvestConfig(w rest.ResponseWriter, r *rest.Request) {
 // Territory aggregates (gender, language, etc.) shows a breakdown and count of various values and their percentage of total
 func TerritoryAggregateData(w rest.ResponseWriter, r *rest.Request) {
 	res := setTerritoryLinks("territory:aggregate")
-	res.Links["self"] = config.HypermediaLink{
-		Href: "/territory/aggregate/{territory}/{series}{?from,to,fields,network}",
-	}
-	res.Links["territory:list"] = config.HypermediaLink{
-		Href: "/territory/list",
-	}
-	res.Links["territory:timeseries-aggregate"] = config.HypermediaLink{
-		Href: "/territory/timeseries/aggregate/{territory}/{series}{?from,to,fields,network,resolution}",
-	}
 
 	territory := r.PathParam("territory")
 	series := r.PathParam("series")
@@ -403,9 +394,19 @@ func TerritoryMessages(w rest.ResponseWriter, r *rest.Request) {
 			skip = 0
 		}
 	}
+	// Always passed as field,direction (dashes aren't allowed)
+	sort := "time,desc"
+	if len(queryParams["sort"]) > 0 {
+		sort = queryParams["sort"][0]
+	}
 
 	// Build the conditions
 	var conditions = config.MessageConditions{}
+
+	// For a LIKE% match (MongoDb regex)
+	if len(queryParams["search"]) > 0 {
+		conditions.Search = queryParams["search"][0]
+	}
 
 	// Condition for questions
 	if len(queryParams["questions"]) > 0 {
@@ -436,6 +437,7 @@ func TerritoryMessages(w rest.ResponseWriter, r *rest.Request) {
 		To:        timeTo,
 		Limit:     limit,
 		Skip:      skip,
+		Sort:      sort,
 	}
 
 	messages, total, skip, limit := socialHarvest.Database.Messages(params, conditions)
@@ -476,7 +478,7 @@ func setTerritoryLinks(self string) *config.HypermediaResource {
 		Href: "/territory/timeseries/aggregate/{territory}/{series}{?from,to,network,fields,resolution}",
 	}
 	res.Links["territory:messages"] = config.HypermediaLink{
-		Href: "/territory/messages/{territory}{?from,to,limit,skip,network,lang,country,geohash,gender,questions}",
+		Href: "/territory/messages/{territory}{?from,to,limit,skip,network,lang,country,geohash,gender,questions,sort,search}",
 	}
 
 	selfedRes := config.NewHypermediaResource()
