@@ -4,6 +4,13 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.6.0
+-------------
+
+Now harvesting from Instagram by keyword/tag. A few fixes for performance (separate geocode package) and a fix to actually use (and store) 
+the reverse geocode during harvests.
+
+
 ## 0.5.1
 -------------
 
