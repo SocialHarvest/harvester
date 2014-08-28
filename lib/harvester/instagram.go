@@ -147,6 +147,13 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 					contributorMediaCount = contributor.Counts.Media
 				}
 
+				caption := ""
+				isQuestion := 0
+				if item.Caption != nil {
+					caption = item.Caption.Text
+					isQuestion = Btoi(IsQuestion(caption, harvestConfig.QuestionRegex))
+				}
+
 				message := config.SocialHarvestMessage{
 					Time:                     instagramCreatedTime,
 					HarvestId:                harvestId,
@@ -166,8 +173,8 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 					ContributorStatusesCount: contributorMediaCount,
 					ContributorGender:        contributorGender,
 					ContributorType:          contributorType,
-					Message:                  item.Caption.Text,
-					IsQuestion:               Btoi(IsQuestion(item.Caption.Text, harvestConfig.QuestionRegex)),
+					Message:                  caption,
+					IsQuestion:               isQuestion,
 					MessageId:                item.ID,
 					LikeCount:                item.Likes.Count,
 				}
