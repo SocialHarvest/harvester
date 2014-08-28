@@ -108,6 +108,8 @@ type SocialHarvestMessage struct {
 	FacebookShares       int `json:"facebook_shares" db:"facebook_shares" bson:"facebook_shares"`
 	TwitterRetweetCount  int `json:"twitter_retweet_count" db:"twitter_retweet_count" bson:"twitter_retweet_count"`
 	TwitterFavoriteCount int `json:"twitter_favorite_count" db:"twitter_favorite_count" bson:"twitter_favorite_count"`
+	// Instagram (and I suppose Facebook if possible)
+	LikeCount int `json:"like_count" db:"like_count" bson:"like_count"`
 }
 
 // Shared URLs. The "type" will tell us if it's media (video, photo, etc.) or HTML. It's more about content type. Not necessarily "blog" or something.

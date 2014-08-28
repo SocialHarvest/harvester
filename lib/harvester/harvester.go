@@ -19,6 +19,7 @@ package harvester
 import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
+	"github.com/carbocation/go-instagram/instagram"
 	"github.com/tmaiaroto/geocoder"
 	"net"
 	"net/http"
@@ -28,6 +29,7 @@ import (
 type harvesterServices struct {
 	twitter          *anaconda.TwitterApi
 	facebookAppToken string
+	instagram        *instagram.Client
 }
 
 var harvestConfig = config.HarvestConfig{}
@@ -41,6 +43,7 @@ func New(configuration config.SocialHarvestConf, database *config.SocialHarvestD
 	// Now set up all the services with the configuration
 	NewTwitter(configuration.Services)
 	NewFacebook(configuration.Services)
+	NewInstagram(configuration.Services)
 	NewGeocoder(configuration.Services)
 
 	// StoreHarvestedData() needs this now

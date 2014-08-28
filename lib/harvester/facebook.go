@@ -236,7 +236,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 			var contributorCounty = ""
 			if contributor.Location.Latitude != 0.0 && contributor.Location.Latitude != 0.0 {
 				reverseLocation, geoErr := geocoder.ReverseGeocode(contributor.Location.Latitude, contributor.Location.Longitude)
-				if geoErr != nil {
+				if geoErr == nil {
 					contributorState = reverseLocation.State
 					contributorCity = reverseLocation.City
 					contributorCountry = reverseLocation.CountryCode

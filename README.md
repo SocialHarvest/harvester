@@ -46,6 +46,10 @@ Installation is pretty simple. You'll need to have Go installed and with your $G
 
 The dependencies should be handled automatically but you may need to call ```go get```.
 
+You'll need to copy the ```data``` directory (and its contents) to be next to the program you run. So if you build the harvester, ensure where ever 
+you put the harvester binary, you have this data directory sitting in the same directory. This will change in the future, but for now it contains 
+the data sets for detecting gender.
+
 If you're using a SQL database, be sure to setup your tables using the SQL files in the ```scripts``` directory. It'll save you a lot of trouble. 
 However, these will change quite frequently during development until Social Harvest has a stable version released.
 

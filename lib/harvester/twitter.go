@@ -133,7 +133,7 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				//contributorLat, contributorLng = Geocode(tweet.User.Location)
 			} else {
 				reverseLocation, geoErr := geocoder.ReverseGeocode(statusLatitude, statusLongitude)
-				if geoErr != nil {
+				if geoErr == nil {
 					contributorState = reverseLocation.State
 					contributorCity = reverseLocation.City
 					contributorCountry = reverseLocation.CountryCode
@@ -154,7 +154,6 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 			// Generate a harvest_id to avoid potential dupes (a unique index is placed on this field and all insert errors ignored).
 			harvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName)
 
-			// TODO: ADD contributor gender, contributor type
 			message := config.SocialHarvestMessage{
 				Time:                     tweetCreatedTime,
 				HarvestId:                harvestId,

@@ -610,6 +610,8 @@ func main() {
 	//go FacebookMessagesByAccount()
 	// Search Twitter using keywords in Social Harvest config
 	//go TwitterPublicMessagesByKeyword()
+	//  Search Instagram
+	//go InstagramMediaByKeyword()
 
 	//harvester.YoutubeVideoSearch("obama")
 	///

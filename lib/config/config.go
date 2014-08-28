@@ -67,12 +67,14 @@ type HarvestConfig struct {
 		Name     string         `json:"name"`
 		Content  struct {
 			Options struct {
-				KeepMessage    bool   `json:"keepMessage"`
-				Lang           string `json:"lang"`
-				TwitterGeocode string `json:"twitterGeocode"`
+				KeepMessage          bool   `json:"keepMessage"`
+				Lang                 string `json:"lang"`
+				TwitterGeocode       string `json:"twitterGeocode"`
+				OnlyUseInstagramTags bool   `json:"onlyUseInstagramTags"`
 			} `json:"options"`
-			Keywords []string `json:"keywords"`
-			Urls     []string `json:"urls"`
+			Keywords      []string `json:"keywords"`
+			Urls          []string `json:"urls"`
+			InstagramTags []string `json:"instagramTags"`
 		} `json:"content"`
 		Accounts struct {
 			Twitter    []string `json:"twitter"`

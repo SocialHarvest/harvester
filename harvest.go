@@ -172,7 +172,7 @@ func FacebookMessagesByAccount() {
 				// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
 				// Since every call to FacebookFeed() should return with a new Until value, we'll look to see if it's empty. If so, it was the latest page of results from FB. Break the loop.
 				if params.Until == "" {
-					// log.Println("completed search - ran into page limit set by config")
+					// log.Println("completed search - no more pages of results")
 					break
 				}
 			}
@@ -271,6 +271,99 @@ func TwitterPublicMessagesByKeyword() {
 	}
 	log.Println("done twitter public message search")
 	return
+}
+
+// Searches Instagram for media by territory keyword criteria (first needs to get tags)
+func InstagramMediaByKeyword() {
+	for _, territory := range socialHarvest.Config.Harvest.Territories {
+		// If different credentials were set for the territory, this will find and set them
+		harvester.NewInstagramTerritoryCredentials(territory.Name)
+
+		// First find the top tag for the keyword (basically, try to convert keywords into tags) - though this can be disabled, per territory, by configuration.
+		// The default is going to be false, so it will use keywords and lookup a tag for each (setting true would only use defined Instagram tags from the config).
+		if len(territory.Content.Keywords) > 0 {
+			for _, keyword := range territory.Content.Keywords {
+				if !territory.Content.Options.OnlyUseInstagramTags {
+					keywordTag := harvester.InstagramFindTags(keyword)
+					// The following isn't too awesome for memory usage, but the slices should be small
+					territory.Content.InstagramTags = append(territory.Content.InstagramTags, keywordTag)
+
+				}
+			}
+			// Remove any duplicates (again, not great for memory)
+			m := map[string]bool{}
+			deDuped := []string{}
+			for _, v := range territory.Content.InstagramTags {
+				if _, seen := m[v]; !seen {
+					deDuped = append(deDuped, v)
+					m[v] = true
+				}
+			}
+			territory.Content.InstagramTags = deDuped
+		}
+
+		// Build params for search
+		params := url.Values{}
+		// Search all keywords
+		if len(territory.Content.InstagramTags) > 0 {
+			for _, tag := range territory.Content.InstagramTags {
+				// log.Print("Searching for: " + tag)
+
+				// A globally set limit in the Social Harvest config (or default of "100")
+				if territory.Limits.ResultsPerPage != "" {
+					params.Set("count", territory.Limits.ResultsPerPage)
+				} else {
+					params.Set("count", "100")
+				}
+
+				// Keep track of the last id harvested, the number of items harvested, etc. This information will be returend from `harvester.TwitterSearch()`
+				// on each call in the loop. We'll just keep incrementing the items and overwriting the last id and time. This information then gets saved to the harvest series.
+				// So then on the next harvest, we can see where we left off so we don't request the same data again from the API. This doesn't guarantee the prevention of dupes
+				// of course, but it does decrease unnecessary API calls which helps with rate limiting and efficiency.
+				harvestState := config.HarvestState{
+					LastId:         "",
+					LastTime:       time.Now(),
+					PagesHarvested: 1,
+					ItemsHarvested: 0,
+				}
+				// log.Println(harvestState)
+
+				// Limit to 10 pages max. Anything more will simply take too long and cause issues.
+				maxPages := territory.Limits.MaxResultsPages
+				if maxPages == 0 {
+					maxPages = 10
+				}
+
+				// Fetch X pages of results
+				for i := 0; i < maxPages; i++ {
+					lastHarvestId := socialHarvest.Database.GetLastHarvestId(territory.Name, "instagram", "InstagramMediaByKeyword", tag)
+					params.Set("max_tag_id", lastHarvestId)
+
+					updatedParams, updatedHarvestState := harvester.InstagramSearch(territory.Name, harvestState, tag, params)
+					params = updatedParams
+					harvestState = updatedHarvestState
+					// log.Println("harvested a page of results from instagram")
+
+					// Always save this on each page. Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
+					socialHarvest.Database.SetLastHarvestTime(territory.Name, "instagram", "InstagramMediaByKeyword", tag, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+
+					// We also avoid using "break" because the for loop is now based on number of pages to harvest.
+					// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
+					// Since every call to FacebookFeed() should return with a new Until value, we'll look to see if it's empty. If so, it was the latest page of results from FB. Break the loop.
+					// TODO: Find equivelant here
+					if params.Get("max_tag_id") == "" {
+						// log.Println("completed search - no more pages of results")
+						break
+					}
+				}
+			}
+		}
+
+	}
+}
+
+// If specific Instagram tags were passed in the territory criteria, then those will be used directly
+func InstagramMediaByTag() {
 }
 
 // Simply calls every other function here, harvesting everything
