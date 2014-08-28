@@ -362,16 +362,10 @@ func InstagramMediaByKeyword() {
 	}
 }
 
-// If specific Instagram tags were passed in the territory criteria, then those will be used directly
-func InstagramMediaByTag() {
-}
-
 // Simply calls every other function here, harvesting everything
 func HarvestAll() {
-	//FacebookPublicMessagesByKeyword()
-	//FacebookMessagesByAccount()
-
-	//FacebookGrowthByAccount()
+	HarvestAllContent()
+	HarvestAllAccounts()
 }
 
 // Calls all harvest functions that gather content
@@ -379,6 +373,7 @@ func HarvestAllContent() {
 	go FacebookPublicMessagesByKeyword()
 	go FacebookMessagesByAccount()
 	go TwitterPublicMessagesByKeyword()
+	go InstagramMediaByKeyword()
 }
 
 // Calls all harvest functions that gather information about account changes/growth
