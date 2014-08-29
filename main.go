@@ -610,6 +610,7 @@ func main() {
 	//go FacebookMessagesByAccount()
 	// Search Twitter using keywords in Social Harvest config
 	//go TwitterPublicMessagesByKeyword()
+	//go TwitterPublicMessagesByAccount()
 	//  Search Instagram
 	//go InstagramMediaByKeyword()
 

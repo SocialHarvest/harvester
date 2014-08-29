@@ -21,6 +21,7 @@ import (
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/SocialHarvest/harvester/lib/harvester"
 	"log"
+	"math"
 	"net/url"
 	"strconv"
 	//"sync"
@@ -226,9 +227,14 @@ func TwitterPublicMessagesByKeyword() {
 					ItemsHarvested: 0,
 				}
 
-				// TODO: Make like Facebook and look at maxpages...
+				// Limit to 10 pages max. Anything more will simply take too long and cause issues.
+				maxPages := territory.Limits.MaxResultsPages
+				if maxPages == 0 {
+					maxPages = 10
+				}
+
 				// Fetch all pages (it keeps going until there are no more, but that could be problematic for API rate limits - so in the Social Harvest config, a limit can be put on number of pages returned)
-				for {
+				for i := 0; i < maxPages; i++ {
 					// Note: The "since" seems to get removed in the "next" pagination link.
 					// It would have worked perfectly and stopped if they held on to it as a limiter. Now, we need to hold on to it in the harvester and watch.
 					// When results start coming in that have a time older than this "since" value - break the loop (also note, configuration can limit pages too).
@@ -244,32 +250,83 @@ func TwitterPublicMessagesByKeyword() {
 					harvestState = updatedHarvestState
 					//log.Println("harvested a page of results from twitter")
 
-					// TODO: Look at facebook and do something similar for the following
-					// Just check Until, Since would be for going backwards in the pagination which we don't need to do here...
-					/*
-						if params.Until == "0" {
-							log.Println("done for " + keyword)
-							// Save the last harvest time for this task with the keyword
-							socialHarvest.Database.SetLastHarvestTime(territory.Name, "twitter", "TwitterPublicMessagesByKeyword", keyword, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
-							break
-						}
-					*/
-
-					// Limit the number of pages of results if specified in the Social Harvest Config
-					if territory.Limits.MaxResultsPages != 0 {
-						if harvestState.PagesHarvested >= territory.Limits.MaxResultsPages {
-							// log.Println("done for " + keyword + "(twitter)")
-							socialHarvest.Database.SetLastHarvestTime(territory.Name, "twitter", "TwitterPublicMessagesByKeyword", keyword, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
-							break
-						}
+					// We also avoid using "break" because the for loop is now based on number of pages to harvest.
+					// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
+					// Since every call to FacebookFeed() should return with a new Until value, we'll look to see if it's empty. If so, it was the latest page of results from FB. Break the loop.
+					if params.Get("since_id") == "" {
+						// log.Println("completed search - no more pages of results")
+						break
 					}
-					// Count pages of results
-					harvestState.PagesHarvested++
 				}
 			}
 		}
 	}
 	log.Println("done twitter public message search")
+	return
+}
+
+// Get status updates from an account's timeline
+func TwitterPublicMessagesByAccount() {
+	for _, territory := range socialHarvest.Config.Harvest.Territories {
+		// If different credentials were set for the territory, this will find and set them
+		harvester.NewTwitterTerritoryCredentials(territory.Name)
+
+		for _, account := range territory.Accounts.Twitter {
+			// Build params for search
+			params := url.Values{}
+			params.Set("include_entities", "true")
+			if len(territory.Content.Options.Lang) > 0 {
+				params.Set("lang", territory.Content.Options.Lang)
+			}
+			if len(territory.Content.Options.TwitterGeocode) > 0 {
+				params.Set("geocode", territory.Content.Options.TwitterGeocode)
+			}
+
+			harvestState := config.HarvestState{
+				LastId:         "",
+				LastTime:       time.Now(),
+				PagesHarvested: 1,
+				ItemsHarvested: 0,
+			}
+
+			// Limit to 10 pages max. Anything more will simply take too long and cause issues.
+			maxPages := territory.Limits.MaxResultsPages
+			if maxPages == 0 {
+				maxPages = 10
+			}
+
+			// Fetch X pages of results
+			for i := 0; i < maxPages; i++ {
+				lastHarvestId := socialHarvest.Database.GetLastHarvestId(territory.Name, "twitter", "TwitterPublicMessagesByAccount", account)
+				if lastHarvestId != "" {
+					params.Set("since_id", lastHarvestId)
+				}
+				// Determine if the account is by id or username (both are accepted)
+				if _, err := strconv.Atoi(account); err == nil {
+					params.Set("user_id", account)
+				} else {
+					params.Set("screen_name", account)
+				}
+				params.Set("contributor_details", "true")
+
+				updatedParams, updatedHarvestState := harvester.TwitterAccountStream(territory.Name, harvestState, params)
+				params = updatedParams
+				harvestState = updatedHarvestState
+
+				// Always save this on each page. Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
+				socialHarvest.Database.SetLastHarvestTime(territory.Name, "twitter", "TwitterPublicMessagesByAccount", account, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+
+				// We also avoid using "break" because the for loop is now based on number of pages to harvest.
+				// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
+				// Since every call to FacebookFeed() should return with a new Until value, we'll look to see if it's empty. If so, it was the latest page of results from FB. Break the loop.
+				if params.Get("since_id") == "" {
+					// log.Println("completed search - no more pages of results")
+					break
+				}
+			}
+
+		}
+	}
 	return
 }
 
@@ -332,6 +389,17 @@ func InstagramMediaByKeyword() {
 				maxPages := territory.Limits.MaxResultsPages
 				if maxPages == 0 {
 					maxPages = 10
+				}
+				// Instagram appears to only return 20 results per page max. So, to compensate, increase the number of pages if the desired results per page is greater than 20.
+				// ie. 100 rpp, is 5 times the number of pages to get the desired results. NOTE: This affects rate limits in a predictable, but perhaps not so obvious way in some cases.
+				// Also note that small differences will be rounded down, ie. 21 rpp would still be one page (20 results).
+				rpp, rppErr := strconv.ParseInt(territory.Limits.ResultsPerPage, 10, 64)
+				if rppErr == nil {
+					if rpp > 20 {
+						adjustedRpp := rpp / 20
+						// TODO: Ummm, is there a better way than this?
+						maxPages = int(math.Floor(float64(int64(maxPages) * adjustedRpp)))
+					}
 				}
 
 				// Fetch X pages of results
