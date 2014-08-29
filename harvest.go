@@ -441,6 +441,7 @@ func HarvestAllContent() {
 	go FacebookPublicMessagesByKeyword()
 	go FacebookMessagesByAccount()
 	go TwitterPublicMessagesByKeyword()
+	go TwitterPublicMessagesByAccount()
 	go InstagramMediaByKeyword()
 }
 
