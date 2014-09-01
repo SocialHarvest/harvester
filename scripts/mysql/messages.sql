@@ -40,6 +40,8 @@ CREATE TABLE `messages` (
   `twitter_retweet_count` int(11) NOT NULL DEFAULT '0',
   `twitter_favorite_count` int(11) NOT NULL DEFAULT '0',
   `like_count` int(11) NOT NULL DEFAULT '0',
+  `google_plus_reshares` int(11) NOT NULL DEFAULT '0',
+  `google_plus_ones` int(11) NOT NULL DEFAULT '0',
   `contributor_country` varchar(6) DEFAULT NULL,
   `contributor_city` varchar(75) DEFAULT NULL,
   `contributor_state` varchar(50) DEFAULT NULL,

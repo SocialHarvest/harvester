@@ -34,6 +34,8 @@ CREATE TABLE "messages" (
 	"twitter_retweet_count" int4,
 	"twitter_favorite_count" int4,
 	"like_count" int4,
+	"google_plus_reshares" int4,
+	"google_plus_ones" int4,
 	"contributor_country" varchar(6) COLLATE "default",
 	"contributor_city" varchar(75) COLLATE "default",
 	"contributor_state" varchar(50) COLLATE "default",

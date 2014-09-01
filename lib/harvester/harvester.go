@@ -17,6 +17,7 @@
 package harvester
 
 import (
+	"code.google.com/p/google-api-go-client/plus/v1"
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/carbocation/go-instagram/instagram"
@@ -30,6 +31,7 @@ type harvesterServices struct {
 	twitter          *anaconda.TwitterApi
 	facebookAppToken string
 	instagram        *instagram.Client
+	googlePlus       *plus.Service
 }
 
 var harvestConfig = config.HarvestConfig{}
@@ -44,6 +46,7 @@ func New(configuration config.SocialHarvestConf, database *config.SocialHarvestD
 	NewTwitter(configuration.Services)
 	NewFacebook(configuration.Services)
 	NewInstagram(configuration.Services)
+	NewGooglePlus(configuration.Services)
 	NewGeocoder(configuration.Services)
 
 	// StoreHarvestedData() needs this now

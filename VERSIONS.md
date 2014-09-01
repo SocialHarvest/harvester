@@ -4,6 +4,14 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.7.0
+-------------
+
+Now harvesting content from Google+ by keyword. This wraps up all content harvests through alpha into beta versions. 
+Aside from some sentiment analysis and such, this makes Social Harvest a fully functional social media listening platform. 
+Hundreds of thousands of messages are easily harvested on a monthly basis without hitting rate limits or taking too much time. 
+Harvesting at faster rates will be looked into later on (testing shows it's not necessary now). Growth metrics will be focused on next.
+
 ## 0.6.0
 -------------
 

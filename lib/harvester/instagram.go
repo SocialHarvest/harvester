@@ -33,12 +33,12 @@ import (
 	//"sync"
 )
 
-// Use our own http.Client for Twitter (has timeouts and such)
-var twitterHttpClient *http.Client
+// Use our own http.Client for Instagram (has timeouts and such)
+var instagramHttpClient *http.Client
 
 // Set the client for future use
 func NewInstagram(servicesConfig config.ServicesConfig) {
-	twitterHttpClient = &http.Client{
+	instagramHttpClient = &http.Client{
 		Transport: &TimeoutTransport{
 			Transport: http.Transport{
 				Dial: func(netw, addr string) (net.Conn, error) {
@@ -52,7 +52,7 @@ func NewInstagram(servicesConfig config.ServicesConfig) {
 	}
 
 	// NOTE: Can change this back to nil for the default client. See how the custom client goes (not sure what the default is being used, did the package create one? Or default Go?).
-	services.instagram = instagram.NewClient(twitterHttpClient)
+	services.instagram = instagram.NewClient(instagramHttpClient)
 	services.instagram.ClientID = servicesConfig.Instagram.ClientId
 }
 

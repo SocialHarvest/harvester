@@ -19,53 +19,371 @@ package harvester
 import (
 	"code.google.com/p/google-api-go-client/googleapi/transport"
 	"code.google.com/p/google-api-go-client/plus/v1"
-	//"encoding/json"
-
+	"github.com/SocialHarvest/harvester/lib/config"
+	geohash "github.com/TomiHiltunen/geohash-golang"
+	"github.com/tmaiaroto/geocoder"
 	"log"
 	"net/http"
+	"net/url"
+	"strconv"
+	"time"
 )
 
-// TODO: Get from database/config file.
-const developerKey = "xxxx"
-
-func GooglePlusActivitySearch() {
-
+func NewGooglePlus(servicesConfig config.ServicesConfig) {
 	client := &http.Client{
-		Transport: &transport.APIKey{Key: developerKey},
+		Transport: &transport.APIKey{Key: servicesConfig.Google.ServerKey},
 	}
 	plusService, err := plus.New(client)
+	if err == nil {
+		services.googlePlus = plusService
+	} else {
+		log.Println(err)
+	}
+}
 
-	if err != nil {
-		log.Fatal(err)
+// If the territory has different keys to use
+func NewGooglePlusTerritoryCredentials(territory string) {
+	for _, t := range harvestConfig.Territories {
+		if t.Name == territory {
+			if t.Services.Google.ServerKey != "" {
+				client := &http.Client{
+					Transport: &transport.APIKey{Key: t.Services.Google.ServerKey},
+				}
+				plusService, err := plus.New(client)
+				if err == nil {
+					services.googlePlus = plusService
+				} else {
+					log.Println(err)
+				}
+			}
+		}
+	}
+}
+
+// Gets Google+ activities (posts) by searching for a keyword.
+func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestState, query string, options url.Values) (url.Values, config.HarvestState) {
+	limit, lErr := strconv.ParseInt(options.Get("count"), 10, 64)
+	if lErr != nil {
+		limit = 20
+	}
+	if limit > 20 {
+		limit = 20
+	}
+	// If there's a next page token, it'll be used to continue to the next page for this harvest
+	nextPageToken := options.Get("nextPageToken")
+
+	activities, err := services.googlePlus.Activities.Search(query).MaxResults(limit).PageToken(nextPageToken).Do()
+	if err == nil {
+		// Passed back to whatever called this function, so it can continue with the next page.
+		options.Set("nextPageToken", activities.NextPageToken)
+
+		for _, item := range activities.Items {
+
+			itemCreatedTime, err := time.Parse(time.RFC3339, item.Published)
+			// Only take instagrams that have a time
+			if err == nil && len(item.Id) > 0 {
+				harvestState.ItemsHarvested++
+				// If this is the most recent tweet in the results, set it's date and id (to be returned) so we can continue where we left off in future harvests
+				if harvestState.LastTime.IsZero() || itemCreatedTime.Unix() > harvestState.LastTime.Unix() {
+					harvestState.LastTime = itemCreatedTime
+					harvestState.LastId = item.Id
+				}
+
+				// Generate a harvest_id to avoid potential dupes (a unique index is placed on this field and all insert errors ignored).
+				harvestId := GetHarvestMd5(item.Id + "googlePlus" + territoryName)
+
+				// contributor row (who created the message)
+				// NOTE: This is synchronous...but that's ok because while I'd love to use channels and make a bunch of requests at once, there's rate limits from these APIs...
+				// Plus the contributor info tells us a few things about the message, such as locale. Other series will use this data.
+				contributor, err := services.googlePlus.People.Get(item.Actor.Id).Do()
+				if err != nil {
+					log.Println(err)
+					return options, harvestState
+				}
+
+				var contributorGender = 0
+				if contributor.Gender == "male" {
+					contributorGender = 1
+				}
+				if contributor.Gender == "female" {
+					contributorGender = -1
+				}
+				var contributorType = DetectContributorType(item.Actor.DisplayName, contributorGender)
+				contributorLanguage := LocaleToLanguageISO(contributor.Language)
+
+				var itemLat = 0.0
+				var itemLng = 0.0
+				// Reverse code to get city, state, country, etc.
+				var contributorCountry = ""
+				var contributorState = ""
+				var contributorCity = ""
+				var contributorCounty = ""
+				if item.Location != nil && item.Location.Position != nil {
+					if item.Location.Position.Latitude != 0.0 && item.Location.Position.Longitude != 0.0 {
+						itemLat = item.Location.Position.Latitude
+						itemLng = item.Location.Position.Longitude
+						reverseLocation, geoErr := geocoder.ReverseGeocode(item.Location.Position.Latitude, item.Location.Position.Longitude)
+						if geoErr == nil {
+							contributorState = reverseLocation.State
+							contributorCity = reverseLocation.City
+							contributorCountry = reverseLocation.CountryCode
+							contributorCounty = reverseLocation.County
+						}
+					}
+				}
+
+				// Geohash
+				var locationGeoHash = geohash.Encode(itemLat, itemLng)
+				// This is produced with empty lat/lng values - don't store it.
+				if locationGeoHash == "7zzzzzzzzzzz" {
+					locationGeoHash = ""
+				}
+
+				// message row
+				messageRow := config.SocialHarvestMessage{
+					Time:                  itemCreatedTime,
+					HarvestId:             harvestId,
+					Territory:             territoryName,
+					Network:               "googlePlus",
+					MessageId:             item.Id,
+					ContributorId:         item.Actor.Id,
+					ContributorScreenName: item.Actor.DisplayName,
+					ContributorName:       item.Actor.DisplayName,
+					ContributorGender:     contributorGender,
+					ContributorType:       contributorType,
+					ContributorLang:       contributorLanguage,
+					ContributorLongitude:  itemLng,
+					ContributorLatitude:   itemLat,
+					ContributorGeohash:    locationGeoHash,
+					ContributorCity:       contributorCity,
+					ContributorState:      contributorState,
+					ContributorCountry:    contributorCountry,
+					ContributorCounty:     contributorCounty,
+					Message:               item.Object.Content,
+					IsQuestion:            Btoi(IsQuestion(item.Object.OriginalContent, harvestConfig.QuestionRegex)),
+					GooglePlusReshares:    item.Object.Resharers.TotalItems,
+					GooglePlusOnes:        item.Object.Plusoners.TotalItems,
+				}
+				StoreHarvestedData(messageRow)
+				LogJson(messageRow, "messages")
+
+				if len(item.Object.Attachments) > 0 {
+					for _, attachment := range item.Object.Attachments {
+						hostName := ""
+						if len(attachment.Url) > 0 {
+							pUrl, _ := url.Parse(attachment.Url)
+							hostName = pUrl.Host
+						}
+
+						previewImg := ""
+						if attachment.Image != nil {
+							previewImg = attachment.Image.Url
+						}
+						fullImg := ""
+						if attachment.FullImage != nil {
+							fullImg = attachment.FullImage.Url
+						}
+
+						sharedLinksRow := config.SocialHarvestSharedLink{
+							Time:                  itemCreatedTime,
+							HarvestId:             harvestId,
+							Territory:             territoryName,
+							Network:               "googlePlus",
+							MessageId:             item.Id,
+							ContributorId:         item.Actor.Id,
+							ContributorScreenName: item.Actor.DisplayName,
+							ContributorName:       item.Actor.DisplayName,
+							ContributorGender:     contributorGender,
+							ContributorType:       contributorType,
+							ContributorLang:       contributorLanguage,
+							ContributorLongitude:  itemLng,
+							ContributorLatitude:   itemLat,
+							ContributorGeohash:    locationGeoHash,
+							ContributorCity:       contributorCity,
+							ContributorState:      contributorState,
+							ContributorCountry:    contributorCountry,
+							ContributorCounty:     contributorCounty,
+							Type:                  attachment.ObjectType,
+							Preview:               previewImg,
+							Source:                fullImg,
+							Url:                   attachment.Url,
+							ExpandedUrl:           ExpandUrl(attachment.Url),
+							Host:                  hostName,
+						}
+						StoreHarvestedData(sharedLinksRow)
+						LogJson(sharedLinksRow, "shared_links")
+					}
+				}
+
+			}
+		}
+	} else {
+		log.Println(err)
 	}
 
-	// GOOGLE+
-	// Activities (posts from people)
-	// https://developers.google.com/+/api/latest/activities/search#try-it
+	return options, harvestState
+}
 
-	// Comments on Activities (replies to what people post by other people)
-	// https://developers.google.com/+/api/latest/comments/list
-	// example id: z12bgt3ixljacjnkl23xsjuzokn5jthuf
-
-	// With both comments and activities we get an "actor" object with "displayName": "Denise E. Bodinski" for example...
-	// No gender info, demographics, etc. but we can filter that through the gender filter which compares against US Census DB of male/female names...
-	// Or technically, make another API call though we need to see what public info is available.
-
-	// https://developers.google.com/+/api/latest/people/get#try-it
-	// 113544226688149802325 for example is Richard Branson
-	// This is actually an awesome API call. It DOES have gender. It also has any other associated social media accounts (Twitter, etc.)
-	// Also organizations the actor is associated with too (school, work). <-- this is interesting because we can, with some effort, look up geo location data based on these things in some cases.
-	// There is sometimes a "placesLived" array of objects with a "primary" flag which would give us a better idea for geolocation. Still not lat/lon =( Have to look that up AND it may not be a clean field. ie. "Earth" and "Mars" may be ok like Twitter allows.
-	// Occupation and skills too...The data is sparse, but there is actually quite a GOOD bit of demographic info.
-	// Occupation and skills are bad ass magic demographic data.
-
-	// This works with a server key....But I had to first try from the developer console and click the OAuth 2.0 switch which prompted me for permission... Weird user experience/setup instructions.
-	// We may need to create pages with OAuth for users to approve everything (which we can store in InfluxDB). There was going to be a config page anyway.
-
-	person, err := plusService.People.Get("113544226688149802325").Do()
-	if err != nil {
-		log.Fatal(err)
+// Gets public Google+ activities (posts) by account.
+func GooglePlusActivityByAccount(territoryName string, harvestState config.HarvestState, account string, options url.Values) (url.Values, config.HarvestState) {
+	limit, lErr := strconv.ParseInt(options.Get("count"), 10, 64)
+	if lErr != nil {
+		limit = 100
 	}
-	log.Print(person.DisplayName)
+	if limit > 100 {
+		limit = 100
+	}
+	// If there's a next page token, it'll be used to continue to the next page for this harvest
+	nextPageToken := options.Get("nextPageToken")
 
+	activities, err := services.googlePlus.Activities.List(account, "public").MaxResults(limit).PageToken(nextPageToken).Do()
+	if err == nil {
+		// Passed back to whatever called this function, so it can continue with the next page.
+		options.Set("nextPageToken", activities.NextPageToken)
+
+		for _, item := range activities.Items {
+
+			itemCreatedTime, err := time.Parse(time.RFC3339, item.Published)
+			// Only take instagrams that have a time
+			if err == nil && len(item.Id) > 0 {
+				harvestState.ItemsHarvested++
+				// If this is the most recent tweet in the results, set it's date and id (to be returned) so we can continue where we left off in future harvests
+				if harvestState.LastTime.IsZero() || itemCreatedTime.Unix() > harvestState.LastTime.Unix() {
+					harvestState.LastTime = itemCreatedTime
+					harvestState.LastId = item.Id
+				}
+
+				// Generate a harvest_id to avoid potential dupes (a unique index is placed on this field and all insert errors ignored).
+				harvestId := GetHarvestMd5(item.Id + "googlePlus" + territoryName)
+
+				// contributor row (who created the message)
+				// NOTE: This is synchronous...but that's ok because while I'd love to use channels and make a bunch of requests at once, there's rate limits from these APIs...
+				// Plus the contributor info tells us a few things about the message, such as locale. Other series will use this data.
+				contributor, err := services.googlePlus.People.Get(item.Actor.Id).Do()
+				if err != nil {
+					log.Println(err)
+					return options, harvestState
+				}
+
+				var contributorGender = 0
+				if contributor.Gender == "male" {
+					contributorGender = 1
+				}
+				if contributor.Gender == "female" {
+					contributorGender = -1
+				}
+				var contributorType = DetectContributorType(item.Actor.DisplayName, contributorGender)
+				contributorLanguage := LocaleToLanguageISO(contributor.Language)
+
+				var itemLat = 0.0
+				var itemLng = 0.0
+				// Reverse code to get city, state, country, etc.
+				var contributorCountry = ""
+				var contributorState = ""
+				var contributorCity = ""
+				var contributorCounty = ""
+				if item.Location != nil && item.Location.Position != nil {
+					if item.Location.Position.Latitude != 0.0 && item.Location.Position.Longitude != 0.0 {
+						itemLat = item.Location.Position.Latitude
+						itemLng = item.Location.Position.Longitude
+						reverseLocation, geoErr := geocoder.ReverseGeocode(item.Location.Position.Latitude, item.Location.Position.Longitude)
+						if geoErr == nil {
+							contributorState = reverseLocation.State
+							contributorCity = reverseLocation.City
+							contributorCountry = reverseLocation.CountryCode
+							contributorCounty = reverseLocation.County
+						}
+					}
+				}
+
+				// Geohash
+				var locationGeoHash = geohash.Encode(itemLat, itemLng)
+				// This is produced with empty lat/lng values - don't store it.
+				if locationGeoHash == "7zzzzzzzzzzz" {
+					locationGeoHash = ""
+				}
+
+				// message row
+				messageRow := config.SocialHarvestMessage{
+					Time:                  itemCreatedTime,
+					HarvestId:             harvestId,
+					Territory:             territoryName,
+					Network:               "googlePlus",
+					MessageId:             item.Id,
+					ContributorId:         item.Actor.Id,
+					ContributorScreenName: item.Actor.DisplayName,
+					ContributorName:       item.Actor.DisplayName,
+					ContributorGender:     contributorGender,
+					ContributorType:       contributorType,
+					ContributorLang:       contributorLanguage,
+					ContributorLongitude:  itemLng,
+					ContributorLatitude:   itemLat,
+					ContributorGeohash:    locationGeoHash,
+					ContributorCity:       contributorCity,
+					ContributorState:      contributorState,
+					ContributorCountry:    contributorCountry,
+					ContributorCounty:     contributorCounty,
+					Message:               item.Object.Content,
+					IsQuestion:            Btoi(IsQuestion(item.Object.OriginalContent, harvestConfig.QuestionRegex)),
+					GooglePlusReshares:    item.Object.Resharers.TotalItems,
+					GooglePlusOnes:        item.Object.Plusoners.TotalItems,
+				}
+				StoreHarvestedData(messageRow)
+				LogJson(messageRow, "messages")
+
+				if len(item.Object.Attachments) > 0 {
+					for _, attachment := range item.Object.Attachments {
+						hostName := ""
+						if len(attachment.Url) > 0 {
+							pUrl, _ := url.Parse(attachment.Url)
+							hostName = pUrl.Host
+						}
+
+						previewImg := ""
+						if attachment.Image != nil {
+							previewImg = attachment.Image.Url
+						}
+						fullImg := ""
+						if attachment.FullImage != nil {
+							fullImg = attachment.FullImage.Url
+						}
+
+						sharedLinksRow := config.SocialHarvestSharedLink{
+							Time:                  itemCreatedTime,
+							HarvestId:             harvestId,
+							Territory:             territoryName,
+							Network:               "googlePlus",
+							MessageId:             item.Id,
+							ContributorId:         item.Actor.Id,
+							ContributorScreenName: item.Actor.DisplayName,
+							ContributorName:       item.Actor.DisplayName,
+							ContributorGender:     contributorGender,
+							ContributorType:       contributorType,
+							ContributorLang:       contributorLanguage,
+							ContributorLongitude:  itemLng,
+							ContributorLatitude:   itemLat,
+							ContributorGeohash:    locationGeoHash,
+							ContributorCity:       contributorCity,
+							ContributorState:      contributorState,
+							ContributorCountry:    contributorCountry,
+							ContributorCounty:     contributorCounty,
+							Type:                  attachment.ObjectType,
+							Preview:               previewImg,
+							Source:                fullImg,
+							Url:                   attachment.Url,
+							ExpandedUrl:           ExpandUrl(attachment.Url),
+							Host:                  hostName,
+						}
+						StoreHarvestedData(sharedLinksRow)
+						LogJson(sharedLinksRow, "shared_links")
+					}
+				}
+
+			}
+		}
+	} else {
+		log.Println(err)
+	}
+
+	return options, harvestState
 }
