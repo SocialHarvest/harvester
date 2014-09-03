@@ -613,7 +613,7 @@ func main() {
 	//go TwitterPublicMessagesByAccount()
 	//  Search Instagram
 	//go InstagramMediaByKeyword()
-	go GooglePlusActivitieByKeyword()
+	//go GooglePlusActivitieByKeyword()
 	//go GooglePlusActivitieByAccount()
 
 	//harvester.YoutubeVideoSearch("obama")
