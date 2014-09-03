@@ -182,6 +182,39 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 				go StoreHarvestedData(message)
 				LogJson(message, "messages")
 
+				// Keywords are stored on the same collection as hashtags - but under a `keyword` field instead of `tag` field as to not confuse the two.
+				// Limit to words 4 characters or more and only return 8 keywords. This could greatly increase the database size if not limited.
+				keywords := GetKeywords(caption, 4, 8)
+				if len(keywords) > 0 {
+					for _, keyword := range keywords {
+						keywordHarvestId := GetHarvestMd5(item.ID + "instagram" + territoryName + keyword)
+
+						// Again, keyword share the same series/table/collection
+						hashtag := config.SocialHarvestHashtag{
+							Time:                  instagramCreatedTime,
+							HarvestId:             keywordHarvestId,
+							Territory:             territoryName,
+							Network:               "instagram",
+							MessageId:             item.ID,
+							ContributorId:         item.User.ID,
+							ContributorScreenName: item.User.Username,
+							ContributorName:       item.User.FullName,
+							ContributorLongitude:  contributorLng,
+							ContributorLatitude:   contributorLat,
+							ContributorGeohash:    contributorLocationGeoHash,
+							ContributorCity:       contributorCity,
+							ContributorState:      contributorState,
+							ContributorCountry:    contributorCountry,
+							ContributorCounty:     contributorCounty,
+							ContributorGender:     contributorGender,
+							ContributorType:       contributorType,
+							Keyword:               keyword,
+						}
+						StoreHarvestedData(hashtag)
+						LogJson(hashtag, "hashtags")
+					}
+				}
+
 				// shared links (the media in Instagram's case...for data query and aggregation reasons, we aren't treating media as part of the message)
 				// though, less confusing is Instagram's own API which provides a "link" field (and they are always also the expanded version)
 				linkHostName := ""

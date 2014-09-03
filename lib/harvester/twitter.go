@@ -181,9 +181,45 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				TwitterRetweetCount:      tweet.RetweetCount,
 				TwitterFavoriteCount:     tweet.FavoriteCount,
 			}
-			// Send to the harvester observer
 			go StoreHarvestedData(message)
 			LogJson(message, "messages")
+
+			// Keywords are stored on the same collection as hashtags - but under a `keyword` field instead of `tag` field as to not confuse the two.
+			// Keywords are found across every network, whereas hashtags are only found on a few.
+			// Limit to words 4 characters or more and only return 8 keywords. This could greatly increase the database size if not limited.
+			// Typically for Twitter, not more than 10 keywords are returned.
+			keywords := GetKeywords(tweet.Text, 4, 8)
+			if len(keywords) > 0 {
+				for _, keyword := range keywords {
+					keywordHarvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName + keyword)
+
+					// Again, keyword share the same series/table/collection
+					hashtag := config.SocialHarvestHashtag{
+						Time:                  tweetCreatedTime,
+						HarvestId:             keywordHarvestId,
+						Territory:             territoryName,
+						Network:               "twitter",
+						MessageId:             tweet.IdStr,
+						ContributorId:         tweet.User.IdStr,
+						ContributorScreenName: tweet.User.ScreenName,
+						ContributorName:       tweet.User.Name,
+						ContributorLang:       tweet.User.Lang,
+						ContributorType:       contributorType,
+						ContributorGender:     contributorGender,
+						ContributorLongitude:  contributorLng,
+						ContributorLatitude:   contributorLat,
+						ContributorGeohash:    contributorLocationGeoHash,
+						ContributorCity:       contributorCity,
+						ContributorState:      contributorState,
+						ContributorCountry:    contributorCountry,
+						ContributorCounty:     contributorCounty,
+						Keyword:               keyword,
+					}
+					StoreHarvestedData(hashtag)
+					LogJson(hashtag, "hashtags")
+
+				}
+			}
 
 			// shared links
 			if len(tweet.Entities.Urls) > 0 {
@@ -196,7 +232,6 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 						pUrl, _ := url.Parse(link.Url)
 						linkHostName = pUrl.Host
 
-						// TODO: ADD contributor gender, contributor type
 						sharedLink := config.SocialHarvestSharedLink{
 							Time:                  tweetCreatedTime,
 							HarvestId:             sharedLinkHarvestId,
@@ -220,7 +255,6 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ExpandedUrl:           link.Expanded_url,
 							Host:                  linkHostName,
 						}
-						// Send to the harvester observer
 						StoreHarvestedData(sharedLink)
 						LogJson(sharedLink, "shared_links")
 					}
@@ -237,7 +271,6 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 						pUrl, _ := url.Parse(media.Url)
 						mediaHostName = pUrl.Host
 
-						// TODO: ADD contributor gender, contributor type
 						sharedMedia := config.SocialHarvestSharedLink{
 							Time:                  tweetCreatedTime,
 							HarvestId:             sharedMediaHarvestId,
@@ -263,7 +296,6 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							Type:                  media.Type,
 							Source:                media.Media_url,
 						}
-						// Send to the harvester observer
 						StoreHarvestedData(sharedMedia)
 						LogJson(sharedMedia, "shared_links")
 					}
@@ -276,7 +308,6 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 					if len(tag.Text) > 0 {
 						hashtagHarvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName + tag.Text)
 
-						// TODO: ADD contributor gender, contributor type
 						hashtag := config.SocialHarvestHashtag{
 							Time:                  tweetCreatedTime,
 							HarvestId:             hashtagHarvestId,
@@ -298,7 +329,6 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorCounty:     contributorCounty,
 							Tag:                   tag.Text,
 						}
-						// Send to the harvester observer
 						StoreHarvestedData(hashtag)
 						LogJson(hashtag, "hashtags")
 					}
@@ -311,8 +341,7 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 					if len(mentionedUser.Id_str) > 0 {
 						mentionHarvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName + mentionedUser.Id_str)
 
-						// TODO: ADD contributor gender, contributor type
-						// and mentioned user info (another api request)
+						// TODO: add mentioned user info? (another api request)
 						mention := config.SocialHarvestMention{
 							Time:                  tweetCreatedTime,
 							HarvestId:             mentionHarvestId,
@@ -333,7 +362,6 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							MentionedScreenName: mentionedUser.Screen_name,
 							MentionedName:       mentionedUser.Name,
 						}
-						// Send to the harvester observer
 						StoreHarvestedData(mention)
 						LogJson(mention, "mentions")
 					}

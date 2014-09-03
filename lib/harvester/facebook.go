@@ -281,6 +281,40 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 			StoreHarvestedData(messageRow)
 			LogJson(messageRow, "messages")
 
+			// Keywords are stored on the same collection as hashtags - but under a `keyword` field instead of `tag` field as to not confuse the two.
+			// Limit to words 4 characters or more and only return 8 keywords. This could greatly increase the database size if not limited.
+			keywords := GetKeywords(post.Message, 4, 8)
+			if len(keywords) > 0 {
+				for _, keyword := range keywords {
+					keywordHarvestId := GetHarvestMd5(post.Id + "facebook" + territoryName + keyword)
+
+					// Again, keyword share the same series/table/collection
+					hashtag := config.SocialHarvestHashtag{
+						Time:                  postCreatedTime,
+						HarvestId:             keywordHarvestId,
+						Territory:             territoryName,
+						Network:               "facebook",
+						MessageId:             post.Id,
+						ContributorId:         post.From.Id,
+						ContributorScreenName: post.From.Name,
+						ContributorName:       contributorName,
+						ContributorGender:     contributorGender,
+						ContributorType:       contributorType,
+						ContributorLang:       LocaleToLanguageISO(contributor.Locale),
+						ContributorLongitude:  contributor.Location.Longitude,
+						ContributorLatitude:   contributor.Location.Latitude,
+						ContributorGeohash:    locationGeoHash,
+						ContributorCity:       contributorCity,
+						ContributorState:      contributorState,
+						ContributorCountry:    contributorCountry,
+						ContributorCounty:     contributorCounty,
+						Keyword:               keyword,
+					}
+					StoreHarvestedData(hashtag)
+					LogJson(hashtag, "hashtags")
+				}
+			}
+
 			// shared links row
 			// TODO: expand short urls (Facebook doesn't do it for us unfortunately)
 			if len(post.Link) > 0 {

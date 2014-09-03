@@ -167,6 +167,40 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 				StoreHarvestedData(messageRow)
 				LogJson(messageRow, "messages")
 
+				// Keywords are stored on the same collection as hashtags - but under a `keyword` field instead of `tag` field as to not confuse the two.
+				// Limit to words 4 characters or more and only return 8 keywords. This could greatly increase the database size if not limited.
+				keywords := GetKeywords(item.Object.OriginalContent, 4, 8)
+				if len(keywords) > 0 {
+					for _, keyword := range keywords {
+						keywordHarvestId := GetHarvestMd5(item.Id + "googlePlus" + territoryName + keyword)
+
+						// Again, keyword share the same series/table/collection
+						hashtag := config.SocialHarvestHashtag{
+							Time:                  itemCreatedTime,
+							HarvestId:             keywordHarvestId,
+							Territory:             territoryName,
+							Network:               "googlePlus",
+							MessageId:             item.Id,
+							ContributorId:         item.Actor.Id,
+							ContributorScreenName: item.Actor.DisplayName,
+							ContributorName:       item.Actor.DisplayName,
+							ContributorGender:     contributorGender,
+							ContributorType:       contributorType,
+							ContributorLang:       contributorLanguage,
+							ContributorLongitude:  itemLng,
+							ContributorLatitude:   itemLat,
+							ContributorGeohash:    locationGeoHash,
+							ContributorCity:       contributorCity,
+							ContributorState:      contributorState,
+							ContributorCountry:    contributorCountry,
+							ContributorCounty:     contributorCounty,
+							Keyword:               keyword,
+						}
+						StoreHarvestedData(hashtag)
+						LogJson(hashtag, "hashtags")
+					}
+				}
+
 				if len(item.Object.Attachments) > 0 {
 					for _, attachment := range item.Object.Attachments {
 						hostName := ""
