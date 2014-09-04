@@ -187,31 +187,33 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 				keywords := GetKeywords(caption, 4, 8)
 				if len(keywords) > 0 {
 					for _, keyword := range keywords {
-						keywordHarvestId := GetHarvestMd5(item.ID + "instagram" + territoryName + keyword)
+						if keyword != "" {
+							keywordHarvestId := GetHarvestMd5(item.ID + "instagram" + territoryName + keyword)
 
-						// Again, keyword share the same series/table/collection
-						hashtag := config.SocialHarvestHashtag{
-							Time:                  instagramCreatedTime,
-							HarvestId:             keywordHarvestId,
-							Territory:             territoryName,
-							Network:               "instagram",
-							MessageId:             item.ID,
-							ContributorId:         item.User.ID,
-							ContributorScreenName: item.User.Username,
-							ContributorName:       item.User.FullName,
-							ContributorLongitude:  contributorLng,
-							ContributorLatitude:   contributorLat,
-							ContributorGeohash:    contributorLocationGeoHash,
-							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
-							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
-							ContributorGender:     contributorGender,
-							ContributorType:       contributorType,
-							Keyword:               keyword,
+							// Again, keyword share the same series/table/collection
+							hashtag := config.SocialHarvestHashtag{
+								Time:                  instagramCreatedTime,
+								HarvestId:             keywordHarvestId,
+								Territory:             territoryName,
+								Network:               "instagram",
+								MessageId:             item.ID,
+								ContributorId:         item.User.ID,
+								ContributorScreenName: item.User.Username,
+								ContributorName:       item.User.FullName,
+								ContributorLongitude:  contributorLng,
+								ContributorLatitude:   contributorLat,
+								ContributorGeohash:    contributorLocationGeoHash,
+								ContributorCity:       contributorCity,
+								ContributorState:      contributorState,
+								ContributorCountry:    contributorCountry,
+								ContributorCounty:     contributorCounty,
+								ContributorGender:     contributorGender,
+								ContributorType:       contributorType,
+								Keyword:               keyword,
+							}
+							StoreHarvestedData(hashtag)
+							LogJson(hashtag, "hashtags")
 						}
-						StoreHarvestedData(hashtag)
-						LogJson(hashtag, "hashtags")
 					}
 				}
 

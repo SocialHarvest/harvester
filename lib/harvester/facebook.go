@@ -286,32 +286,34 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 			keywords := GetKeywords(post.Message, 4, 8)
 			if len(keywords) > 0 {
 				for _, keyword := range keywords {
-					keywordHarvestId := GetHarvestMd5(post.Id + "facebook" + territoryName + keyword)
+					if keyword != "" {
+						keywordHarvestId := GetHarvestMd5(post.Id + "facebook" + territoryName + keyword)
 
-					// Again, keyword share the same series/table/collection
-					hashtag := config.SocialHarvestHashtag{
-						Time:                  postCreatedTime,
-						HarvestId:             keywordHarvestId,
-						Territory:             territoryName,
-						Network:               "facebook",
-						MessageId:             post.Id,
-						ContributorId:         post.From.Id,
-						ContributorScreenName: post.From.Name,
-						ContributorName:       contributorName,
-						ContributorGender:     contributorGender,
-						ContributorType:       contributorType,
-						ContributorLang:       LocaleToLanguageISO(contributor.Locale),
-						ContributorLongitude:  contributor.Location.Longitude,
-						ContributorLatitude:   contributor.Location.Latitude,
-						ContributorGeohash:    locationGeoHash,
-						ContributorCity:       contributorCity,
-						ContributorState:      contributorState,
-						ContributorCountry:    contributorCountry,
-						ContributorCounty:     contributorCounty,
-						Keyword:               keyword,
+						// Again, keyword share the same series/table/collection
+						hashtag := config.SocialHarvestHashtag{
+							Time:                  postCreatedTime,
+							HarvestId:             keywordHarvestId,
+							Territory:             territoryName,
+							Network:               "facebook",
+							MessageId:             post.Id,
+							ContributorId:         post.From.Id,
+							ContributorScreenName: post.From.Name,
+							ContributorName:       contributorName,
+							ContributorGender:     contributorGender,
+							ContributorType:       contributorType,
+							ContributorLang:       LocaleToLanguageISO(contributor.Locale),
+							ContributorLongitude:  contributor.Location.Longitude,
+							ContributorLatitude:   contributor.Location.Latitude,
+							ContributorGeohash:    locationGeoHash,
+							ContributorCity:       contributorCity,
+							ContributorState:      contributorState,
+							ContributorCountry:    contributorCountry,
+							ContributorCounty:     contributorCounty,
+							Keyword:               keyword,
+						}
+						StoreHarvestedData(hashtag)
+						LogJson(hashtag, "hashtags")
 					}
-					StoreHarvestedData(hashtag)
-					LogJson(hashtag, "hashtags")
 				}
 			}
 

@@ -172,32 +172,34 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 				keywords := GetKeywords(item.Object.OriginalContent, 4, 8)
 				if len(keywords) > 0 {
 					for _, keyword := range keywords {
-						keywordHarvestId := GetHarvestMd5(item.Id + "googlePlus" + territoryName + keyword)
+						if keyword != "" {
+							keywordHarvestId := GetHarvestMd5(item.Id + "googlePlus" + territoryName + keyword)
 
-						// Again, keyword share the same series/table/collection
-						hashtag := config.SocialHarvestHashtag{
-							Time:                  itemCreatedTime,
-							HarvestId:             keywordHarvestId,
-							Territory:             territoryName,
-							Network:               "googlePlus",
-							MessageId:             item.Id,
-							ContributorId:         item.Actor.Id,
-							ContributorScreenName: item.Actor.DisplayName,
-							ContributorName:       item.Actor.DisplayName,
-							ContributorGender:     contributorGender,
-							ContributorType:       contributorType,
-							ContributorLang:       contributorLanguage,
-							ContributorLongitude:  itemLng,
-							ContributorLatitude:   itemLat,
-							ContributorGeohash:    locationGeoHash,
-							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
-							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
-							Keyword:               keyword,
+							// Again, keyword share the same series/table/collection
+							hashtag := config.SocialHarvestHashtag{
+								Time:                  itemCreatedTime,
+								HarvestId:             keywordHarvestId,
+								Territory:             territoryName,
+								Network:               "googlePlus",
+								MessageId:             item.Id,
+								ContributorId:         item.Actor.Id,
+								ContributorScreenName: item.Actor.DisplayName,
+								ContributorName:       item.Actor.DisplayName,
+								ContributorGender:     contributorGender,
+								ContributorType:       contributorType,
+								ContributorLang:       contributorLanguage,
+								ContributorLongitude:  itemLng,
+								ContributorLatitude:   itemLat,
+								ContributorGeohash:    locationGeoHash,
+								ContributorCity:       contributorCity,
+								ContributorState:      contributorState,
+								ContributorCountry:    contributorCountry,
+								ContributorCounty:     contributorCounty,
+								Keyword:               keyword,
+							}
+							StoreHarvestedData(hashtag)
+							LogJson(hashtag, "hashtags")
 						}
-						StoreHarvestedData(hashtag)
-						LogJson(hashtag, "hashtags")
 					}
 				}
 

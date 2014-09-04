@@ -191,33 +191,34 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 			keywords := GetKeywords(tweet.Text, 4, 8)
 			if len(keywords) > 0 {
 				for _, keyword := range keywords {
-					keywordHarvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName + keyword)
+					if keyword != "" {
+						keywordHarvestId := GetHarvestMd5(tweet.IdStr + "twitter" + territoryName + keyword)
 
-					// Again, keyword share the same series/table/collection
-					hashtag := config.SocialHarvestHashtag{
-						Time:                  tweetCreatedTime,
-						HarvestId:             keywordHarvestId,
-						Territory:             territoryName,
-						Network:               "twitter",
-						MessageId:             tweet.IdStr,
-						ContributorId:         tweet.User.IdStr,
-						ContributorScreenName: tweet.User.ScreenName,
-						ContributorName:       tweet.User.Name,
-						ContributorLang:       tweet.User.Lang,
-						ContributorType:       contributorType,
-						ContributorGender:     contributorGender,
-						ContributorLongitude:  contributorLng,
-						ContributorLatitude:   contributorLat,
-						ContributorGeohash:    contributorLocationGeoHash,
-						ContributorCity:       contributorCity,
-						ContributorState:      contributorState,
-						ContributorCountry:    contributorCountry,
-						ContributorCounty:     contributorCounty,
-						Keyword:               keyword,
+						// Again, keyword share the same series/table/collection
+						hashtag := config.SocialHarvestHashtag{
+							Time:                  tweetCreatedTime,
+							HarvestId:             keywordHarvestId,
+							Territory:             territoryName,
+							Network:               "twitter",
+							MessageId:             tweet.IdStr,
+							ContributorId:         tweet.User.IdStr,
+							ContributorScreenName: tweet.User.ScreenName,
+							ContributorName:       tweet.User.Name,
+							ContributorLang:       tweet.User.Lang,
+							ContributorType:       contributorType,
+							ContributorGender:     contributorGender,
+							ContributorLongitude:  contributorLng,
+							ContributorLatitude:   contributorLat,
+							ContributorGeohash:    contributorLocationGeoHash,
+							ContributorCity:       contributorCity,
+							ContributorState:      contributorState,
+							ContributorCountry:    contributorCountry,
+							ContributorCounty:     contributorCounty,
+							Keyword:               keyword,
+						}
+						StoreHarvestedData(hashtag)
+						LogJson(hashtag, "hashtags")
 					}
-					StoreHarvestedData(hashtag)
-					LogJson(hashtag, "hashtags")
-
 				}
 			}
 
