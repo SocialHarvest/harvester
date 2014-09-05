@@ -570,7 +570,7 @@ func main() {
 	color.Cyan(" ___) | (_) | (__| | (_| | | |  _  | (_| | |   \\ V /  __/\\__ \\ |_ ")
 	color.Cyan("|____/ \\___/ \\___|_|\\__,_|_| |_| |_|\\__,_|_|    \\_/ \\___||___/\\__|")
 	//	color.Cyan("                                                                  ")
-	color.Yellow("_____________________________________________version 0.7.0-preview")
+	color.Yellow("_____________________________________________version 0.7.1-preview")
 	color.Cyan("   ")
 
 	// Optionally allow a config JSON file to be passed via command line
