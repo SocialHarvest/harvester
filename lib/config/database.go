@@ -455,9 +455,9 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 		conditions["territory"] = sanitizedQueryParams.Territory
 	}
 
+	// First count total
 	res := col.Find(conditions)
 	defer res.Close()
-
 	total.Count, err = res.Count()
 	if err != nil {
 		res.Close()
@@ -465,13 +465,18 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 		return fieldCounts, total
 	}
 
+	// Then the group query
 	switch database.Type {
 	case "mongodb":
 		// TODO: The GROUP query here, it'll differ from the SQL version below
 		break
 	case "postgresql", "mysql", "mariadb":
 		for _, field := range fields {
-			res = col.Find(conditions).Select(db.Raw{"COUNT(" + field + ") AS count," + field + " AS value"}).Group(field).Sort("-count")
+			if sanitizedQueryParams.Limit > 0 {
+				res = col.Find(conditions).Select(db.Raw{"COUNT(" + field + ") AS count," + field + " AS value"}).Group(field).Sort("-count").Limit(sanitizedQueryParams.Limit)
+			} else {
+				res = col.Find(conditions).Select(db.Raw{"COUNT(" + field + ") AS count," + field + " AS value"}).Group(field).Sort("-count")
+			}
 			var results []map[string]interface{}
 			if err = res.All(&results); err != nil {
 				res.Close()

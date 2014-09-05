@@ -4,6 +4,11 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.7.1
+-------------
+
+Fixed a bug where group queries were not being limited. This was previously available, but a refactor led to a regression.
+
 ## 0.7.0
 -------------
 
