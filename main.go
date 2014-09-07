@@ -23,16 +23,16 @@ import (
 	"github.com/SocialHarvest/harvester/lib/harvester"
 	"github.com/advancedlogic/GoOse"
 	"github.com/ant0ine/go-json-rest/rest"
+	"github.com/bugsnag/bugsnag-go"
 	"github.com/fatih/color"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
-	"strconv"
-	"strings"
-	//"sync"
-	//_ "net/http/pprof"
 	"reflect"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -524,6 +524,50 @@ func LinkDetails(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(res.End())
 }
 
+// --------- API Basic Auth Middleware (valid keys are defined in the Social Harvest config, there are no roles or anything)
+type BasicAuthMw struct {
+	Realm string
+	Key   string
+}
+
+func (bamw *BasicAuthMw) MiddlewareFunc(handler rest.HandlerFunc) rest.HandlerFunc {
+	return func(writer rest.ResponseWriter, request *rest.Request) {
+
+		authHeader := request.Header.Get("Authorization")
+		log.Println(authHeader)
+		if authHeader == "" {
+			queryParams := request.URL.Query()
+			if len(queryParams["apiKey"]) > 0 {
+				bamw.Key = queryParams["apiKey"][0]
+			} else {
+				bamw.unauthorized(writer)
+				return
+			}
+		} else {
+			bamw.Key = authHeader
+		}
+
+		keyFound := false
+		for _, key := range socialHarvest.Config.Server.AuthKeys {
+			if bamw.Key == key {
+				keyFound = true
+			}
+		}
+
+		if !keyFound {
+			bamw.unauthorized(writer)
+			return
+		}
+
+		handler(writer, request)
+	}
+}
+
+func (bamw *BasicAuthMw) unauthorized(writer rest.ResponseWriter) {
+	writer.Header().Set("WWW-Authenticate", "Basic realm="+bamw.Realm)
+	rest.Error(writer, "Not Authorized", http.StatusUnauthorized)
+}
+
 // --------- Initial schedule
 
 // Set the initial schedule entries from config SocialHarvestConf
@@ -556,22 +600,7 @@ func getFunctionName(i interface{}) string {
 
 // Main - initializes, configures, and sets routes for API
 func main() {
-	/*
-		runtime.SetBlockProfileRate(1)
-		// Start another profile server
-		go func() {
-			log.Println(http.ListenAndServe("localhost:6060", nil))
-		}()
-	*/
-
-	color.Cyan(" ____             _       _   _   _                           _  ")
-	color.Cyan(`/ ___|  ___   ___(_) __ _| | | | | | __ _ _ ____   _____  ___| |_ ®`)
-	color.Cyan("\\___ \\ / _ \\ / __| |/ _` | | | |_| |/ _` | '__\\ \\ / / _ \\/ __| __|")
-	color.Cyan(" ___) | (_) | (__| | (_| | | |  _  | (_| | |   \\ V /  __/\\__ \\ |_ ")
-	color.Cyan("|____/ \\___/ \\___|_|\\__,_|_| |_| |_|\\__,_|_|    \\_/ \\___||___/\\__|")
-	//	color.Cyan("                                                                  ")
-	color.Yellow("_____________________________________________version 0.7.1-preview")
-	color.Cyan("   ")
+	appVersion := "0.8.0-preview"
 
 	// Optionally allow a config JSON file to be passed via command line
 	var confFile string
@@ -589,6 +618,37 @@ func main() {
 
 	// Set the configuration, DB client, etc. so that it is available to other stuff.
 	socialHarvest.Config = configuration
+
+	// Setup Bugsnag (first), profiling, etc.
+	if socialHarvest.Config.Debug.Bugsnag.ApiKey != "" {
+		bugsnag.Configure(bugsnag.Configuration{
+			APIKey:          socialHarvest.Config.Debug.Bugsnag.ApiKey,
+			ReleaseStage:    socialHarvest.Config.Debug.Bugsnag.ReleaseStage,
+			ProjectPackages: []string{"main", "github.com/SocialHarvest/harvester/*"},
+			AppVersion:      appVersion,
+		})
+	}
+
+	// Debug stuff ...hopefully nothing went wrong up to this point =)
+	if socialHarvest.Config.Debug.WebProfile {
+		runtime.SetBlockProfileRate(1)
+		// Start a profile server so information can be viewed using a web browser
+		go func() {
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	}
+
+	// Banner (would appear twice if it came before bugsnag for some reason)
+	color.Cyan(" ____             _       _   _   _                           _  ")
+	color.Cyan(`/ ___|  ___   ___(_) __ _| | | | | | __ _ _ ____   _____  ___| |_ ®`)
+	color.Cyan("\\___ \\ / _ \\ / __| |/ _` | | | |_| |/ _` | '__\\ \\ / / _ \\/ __| __|")
+	color.Cyan(" ___) | (_) | (__| | (_| | | |  _  | (_| | |   \\ V /  __/\\__ \\ |_ ")
+	color.Cyan("|____/ \\___/ \\___|_|\\__,_|_| |_| |_|\\__,_|_|    \\_/ \\___||___/\\__|")
+	//	color.Cyan("                                                                  ")
+	color.Yellow("_____________________________________________version " + appVersion)
+	color.Cyan("   ")
+
+	// Continue configuration
 	// TODO: Make db conneciton optional
 	socialHarvest.Database = config.NewDatabase(socialHarvest.Config)
 	defer socialHarvest.Database.Session.Close()
@@ -650,8 +710,15 @@ func main() {
 				},
 			)
 		}
-
-		// TODO: allow configured auth?
+		// If api keys are defined, setup basic auth (any key listed allows full access, there are no roles for now, this is just very basic auth)
+		if len(socialHarvest.Config.Server.AuthKeys) > 0 {
+			restMiddleware = append(restMiddleware,
+				&BasicAuthMw{
+					Realm: "Social Harvest API",
+					Key:   "",
+				},
+			)
+		}
 
 		handler := rest.ResourceHandler{
 			EnableRelaxedContentType: true,
@@ -685,6 +752,10 @@ func main() {
 			p = "3000"
 		}
 		log.Println("Social Harvest API listening on port " + p)
-		log.Fatal(http.ListenAndServe(":"+p, &handler))
+		if socialHarvest.Config.Debug.Bugsnag.ApiKey != "" {
+			log.Println(http.ListenAndServe(":"+p, bugsnag.Handler(&handler)))
+		} else {
+			log.Fatal(http.ListenAndServe(":"+p, &handler))
+		}
 	}
 }

@@ -42,7 +42,8 @@ type SocialHarvestConf struct {
 		Cors struct {
 			AllowedOrigins []string `json:"allowedOrigins"`
 		} `json:"cors"`
-		Disabled bool `json:"disabled"`
+		AuthKeys []string `json:"authKeys"`
+		Disabled bool     `json:"disabled"`
 	} `json:"server"`
 	Database struct {
 		Type     string `json:"type"`
@@ -56,6 +57,13 @@ type SocialHarvestConf struct {
 	Logs struct {
 		Directory string `json:"directory"`
 	} `json:"logs"`
+	Debug struct {
+		WebProfile bool `json:"webProfile"`
+		Bugsnag    struct {
+			ApiKey       string `json:"apiKey"`
+			ReleaseStage string `json:"releaseStage"`
+		} `json:"bugsnag"`
+	} `json:"debug"`
 	Services ServicesConfig `json:"services"`
 	Harvest  HarvestConfig  `json:"harvest"`
 }

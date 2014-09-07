@@ -4,6 +4,13 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.8.0
+-------------
+
+Added basic authentication (add "apiKeys" to config JSON) which supports multiple values. Added in the support for Bugsnag
+under a debug struct in the config that also allows for profiling to be enabled. Profiling may be removed in the future,
+but will be available during alpha/beta for sure.
+
 ## 0.7.1
 -------------
 
