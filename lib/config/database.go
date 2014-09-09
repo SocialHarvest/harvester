@@ -44,6 +44,14 @@ type SocialHarvestDB struct {
 
 var database = SocialHarvestDB{}
 
+// Optional settings table/collection holds Social Harvest configurations and configured dashboards for persistence and clustered servers it is more or less a key value store.
+// Data is stored as JSON string. The Social Harvest config JSON string should easily map to the SocialHarvestConf struct. Other values could be for JavaScript on the front-end.
+type Settings struct {
+	Key      string    `json:"key" db:"key" bson:"key"`
+	Value    string    `json:"value" db:"value" bson:"value"`
+	Modified time.Time `json:"modified" db:"modified" bson:"modified"`
+}
+
 // Initializes the database and returns the client (NOTE: In the future, this *may* be interchangeable for another database)
 func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 	database.Type = config.Database.Type
@@ -120,6 +128,39 @@ func (database *SocialHarvestDB) RemoveEmpty(collection string) {
 		}
 		break
 	}
+}
+
+// Saves a settings key/value (Social Harvest config or dashboard settings, etc. - anything that needs configuration data can optionally store it using this function)
+func (database *SocialHarvestDB) SaveSettings(settingsRow Settings, dbSession db.Database) {
+	if len(settingsRow.Key) > 0 {
+		col, colErr := dbSession.Collection("settings")
+		if colErr != nil {
+			//log.Fatalf("sessionCopy.Collection(): %q\n", colErr)
+			log.Printf("dbSession.Collection(%s): %q\n", "settings", colErr)
+			return
+		}
+
+		// If it already exists, update
+		res := col.Find(db.Cond{"key": settingsRow.Key})
+		count, findErr := res.Count()
+		if findErr != nil {
+			log.Println(findErr)
+		}
+		if count > 0 {
+			updateErr := res.Update(settingsRow)
+			if updateErr != nil {
+				log.Println(updateErr)
+			}
+		} else {
+			// Otherwise, save new
+			_, appendErr := col.Append(settingsRow)
+			if appendErr != nil {
+				// this would log a bunch of errors on duplicate entries (not too many, but enough to be annoying)
+				//log.Println(appendErr)
+			}
+		}
+	}
+	return
 }
 
 // Sets the last harvest time for a given action, value, network set.
