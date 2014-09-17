@@ -504,7 +504,7 @@ func TwitterAccountStream(territoryName string, harvestState config.HarvestState
 				TwitterFavoriteCount:     tweet.FavoriteCount,
 			}
 			// Send to the harvester observer
-			go StoreHarvestedData(message)
+			StoreHarvestedData(message)
 			LogJson(message, "messages")
 
 			// shared links

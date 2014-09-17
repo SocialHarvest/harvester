@@ -278,7 +278,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 				Category:              contributor.Category,
 				IsQuestion:            Btoi(IsQuestion(post.Message, harvestConfig.QuestionRegex)),
 			}
-			//	StoreHarvestedData(messageRow)
+			StoreHarvestedData(messageRow)
 			LogJson(messageRow, "messages")
 			log.Println(hostName)
 			/*

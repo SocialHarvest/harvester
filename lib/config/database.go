@@ -141,28 +141,31 @@ func (database *SocialHarvestDB) GetLastHarvestId(territory string, network stri
 
 // Stores a harvested row of data into the configured database.
 func (database *SocialHarvestDB) StoreRow(row interface{}) {
-	// TODO: change to collection to series for consistency - it's a little confusing in some areas because Mongo uses "collection" (but SQL of course is table so...)
-	collection := ""
+	tx := database.Session.MustBegin()
+
+	// The downside to not using upper.io/db or something like it is that INSERT statements incur technical debt.
+	// There will be a maintenance burden in keeping the field names up to date.
+	// ...and values have to be in the right order, maintaining this in a repeated fashion leads to spelling mistakes, etc. All the reasons I HATE dealing with SQL...But oh well.
 
 	// Check if valid type to store and determine the proper table/collection based on it
 	switch row.(type) {
 	case SocialHarvestMessage:
-		collection = SeriesCollections["SocialHarvestMessage"]
+		tx.NamedExec("INSERT INTO messages (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county, contributor_likes, contributor_statuses_count, contributor_listed_count, contributor_followers, contributor_verified, message, is_question, category, facebook_shares, twitter_retweet_count, twitter_favorite_count, like_count, google_plus_reshares, google_plus_ones) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county, :contributor_likes, :contributor_statuses_count, :contributor_listed_count, :contributor_followers, :contributor_verified, :message, :is_question, :category, :facebook_shares, :twitter_retweet_count, :twitter_favorite_count, :like_count, :google_plus_reshares, :google_plus_ones)", &row)
 	case SocialHarvestSharedLink:
-		collection = SeriesCollections["SocialHarvestSharedLink"]
+		//collection = SeriesCollections["SocialHarvestSharedLink"]
 	case SocialHarvestMention:
-		collection = SeriesCollections["SocialHarvestMention"]
+		//collection = SeriesCollections["SocialHarvestMention"]
 	case SocialHarvestHashtag:
-		collection = SeriesCollections["SocialHarvestHashtag"]
+		//collection = SeriesCollections["SocialHarvestHashtag"]
 	case SocialHarvestContributorGrowth:
-		collection = SeriesCollections["SocialHarvestContributorGrowth"]
+		//collection = SeriesCollections["SocialHarvestContributorGrowth"]
 	case SocialHarvestHarvest:
-		collection = SeriesCollections["SocialHarvestHarvest"]
+		tx.NamedExec("INSERT INTO harvest (territory, network, action, value, last_time_harvested, last_id_harvested, items_harvested, harvest_time) VALUES (:territory, :network, :action, :value, :last_time_harvested, :last_id_harvested, :items_harvested, :harvest_time)", &row)
 	default:
 		// log.Println("trying to store unknown collection")
 	}
-	log.Println("saving to collection: " + collection)
 
+	tx.Commit()
 }
 
 // -------- GETTING STUFF BACK OUT ------------
