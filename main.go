@@ -572,15 +572,6 @@ func (bamw *BasicAuthMw) unauthorized(writer rest.ResponseWriter) {
 
 // Set the initial schedule entries from config SocialHarvestConf
 func setInitialSchedule() {
-	// Clean up for MongoDB (empty documents on dupe)
-	// TODO: Look into why this happens and fix it properly so we can remove this
-	socialHarvest.Schedule.Cron.AddFunc("*/5 * * * * *", func() {
-		socialHarvest.Database.RemoveEmpty("messages")
-		socialHarvest.Database.RemoveEmpty("shared_links")
-		socialHarvest.Database.RemoveEmpty("hashtags")
-		socialHarvest.Database.RemoveEmpty("mentions")
-		socialHarvest.Database.RemoveEmpty("contributor_growth")
-	}, "MongoDB empty document cleanup")
 
 	for _, territory := range socialHarvest.Config.Harvest.Territories {
 		if territory.Schedule.Everything.Accounts != "" {

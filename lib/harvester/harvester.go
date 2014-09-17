@@ -86,5 +86,5 @@ func NewGeocoder(servicesConfiguration config.ServicesConfig) {
 // The thing I don't like (and why I used the observer) is passing all the configuration stuff around.
 func StoreHarvestedData(message interface{}) {
 	// Write to database (if configured)
-	socialHarvestDB.StoreRow(message, socialHarvestDB.Session)
+	socialHarvestDB.StoreRow(message)
 }
