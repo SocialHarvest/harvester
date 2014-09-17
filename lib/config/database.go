@@ -55,6 +55,9 @@ type Settings struct {
 // Initializes the database and returns the client (NOTE: In the future, this *may* be interchangeable for another database)
 func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 	database.Type = config.Database.Type
+	if database.Type == "postgres" {
+		database.Type = "postgresql"
+	}
 	database.Settings = db.Settings{
 		Host:     config.Database.Host,
 		Port:     config.Database.Port,
