@@ -50,8 +50,8 @@ var logRootDir string
 // This also has an effect on performance and efficiency. It changes the buffer size (and ultimately the amount of data in each log file).
 // One risk that occurs when making this larger is that should the server crash during the middle of things buffering, more data would be lost.
 // If keeping this small then less data would be lost if something were to crash.
-// TODO: Maybe also make this configurable.
-const capacity = 32768
+// TODO: Maybe also make this configurable. WAS: 32768 - but I saw a lot of over capacity warnings...
+const capacity = 65536
 
 type Worker struct {
 	fileRoot string

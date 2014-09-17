@@ -95,10 +95,12 @@ func FacebookPublicMessagesByKeyword() {
 				updatedParams, updatedHarvestState := harvester.FacebookSearch(territory.Name, harvestState, params)
 				params = updatedParams
 				harvestState = updatedHarvestState
-				log.Println("harvested a page of results from facebook")
+				//log.Println("harvested a page of results from facebook for keyword: " + keyword)
 
-				// Always save this on each page. Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
-				socialHarvest.Database.SetLastHarvestTime(territory.Name, "facebook", "FacebookPublicMessagesByKeyword", keyword, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+				// Always save this on each page (if anything was harvested). Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
+				if harvestState.ItemsHarvested > 0 {
+					socialHarvest.Database.SetLastHarvestTime(territory.Name, "facebook", "FacebookPublicMessagesByKeyword", keyword, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+				}
 
 				// We also avoid using "break" because the for loop is now based on number of pages to harvest.
 				// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
@@ -167,8 +169,9 @@ func FacebookMessagesByAccount() {
 				// log.Println("harvested a page of results from facebook")
 
 				// Always save this on each page. Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
-				socialHarvest.Database.SetLastHarvestTime(territory.Name, "facebook", "FacebookMessagesByAccount", account, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
-
+				if harvestState.ItemsHarvested > 0 {
+					socialHarvest.Database.SetLastHarvestTime(territory.Name, "facebook", "FacebookMessagesByAccount", account, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+				}
 				// We also avoid using "break" because the for loop is now based on number of pages to harvest.
 				// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
 				// Since every call to FacebookFeed() should return with a new Until value, we'll look to see if it's empty. If so, it was the latest page of results from FB. Break the loop.
@@ -250,6 +253,9 @@ func TwitterPublicMessagesByKeyword() {
 					harvestState = updatedHarvestState
 					//log.Println("harvested a page of results from twitter")
 
+					if harvestState.ItemsHarvested > 0 {
+						socialHarvest.Database.SetLastHarvestTime(territory.Name, "twitter", "TwitterPublicMessagesByKeyword", keyword, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+					}
 					// We also avoid using "break" because the for loop is now based on number of pages to harvest.
 					// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
 					// Since every call to FacebookFeed() should return with a new Until value, we'll look to see if it's empty. If so, it was the latest page of results from FB. Break the loop.
@@ -314,8 +320,9 @@ func TwitterPublicMessagesByAccount() {
 				harvestState = updatedHarvestState
 
 				// Always save this on each page. Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
-				socialHarvest.Database.SetLastHarvestTime(territory.Name, "twitter", "TwitterPublicMessagesByAccount", account, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
-
+				if harvestState.ItemsHarvested > 0 {
+					socialHarvest.Database.SetLastHarvestTime(territory.Name, "twitter", "TwitterPublicMessagesByAccount", account, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+				}
 				// We also avoid using "break" because the for loop is now based on number of pages to harvest.
 				// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
 				// Since every call to FacebookFeed() should return with a new Until value, we'll look to see if it's empty. If so, it was the latest page of results from FB. Break the loop.
@@ -413,8 +420,9 @@ func InstagramMediaByKeyword() {
 					// log.Println("harvested a page of results from instagram")
 
 					// Always save this on each page. Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
-					socialHarvest.Database.SetLastHarvestTime(territory.Name, "instagram", "InstagramMediaByKeyword", tag, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
-
+					if harvestState.ItemsHarvested > 0 {
+						socialHarvest.Database.SetLastHarvestTime(territory.Name, "instagram", "InstagramMediaByKeyword", tag, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+					}
 					// We also avoid using "break" because the for loop is now based on number of pages to harvest.
 					// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
 					if params.Get("max_tag_id") == "" {
@@ -493,8 +501,9 @@ func GooglePlusActivitieByKeyword() {
 					// log.Println("harvested a page of results from instagram")
 
 					// Always save this on each page. Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
-					socialHarvest.Database.SetLastHarvestTime(territory.Name, "googlePlus", "GooglePlusActivitieByKeyword", keyword, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
-
+					if harvestState.ItemsHarvested > 0 {
+						socialHarvest.Database.SetLastHarvestTime(territory.Name, "googlePlus", "GooglePlusActivitieByKeyword", keyword, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+					}
 					// We also avoid using "break" because the for loop is now based on number of pages to harvest.
 					// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
 					if params.Get("nextPageToken") == "" {
@@ -565,8 +574,9 @@ func GooglePlusActivitieByAccount() {
 					// log.Println("harvested a page of results from instagram")
 
 					// Always save this on each page. Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
-					socialHarvest.Database.SetLastHarvestTime(territory.Name, "googlePlus", "GooglePlusActivitieByAccount", account, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
-
+					if harvestState.ItemsHarvested > 0 {
+						socialHarvest.Database.SetLastHarvestTime(territory.Name, "googlePlus", "GooglePlusActivitieByAccount", account, harvestState.LastTime, harvestState.LastId, harvestState.ItemsHarvested)
+					}
 					// We also avoid using "break" because the for loop is now based on number of pages to harvest.
 					// But this could lead to harvesting pages taht don't exist, so we should still "break" in that case.
 					if params.Get("nextPageToken") == "" {

@@ -21,25 +21,20 @@ import (
 	"bytes"
 	//"database/sql"
 	//"github.com/asaskevich/govalidator"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"database/sql"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"log"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"upper.io/db"
-	"upper.io/db/mongo"
-	"upper.io/db/mysql"
-	"upper.io/db/postgresql"
-	//"upper.io/db/util/sqlutil"
 )
 
 type SocialHarvestDB struct {
-	Settings db.Settings
-	Type     string
-	Session  db.Database
-	Series   []string
+	Type    string
+	Session *sqlx.DB
+	Series  []string
 }
 
 var database = SocialHarvestDB{}
@@ -54,114 +49,54 @@ type Settings struct {
 
 // Initializes the database and returns the client (NOTE: In the future, this *may* be interchangeable for another database)
 func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
-	database.Type = config.Database.Type
-	database.Settings = db.Settings{
-		Host:     config.Database.Host,
-		Port:     config.Database.Port,
-		Database: config.Database.Database,
-		User:     config.Database.User,
-		Password: config.Database.Password,
+
+	db, err := sqlx.Connect(config.Database.Type, "host="+config.Database.Host+" port="+strconv.Itoa(config.Database.Port)+" dbname="+config.Database.Database+" user="+config.Database.User+" password=")
+	if err != nil {
+		log.Fatalln(err)
 	}
 
 	// Keep a list of series (tables/collections/series - whatever the database calls them, we're going with series because we're really dealing with time with just about all our data)
 	// These do relate to structures in lib/config/series.go
 	database.Series = []string{"messages", "shared_links", "mentions", "hashtags", "contributor_growth"}
 
-	// Set some indicies
-	SetupIndicies()
-
 	// Keep a session for queries (writers have their own) - main.go will defer the close of this session.
-	database.Session = database.GetSession()
+	database.Session = db
 
 	return &database
 }
 
-// We'll want to set a unique index on "harvest_id" to mitigate dupes up front so we don't need to worry when querying later (and so those queries execute faster)
-func SetupIndicies() {
-	harvestIdCollections := []string{"messages", "shared_links", "mentions", "hashtags"}
-	switch database.Type {
-	case "mongodb":
-		sess, err := db.Open(mongo.Adapter, database.Settings)
-		defer sess.Close()
-		if err == nil {
-			drv := sess.Driver().(*mgo.Session)
-			db := drv.DB(database.Settings.Database)
-			for _, v := range harvestIdCollections {
-				col := db.C(v)
-				index := mgo.Index{
-					Key:      []string{"harvest_id"},
-					Unique:   true,
-					DropDups: true,
-					Sparse:   true,
-				}
+// // Saves a settings key/value (Social Harvest config or dashboard settings, etc. - anything that needs configuration data can optionally store it using this function)
+// func (database *SocialHarvestDB) SaveSettings(settingsRow Settings, dbSession sqlx.DB) {
+// 	if len(settingsRow.Key) > 0 {
+// 		col, colErr := dbSession.Collection("settings")
+// 		if colErr != nil {
+// 			//log.Fatalf("sessionCopy.Collection(): %q\n", colErr)
+// 			log.Printf("dbSession.Collection(%s): %q\n", "settings", colErr)
+// 			return
+// 		}
 
-				err := col.EnsureIndex(index)
-				if err != nil {
-					log.Println(err)
-				}
-
-			}
-		}
-		break
-	}
-}
-
-// For some reason empty documents are being saved in MongoDB when there are duplicate key errors.
-// If the unique index is not sparse then things save fine, otherwise once one empty document gets saved, it blocks others from saving.
-// So the unique index needs to be sparse to allow this null value. This is only happening with MongoDB. The SQL databases don't have
-// any empty records. While I'm not in love with this hack, I'll live with it for now.
-func (database *SocialHarvestDB) RemoveEmpty(collection string) {
-	// TODO: Fix whatever is wrong
-	switch database.Type {
-	case "mongodb":
-		sess, err := db.Open(mongo.Adapter, database.Settings)
-		defer sess.Close()
-		if err == nil {
-			drv := sess.Driver().(*mgo.Session)
-			db := drv.DB(database.Settings.Database)
-			col := db.C(collection)
-			// _ could instead be set to return an info struct that would have number of docs removed, etc. - I don't care about this right now.
-			_, removeErr := col.RemoveAll(bson.M{"harvest_id": bson.M{"$exists": false}})
-			if removeErr != nil {
-				log.Println(removeErr)
-			}
-		}
-		break
-	}
-}
-
-// Saves a settings key/value (Social Harvest config or dashboard settings, etc. - anything that needs configuration data can optionally store it using this function)
-func (database *SocialHarvestDB) SaveSettings(settingsRow Settings, dbSession db.Database) {
-	if len(settingsRow.Key) > 0 {
-		col, colErr := dbSession.Collection("settings")
-		if colErr != nil {
-			//log.Fatalf("sessionCopy.Collection(): %q\n", colErr)
-			log.Printf("dbSession.Collection(%s): %q\n", "settings", colErr)
-			return
-		}
-
-		// If it already exists, update
-		res := col.Find(db.Cond{"key": settingsRow.Key})
-		count, findErr := res.Count()
-		if findErr != nil {
-			log.Println(findErr)
-		}
-		if count > 0 {
-			updateErr := res.Update(settingsRow)
-			if updateErr != nil {
-				log.Println(updateErr)
-			}
-		} else {
-			// Otherwise, save new
-			_, appendErr := col.Append(settingsRow)
-			if appendErr != nil {
-				// this would log a bunch of errors on duplicate entries (not too many, but enough to be annoying)
-				//log.Println(appendErr)
-			}
-		}
-	}
-	return
-}
+// 		// If it already exists, update
+// 		res := col.Find(db.Cond{"key": settingsRow.Key})
+// 		count, findErr := res.Count()
+// 		if findErr != nil {
+// 			log.Println(findErr)
+// 		}
+// 		if count > 0 {
+// 			updateErr := res.Update(settingsRow)
+// 			if updateErr != nil {
+// 				log.Println(updateErr)
+// 			}
+// 		} else {
+// 			// Otherwise, save new
+// 			_, appendErr := col.Append(settingsRow)
+// 			if appendErr != nil {
+// 				// this would log a bunch of errors on duplicate entries (not too many, but enough to be annoying)
+// 				//log.Println(appendErr)
+// 			}
+// 		}
+// 	}
+// 	return
+// }
 
 // Sets the last harvest time for a given action, value, network set.
 // For example: "facebook" "publicPostsByKeyword" "searchKeyword" 1402260944
@@ -169,34 +104,29 @@ func (database *SocialHarvestDB) SaveSettings(settingsRow Settings, dbSession db
 // that tells Facebook to not give us anything before the last harvest date...assuming we
 // already have it for that particular search query. Multiple params separated by colon.
 func (database *SocialHarvestDB) SetLastHarvestTime(territory string, network string, action string, value string, lastTimeHarvested time.Time, lastIdHarvested string, itemsHarvested int) {
-	lastHarvestRow := SocialHarvestHarvest{territory, network, action, value, lastTimeHarvested, lastIdHarvested, itemsHarvested, time.Now()}
+	lastHarvestRow := SocialHarvestHarvest{
+		Territory:         territory,
+		Network:           network,
+		Action:            action,
+		Value:             value,
+		LastTimeHarvested: lastTimeHarvested,
+		LastIdHarvested:   lastIdHarvested,
+		ItemsHarvested:    itemsHarvested,
+		HarvestTime:       time.Now(),
+	}
 
-	log.Println(lastTimeHarvested)
-	dbSession := database.GetSession()
-	defer dbSession.Close()
-	database.StoreRow(lastHarvestRow, dbSession)
+	//log.Println(lastTimeHarvested)
+
+	database.StoreRow(lastHarvestRow, database.Session)
 }
 
 // Gets the last harvest time for a given action, value, and network (NOTE: This doesn't necessarily need to have been set, it could be empty...check with time.IsZero()).
 func (database *SocialHarvestDB) GetLastHarvestTime(territory string, network string, action string, value string) time.Time {
 	var lastHarvestTime time.Time
 
-	sess := database.GetSession()
-	defer sess.Close()
-	col, err := sess.Collection("harvest")
-	if err != nil {
-		log.Fatalf("sess.Collection(): %q\n", err)
-		return lastHarvestTime
-	}
-	result := col.Find(db.Cond{"network": network, "action": action, "value": value, "territory": territory}).Sort("-harvest_time")
-	defer result.Close()
-
 	var lastHarvest SocialHarvestHarvest
-	err = result.One(&lastHarvest)
-	if err != nil {
-		log.Println(err)
-		return lastHarvestTime
-	}
+	database.Session.Select(&lastHarvest, "SELECT * FROM harvest WHERE network = "+network+" AND action = "+action+" AND value = "+value+" AND territory = "+territory)
+	log.Println(lastHarvest)
 
 	lastHarvestTime = lastHarvest.LastTimeHarvested
 
@@ -207,22 +137,8 @@ func (database *SocialHarvestDB) GetLastHarvestTime(territory string, network st
 func (database *SocialHarvestDB) GetLastHarvestId(territory string, network string, action string, value string) string {
 	lastHarvestId := ""
 
-	sess := database.GetSession()
-	defer sess.Close()
-	col, err := sess.Collection("harvest")
-	if err != nil {
-		log.Println(err)
-		return lastHarvestId
-	}
-	result := col.Find(db.Cond{"network": network, "action": action, "value": value, "territory": territory}).Sort("-harvest_time")
-	defer result.Close()
-
 	var lastHarvest SocialHarvestHarvest
-	err = result.One(&lastHarvest)
-	if err != nil {
-		log.Println(err)
-		return lastHarvestId
-	}
+	database.Session.Select(&lastHarvest, "SELECT * FROM harvest WHERE network = "+network+" AND action = "+action+" AND value = "+value+" AND territory = "+territory)
 
 	lastHarvestId = lastHarvest.LastIdHarvested
 
@@ -230,9 +146,10 @@ func (database *SocialHarvestDB) GetLastHarvestId(territory string, network stri
 }
 
 // Stores a harvested row of data into the configured database.
-func (database *SocialHarvestDB) StoreRow(row interface{}, dbSession db.Database) {
+func (database *SocialHarvestDB) StoreRow(row interface{}) {
 	// TODO: change to collection to series for consistency - it's a little confusing in some areas because Mongo uses "collection" (but SQL of course is table so...)
 	collection := ""
+	defer dbSession.Close()
 
 	// Check if valid type to store and determine the proper table/collection based on it
 	switch row.(type) {
@@ -265,42 +182,15 @@ func (database *SocialHarvestDB) StoreRow(row interface{}, dbSession db.Database
 		// Save
 		_, appendErr := col.Append(row)
 		if appendErr != nil {
+			dbSession.Close()
 			// this would log a bunch of errors on duplicate entries (not too many, but enough to be annoying)
-			//log.Println(appendErr)
+			log.Println(appendErr)
 		}
 	} else {
+		dbSession.Close()
 		log.Println("trying to store to an unknown collection")
 	}
 
-}
-
-func (database *SocialHarvestDB) GetSession() db.Database {
-	// Figure out which database is being used
-	var dbAdapter = ""
-	switch database.Type {
-	case "mongodb":
-		dbAdapter = mongo.Adapter
-		break
-	case "postgresql":
-		dbAdapter = postgresql.Adapter
-		break
-	case "mysql", "mariadb":
-		dbAdapter = mysql.Adapter
-		break
-	}
-
-	// If one is even being used, connect to it and store the data
-	sess, err := db.Open(dbAdapter, database.Settings)
-
-	// Remember to close the database session. - call this from where ever GetSession() is being called.
-	// Closing it here would be a problem for another function =)
-	//defer sess.Close()
-
-	if err != nil {
-		log.Fatalf("db.Open(): %q\n", err)
-	}
-
-	return sess
 }
 
 // -------- GETTING STUFF BACK OUT ------------

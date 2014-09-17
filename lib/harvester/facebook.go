@@ -278,21 +278,116 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 				Category:              contributor.Category,
 				IsQuestion:            Btoi(IsQuestion(post.Message, harvestConfig.QuestionRegex)),
 			}
-			StoreHarvestedData(messageRow)
+			//	StoreHarvestedData(messageRow)
 			LogJson(messageRow, "messages")
+			log.Println(hostName)
+			/*
+				// Keywords are stored on the same collection as hashtags - but under a `keyword` field instead of `tag` field as to not confuse the two.
+				// Limit to words 4 characters or more and only return 8 keywords. This could greatly increase the database size if not limited.
+				keywords := GetKeywords(post.Message, 4, 8)
+				if len(keywords) > 0 {
+					for _, keyword := range keywords {
+						if keyword != "" {
+							keywordHarvestId := GetHarvestMd5(post.Id + "facebook" + territoryName + keyword)
 
-			// Keywords are stored on the same collection as hashtags - but under a `keyword` field instead of `tag` field as to not confuse the two.
-			// Limit to words 4 characters or more and only return 8 keywords. This could greatly increase the database size if not limited.
-			keywords := GetKeywords(post.Message, 4, 8)
-			if len(keywords) > 0 {
-				for _, keyword := range keywords {
-					if keyword != "" {
-						keywordHarvestId := GetHarvestMd5(post.Id + "facebook" + territoryName + keyword)
+							// Again, keyword share the same series/table/collection
+							hashtag := config.SocialHarvestHashtag{
+								Time:                  postCreatedTime,
+								HarvestId:             keywordHarvestId,
+								Territory:             territoryName,
+								Network:               "facebook",
+								MessageId:             post.Id,
+								ContributorId:         post.From.Id,
+								ContributorScreenName: post.From.Name,
+								ContributorName:       contributorName,
+								ContributorGender:     contributorGender,
+								ContributorType:       contributorType,
+								ContributorLang:       LocaleToLanguageISO(contributor.Locale),
+								ContributorLongitude:  contributor.Location.Longitude,
+								ContributorLatitude:   contributor.Location.Latitude,
+								ContributorGeohash:    locationGeoHash,
+								ContributorCity:       contributorCity,
+								ContributorState:      contributorState,
+								ContributorCountry:    contributorCountry,
+								ContributorCounty:     contributorCounty,
+								Keyword:               keyword,
+							}
+							StoreHarvestedData(hashtag)
+							LogJson(hashtag, "hashtags")
+						}
+					}
+				}
 
-						// Again, keyword share the same series/table/collection
-						hashtag := config.SocialHarvestHashtag{
+				// shared links row
+				// TODO: expand short urls (Facebook doesn't do it for us unfortunately)
+				if len(post.Link) > 0 {
+					sharedLinksRow := config.SocialHarvestSharedLink{
+						Time:                  postCreatedTime,
+						HarvestId:             harvestId,
+						Territory:             territoryName,
+						Network:               "facebook",
+						MessageId:             post.Id,
+						ContributorId:         post.From.Id,
+						ContributorScreenName: post.From.Name,
+						ContributorName:       contributorName,
+						ContributorGender:     contributorGender,
+						ContributorType:       contributorType,
+						ContributorLang:       LocaleToLanguageISO(contributor.Locale),
+						ContributorLongitude:  contributor.Location.Longitude,
+						ContributorLatitude:   contributor.Location.Latitude,
+						ContributorGeohash:    locationGeoHash,
+						ContributorCity:       contributorCity,
+						ContributorState:      contributorState,
+						ContributorCountry:    contributorCountry,
+						ContributorCounty:     contributorCounty,
+						Type:                  post.Type,
+						Preview:               post.Picture,
+						Source:                post.Source,
+						Url:                   post.Link,
+						ExpandedUrl:           ExpandUrl(post.Link),
+						Host:                  hostName,
+					}
+					StoreHarvestedData(sharedLinksRow)
+					LogJson(sharedLinksRow, "shared_links")
+				}
+
+				// mentions row (note the harvest id in the following - any post that has multiple subobjects to be stored separately will need a different harvest id, else only one of those subobjects would be stored)
+				for _, tag := range post.StoryTags {
+					for _, mention := range tag {
+						// The harvest id is going to have to be a little different in this case too...Otherwise, we would only get one mention per post.
+						storyTagsMentionHarvestId := GetHarvestMd5(post.Id + mention.Id + territoryName)
+
+						// TODO: Keep an eye on this, it may add too many API requests...
+						var mentionedContributor = FacebookAccount{}
+						mentionedContributor = FacebookGetUserInfo(mention.Id, params)
+
+						var mentionedGender = 0
+						if mentionedContributor.Gender == "male" {
+							mentionedGender = 1
+						}
+						if mentionedContributor.Gender == "female" {
+							mentionedGender = -1
+						}
+
+						var mentionedName = mentionedContributor.Name
+						if len(mentionedContributor.FirstName) > 0 {
+							mentionedName = mentionedContributor.FirstName + " " + mentionedContributor.LastName
+						}
+
+						var mentionedType = "person"
+						if len(mentionedContributor.CompanyOverview) > 0 || len(mentionedContributor.Founded) > 0 || len(mentionedContributor.Category) > 0 {
+							mentionedType = "company"
+						}
+
+						var mentionedLocationGeoHash = geohash.Encode(mentionedContributor.Location.Latitude, mentionedContributor.Location.Longitude)
+						// This is produced with empty lat/lng values - don't store it.
+						if mentionedLocationGeoHash == "7zzzzzzzzzzz" {
+							mentionedLocationGeoHash = ""
+						}
+
+						mentionRow := config.SocialHarvestMention{
 							Time:                  postCreatedTime,
-							HarvestId:             keywordHarvestId,
+							HarvestId:             storyTagsMentionHarvestId,
 							Territory:             territoryName,
 							Network:               "facebook",
 							MessageId:             post.Id,
@@ -301,185 +396,91 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 							ContributorName:       contributorName,
 							ContributorGender:     contributorGender,
 							ContributorType:       contributorType,
-							ContributorLang:       LocaleToLanguageISO(contributor.Locale),
 							ContributorLongitude:  contributor.Location.Longitude,
 							ContributorLatitude:   contributor.Location.Latitude,
 							ContributorGeohash:    locationGeoHash,
-							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
-							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
-							Keyword:               keyword,
+							ContributorLang:       LocaleToLanguageISO(contributor.Locale),
+
+							MentionedId:         mention.Id,
+							MentionedScreenName: mention.Name,
+							MentionedName:       mentionedName,
+							MentionedGender:     mentionedGender,
+							MentionedType:       mentionedType,
+							MentionedLongitude:  mentionedContributor.Location.Longitude,
+							MentionedLatitude:   mentionedContributor.Location.Latitude,
+							MentionedGeohash:    mentionedLocationGeoHash,
+							MentionedLang:       LocaleToLanguageISO(mentionedContributor.Locale),
 						}
-						StoreHarvestedData(hashtag)
-						LogJson(hashtag, "hashtags")
+						StoreHarvestedData(mentionRow)
+						LogJson(mentionRow, "mentions")
 					}
 				}
-			}
+				// Also try MessageTags (which exist on user and page feeds, whereas StoryTags are available on public posts search)
+				for _, tag := range post.MessageTags {
+					for _, mention := range tag {
+						// Same here, the harvest id is going to have to be a little different in this case too...Otherwise, we would only get one mention per post.
+						MessageTagsMentionHarvestId := GetHarvestMd5(post.Id + mention.Id + territoryName)
 
-			// shared links row
-			// TODO: expand short urls (Facebook doesn't do it for us unfortunately)
-			if len(post.Link) > 0 {
-				sharedLinksRow := config.SocialHarvestSharedLink{
-					Time:                  postCreatedTime,
-					HarvestId:             harvestId,
-					Territory:             territoryName,
-					Network:               "facebook",
-					MessageId:             post.Id,
-					ContributorId:         post.From.Id,
-					ContributorScreenName: post.From.Name,
-					ContributorName:       contributorName,
-					ContributorGender:     contributorGender,
-					ContributorType:       contributorType,
-					ContributorLang:       LocaleToLanguageISO(contributor.Locale),
-					ContributorLongitude:  contributor.Location.Longitude,
-					ContributorLatitude:   contributor.Location.Latitude,
-					ContributorGeohash:    locationGeoHash,
-					ContributorCity:       contributorCity,
-					ContributorState:      contributorState,
-					ContributorCountry:    contributorCountry,
-					ContributorCounty:     contributorCounty,
-					Type:                  post.Type,
-					Preview:               post.Picture,
-					Source:                post.Source,
-					Url:                   post.Link,
-					ExpandedUrl:           ExpandUrl(post.Link),
-					Host:                  hostName,
+						// TODO: Keep an eye on this, it may add too many API requests...
+						// TODO: this is repeated. don't repeat.
+						var mentionedContributor = FacebookAccount{}
+						mentionedContributor = FacebookGetUserInfo(mention.Id, params)
+
+						var mentionedGender = 0
+						if mentionedContributor.Gender == "male" {
+							mentionedGender = 1
+						}
+						if mentionedContributor.Gender == "female" {
+							mentionedGender = -1
+						}
+
+						var mentionedName = mentionedContributor.Name
+						if len(mentionedContributor.FirstName) > 0 {
+							mentionedName = mentionedContributor.FirstName + " " + mentionedContributor.LastName
+						}
+
+						var mentionedType = "person"
+						if len(mentionedContributor.CompanyOverview) > 0 || len(mentionedContributor.Founded) > 0 || len(mentionedContributor.Category) > 0 {
+							mentionedType = "company"
+						}
+
+						var mentionedLocationGeoHash = geohash.Encode(mentionedContributor.Location.Latitude, mentionedContributor.Location.Longitude)
+						// This is produced with empty lat/lng values - don't store it.
+						if mentionedLocationGeoHash == "7zzzzzzzzzzz" {
+							mentionedLocationGeoHash = ""
+						}
+
+						mentionRow := config.SocialHarvestMention{
+							Time:                  postCreatedTime,
+							HarvestId:             MessageTagsMentionHarvestId,
+							Territory:             territoryName,
+							Network:               "facebook",
+							MessageId:             post.Id,
+							ContributorId:         post.From.Id,
+							ContributorScreenName: post.From.Name,
+							ContributorName:       contributorName,
+							ContributorGender:     contributorGender,
+							ContributorType:       contributorType,
+							ContributorLongitude:  contributor.Location.Longitude,
+							ContributorLatitude:   contributor.Location.Latitude,
+							ContributorGeohash:    locationGeoHash,
+							ContributorLang:       LocaleToLanguageISO(contributor.Locale),
+
+							MentionedId:         mention.Id,
+							MentionedScreenName: mention.Name,
+							MentionedName:       mentionedName,
+							MentionedGender:     mentionedGender,
+							MentionedType:       mentionedType,
+							MentionedLongitude:  mentionedContributor.Location.Longitude,
+							MentionedLatitude:   mentionedContributor.Location.Latitude,
+							MentionedGeohash:    mentionedLocationGeoHash,
+							MentionedLang:       LocaleToLanguageISO(mentionedContributor.Locale),
+						}
+						StoreHarvestedData(mentionRow)
+						LogJson(mentionRow, "mentions")
+					}
 				}
-				StoreHarvestedData(sharedLinksRow)
-				LogJson(sharedLinksRow, "shared_links")
-			}
-
-			// mentions row (note the harvest id in the following - any post that has multiple subobjects to be stored separately will need a different harvest id, else only one of those subobjects would be stored)
-			for _, tag := range post.StoryTags {
-				for _, mention := range tag {
-					// The harvest id is going to have to be a little different in this case too...Otherwise, we would only get one mention per post.
-					storyTagsMentionHarvestId := GetHarvestMd5(post.Id + mention.Id + territoryName)
-
-					// TODO: Keep an eye on this, it may add too many API requests...
-					var mentionedContributor = FacebookAccount{}
-					mentionedContributor = FacebookGetUserInfo(mention.Id, params)
-
-					var mentionedGender = 0
-					if mentionedContributor.Gender == "male" {
-						mentionedGender = 1
-					}
-					if mentionedContributor.Gender == "female" {
-						mentionedGender = -1
-					}
-
-					var mentionedName = mentionedContributor.Name
-					if len(mentionedContributor.FirstName) > 0 {
-						mentionedName = mentionedContributor.FirstName + " " + mentionedContributor.LastName
-					}
-
-					var mentionedType = "person"
-					if len(mentionedContributor.CompanyOverview) > 0 || len(mentionedContributor.Founded) > 0 || len(mentionedContributor.Category) > 0 {
-						mentionedType = "company"
-					}
-
-					var mentionedLocationGeoHash = geohash.Encode(mentionedContributor.Location.Latitude, mentionedContributor.Location.Longitude)
-					// This is produced with empty lat/lng values - don't store it.
-					if mentionedLocationGeoHash == "7zzzzzzzzzzz" {
-						mentionedLocationGeoHash = ""
-					}
-
-					mentionRow := config.SocialHarvestMention{
-						Time:                  postCreatedTime,
-						HarvestId:             storyTagsMentionHarvestId,
-						Territory:             territoryName,
-						Network:               "facebook",
-						MessageId:             post.Id,
-						ContributorId:         post.From.Id,
-						ContributorScreenName: post.From.Name,
-						ContributorName:       contributorName,
-						ContributorGender:     contributorGender,
-						ContributorType:       contributorType,
-						ContributorLongitude:  contributor.Location.Longitude,
-						ContributorLatitude:   contributor.Location.Latitude,
-						ContributorGeohash:    locationGeoHash,
-						ContributorLang:       LocaleToLanguageISO(contributor.Locale),
-
-						MentionedId:         mention.Id,
-						MentionedScreenName: mention.Name,
-						MentionedName:       mentionedName,
-						MentionedGender:     mentionedGender,
-						MentionedType:       mentionedType,
-						MentionedLongitude:  mentionedContributor.Location.Longitude,
-						MentionedLatitude:   mentionedContributor.Location.Latitude,
-						MentionedGeohash:    mentionedLocationGeoHash,
-						MentionedLang:       LocaleToLanguageISO(mentionedContributor.Locale),
-					}
-					StoreHarvestedData(mentionRow)
-					LogJson(mentionRow, "mentions")
-				}
-			}
-			// Also try MessageTags (which exist on user and page feeds, whereas StoryTags are available on public posts search)
-			for _, tag := range post.MessageTags {
-				for _, mention := range tag {
-					// Same here, the harvest id is going to have to be a little different in this case too...Otherwise, we would only get one mention per post.
-					MessageTagsMentionHarvestId := GetHarvestMd5(post.Id + mention.Id + territoryName)
-
-					// TODO: Keep an eye on this, it may add too many API requests...
-					// TODO: this is repeated. don't repeat.
-					var mentionedContributor = FacebookAccount{}
-					mentionedContributor = FacebookGetUserInfo(mention.Id, params)
-
-					var mentionedGender = 0
-					if mentionedContributor.Gender == "male" {
-						mentionedGender = 1
-					}
-					if mentionedContributor.Gender == "female" {
-						mentionedGender = -1
-					}
-
-					var mentionedName = mentionedContributor.Name
-					if len(mentionedContributor.FirstName) > 0 {
-						mentionedName = mentionedContributor.FirstName + " " + mentionedContributor.LastName
-					}
-
-					var mentionedType = "person"
-					if len(mentionedContributor.CompanyOverview) > 0 || len(mentionedContributor.Founded) > 0 || len(mentionedContributor.Category) > 0 {
-						mentionedType = "company"
-					}
-
-					var mentionedLocationGeoHash = geohash.Encode(mentionedContributor.Location.Latitude, mentionedContributor.Location.Longitude)
-					// This is produced with empty lat/lng values - don't store it.
-					if mentionedLocationGeoHash == "7zzzzzzzzzzz" {
-						mentionedLocationGeoHash = ""
-					}
-
-					mentionRow := config.SocialHarvestMention{
-						Time:                  postCreatedTime,
-						HarvestId:             MessageTagsMentionHarvestId,
-						Territory:             territoryName,
-						Network:               "facebook",
-						MessageId:             post.Id,
-						ContributorId:         post.From.Id,
-						ContributorScreenName: post.From.Name,
-						ContributorName:       contributorName,
-						ContributorGender:     contributorGender,
-						ContributorType:       contributorType,
-						ContributorLongitude:  contributor.Location.Longitude,
-						ContributorLatitude:   contributor.Location.Latitude,
-						ContributorGeohash:    locationGeoHash,
-						ContributorLang:       LocaleToLanguageISO(contributor.Locale),
-
-						MentionedId:         mention.Id,
-						MentionedScreenName: mention.Name,
-						MentionedName:       mentionedName,
-						MentionedGender:     mentionedGender,
-						MentionedType:       mentionedType,
-						MentionedLongitude:  mentionedContributor.Location.Longitude,
-						MentionedLatitude:   mentionedContributor.Location.Latitude,
-						MentionedGeohash:    mentionedLocationGeoHash,
-						MentionedLang:       LocaleToLanguageISO(mentionedContributor.Locale),
-					}
-					StoreHarvestedData(mentionRow)
-					LogJson(mentionRow, "mentions")
-				}
-			}
-
+			*/
 		} else {
 			log.Println("Could not parse the time from the Facebook post, so I'm throwing it away!")
 			log.Println(err)

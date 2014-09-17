@@ -27,7 +27,7 @@ import (
 	"github.com/fatih/color"
 	"log"
 	"net/http"
-	// _ "net/http/pprof"
+	_ "net/http/pprof"
 	"os"
 	"reflect"
 	"runtime"
@@ -630,11 +630,11 @@ func main() {
 	}
 
 	// Debug - do not compile with this
-	// runtime.SetBlockProfileRate(1)
-	// // Start a profile server so information can be viewed using a web browser
-	// go func() {
-	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
-	// }()
+	runtime.SetBlockProfileRate(1)
+	// Start a profile server so information can be viewed using a web browser
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	// Banner (would appear twice if it came before bugsnag for some reason)
 	color.Cyan(" ____             _       _   _   _                           _  ")
@@ -673,6 +673,7 @@ func main() {
 	//go InstagramMediaByKeyword()
 	//go GooglePlusActivitieByKeyword()
 	//go GooglePlusActivitieByAccount()
+	go HarvestAllContent()
 
 	//harvester.YoutubeVideoSearch("obama")
 	///
