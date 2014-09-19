@@ -4,6 +4,19 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.9.0
+-------------
+
+Removed the use of the upper.io/db package. It was causing some major issues unfortunately. This means that, for now, MongoDB 
+is no longer a supported database. It can still be used if using Fluentd to watch the log files to then store in MongoDB. 
+However, the API, settings, and upcoming reports will not make any effort to support MongoDB for the time being. 
+SQL databases are likely going to be the preferred database simply because of cloud hosting options and cost. Even more
+specifically, Postgres is likely going to be the preferred SQL database due to performance and features.
+
+A database is now also completely optional. The refactored code with use of the sqlx package over upper.io/db has also 
+made it easy to check for the existence of a database connection across the entire application. So Social Harvest will 
+start and harvest even if no database configuration is defined.
+
 ## 0.8.0
 -------------
 

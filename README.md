@@ -21,7 +21,7 @@ materials would very much be appreciated.
 ## Configuration
 
 You'll need to create a JSON file for configuring Social Harvest. Ensure this configuration file is named ```social-harvest-conf.json``` 
-(unless you pass another location and name when running Social Harvest).
+and sits next to the binary Go built or next to the main.go file (unless you pass another location and name when running Social Harvest).
 
 For an example configuration, see ```example-conf.json```
 
@@ -39,30 +39,19 @@ You can add as many allowed origins as you like in the configuration.
 
 ## Installation
 
-First, you'll need Mercurial and Bazaar since a few packages use those version control systems. On Ubuntu it's as easy as 
-```apt-get install bzr``` and ```apt-get install mercurial```.
+First, you'll need Git, Mercurial and Bazaar since a few packages use those version control systems. On Ubuntu it's as easy as 
+```apt-get install git``` and ```apt-get install bzr``` and ```apt-get install mercurial```.
 
 Installation is pretty simple. You'll need to have Go installed and with your $GOPATH set: ```go get github.com/SocialHarvest/harvester``` 
 
 The dependencies should be handled automatically but you may need to call ```go get```.
 
-You'll need to copy the ```data``` directory (and its contents) to be next to the program you run. So if you build the harvester, ensure where ever 
-you put the harvester binary, you have this data directory sitting in the same directory. This will change in the future, but for now it contains 
-the data sets for detecting gender.
+You'll need to copy the ```data``` directory (and its contents) to be next to the program you run (the built binary, if you built one). 
+So if you build the harvester, ensure where ever you put the harvester binary, you have this data directory sitting in the same directory. 
+This will change in the future, but for now it contains the data sets for detecting gender.
 
 If you're using a SQL database, be sure to setup your tables using the SQL files in the ```scripts``` directory. It'll save you a lot of trouble. 
-However, these will change quite frequently during development until Social Harvest has a stable version released.
-
-Social Harvest makes use of [upper.io](https://upper.io/db) which abstracts some common database calls for a few databases using separate driver packages.
-Some of these packages are not directly used within Social Harvest, so you may need to get them separately so that they are in your $GOPATH 
-before building.
-
-Be sure to look at the upper.io documentation for additional details. MongoDB, specifically, makes use of ```labix.org/v2/mgo``` which uses the
-[bazaar](http://bazaar.canonical.com/en/) version control system. So you'll need that. See [upper.io/db/mongo](https://upper.io/db/mongo) for more information. 
-Even if you are not using MongoDB, Social Harvest is going to require this package to be installed in order to run and build. The same is going to be true 
-for PostgreSQL, you'll want to run: ```go get github.com/lib/pq``` to get that one if you're using PostgreSQL. Since Social Harest does not directly use this 
-package, you shouldn't need it if you don't plan to use PostgreSQL. MySQL support is via ```github.com/go-sql-driver/mysql``` so you may need that as well. 
-Again, all of this is explained in upper.io's documentation.
+However, these will change quite frequently during development until Social Harvest has a stable version released. So keep an eye on them.
 
 All other dependencies (with the exception of testify, see below) should be obtained easily enough via ```go get```. Then to run Social Harvest before (or without) 
 building it (at the package src under your $GOPATH), you can issue the following command because there are multiple files in the main package (and you don't want to run the _test files):
@@ -106,7 +95,8 @@ Still, speed and concurrency are part of Social Harvest's goals.
 Social Harvest is an open-source project and any community contributions are always appreciated. You can write blog posts, tutorials, help 
 with documentation, submit bug reports, feature requests, and even pull requests. It's all helpful.
 
-Please keep in mind that Social Harvest is open-source and any contributions must be compatible with the GPLv3 license.
+Please keep in mind that Social Harvest is open-source and any contributions must be compatible with the GPLv3 license. 
+It would also be very much appreciated if you put a "powered by Social Harvest" somewhere on your application/web site (ie. the footer). 
 
 ### Bug Reporting
 Before submitting any bugs, please be sure to check the [issues list in GitHub](https://github.com/SocialHarvest/harvester/issues?state=open) first. 
@@ -121,6 +111,8 @@ you will of course need to fork the repository so that you can send pull request
 ## Questions? Chat?
 You should hop in the [Gitter.im channel](https://gitter.im/SocialHarvest) and say hi. It's a great place to ask questions for help, suggest ideas, or just chat about Social Harvest. 
 The channel is open and chat history is saved so, if you don't get an instant response, be sure to check back regularly.
+
+Twitter is another good way to get in touch. You can follow [@socialharvest](http://www.twitter.com/socialharvest)
 
 
 
