@@ -19,7 +19,6 @@ package config
 import (
 	//"net/http"
 	//"bytes"
-	//"database/sql"
 	//"github.com/asaskevich/govalidator"
 	//"database/sql"
 	"github.com/jmoiron/sqlx"
@@ -47,56 +46,61 @@ type Settings struct {
 	Modified time.Time `json:"modified" db:"modified" bson:"modified"`
 }
 
-// Initializes the database and returns the client (NOTE: In the future, this *may* be interchangeable for another database)
+// Initializes the database and returns the client, setting it to `database.Session` in the current package scope
 func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
-
-	db, err := sqlx.Connect(config.Database.Type, "host="+config.Database.Host+" port="+strconv.Itoa(config.Database.Port)+" sslmode=disable dbname="+config.Database.Database+" user="+config.Database.User+" password="+config.Database.Password)
+	// A database is not required to use Social Harvest
+	if config.Database.Type == "" {
+		return &database
+	}
+	// Note that sqlx just wraps database/sql and `database.Session` gets a sqlx.DB which is essentially a wrapped sql.DB
+	var err error
+	database.Session, err = sqlx.Connect(config.Database.Type, "host="+config.Database.Host+" port="+strconv.Itoa(config.Database.Port)+" sslmode=disable dbname="+config.Database.Database+" user="+config.Database.User+" password="+config.Database.Password)
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
+		return &database
 	}
 
 	// Keep a list of series (tables/collections/series - whatever the database calls them, we're going with series because we're really dealing with time with just about all our data)
 	// These do relate to structures in lib/config/series.go
 	database.Series = []string{"messages", "shared_links", "mentions", "hashtags", "contributor_growth"}
 
-	// Keep a session for queries (writers have their own) - main.go will defer the close of this session.
-	database.Session = db
-
 	return &database
 }
 
-// // Saves a settings key/value (Social Harvest config or dashboard settings, etc. - anything that needs configuration data can optionally store it using this function)
-// func (database *SocialHarvestDB) SaveSettings(settingsRow Settings, dbSession sqlx.DB) {
-// 	if len(settingsRow.Key) > 0 {
-// 		col, colErr := dbSession.Collection("settings")
-// 		if colErr != nil {
-// 			//log.Fatalf("sessionCopy.Collection(): %q\n", colErr)
-// 			log.Printf("dbSession.Collection(%s): %q\n", "settings", colErr)
-// 			return
-// 		}
+// Saves a settings key/value (Social Harvest config or dashboard settings, etc. - anything that needs configuration data can optionally store it using this function)
+func (database *SocialHarvestDB) SaveSettings(settingsRow Settings, dbSession sqlx.DB) {
+	if len(settingsRow.Key) > 0 {
 
-// 		// If it already exists, update
-// 		res := col.Find(db.Cond{"key": settingsRow.Key})
-// 		count, findErr := res.Count()
-// 		if findErr != nil {
-// 			log.Println(findErr)
-// 		}
-// 		if count > 0 {
-// 			updateErr := res.Update(settingsRow)
-// 			if updateErr != nil {
-// 				log.Println(updateErr)
-// 			}
-// 		} else {
-// 			// Otherwise, save new
-// 			_, appendErr := col.Append(settingsRow)
-// 			if appendErr != nil {
-// 				// this would log a bunch of errors on duplicate entries (not too many, but enough to be annoying)
-// 				//log.Println(appendErr)
-// 			}
-// 		}
-// 	}
-// 	return
-// }
+		var count int
+		err := database.Session.Get(&count, "SELECT count(*) FROM settings;")
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		// If it already exists, update
+		if count > 0 {
+			tx, err := database.Session.Beginx()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			tx.MustExec("UPDATE settings SET value = $1 WHERE key = $2", settingsRow.Value, settingsRow.Key)
+			tx.Commit()
+
+		} else {
+			// Otherwise, save new
+			tx, err := database.Session.Beginx()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			tx.NamedExec("INSERT INTO settings (key, value, modified) VALUES (:key, :value, :modified)", settingsRow)
+			tx.Commit()
+		}
+	}
+	return
+}
 
 // Sets the last harvest time for a given action, value, network set.
 // For example: "facebook" "publicPostsByKeyword" "searchKeyword" 1402260944
@@ -116,7 +120,6 @@ func (database *SocialHarvestDB) SetLastHarvestTime(territory string, network st
 	}
 
 	//log.Println(lastTimeHarvested)
-
 	database.StoreRow(lastHarvestRow)
 }
 
@@ -124,8 +127,10 @@ func (database *SocialHarvestDB) SetLastHarvestTime(territory string, network st
 func (database *SocialHarvestDB) GetLastHarvestTime(territory string, network string, action string, value string) time.Time {
 	var lastHarvestTime time.Time
 	var lastHarvest SocialHarvestHarvest
-	database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
-	log.Println(lastHarvest)
+	if database.Session != nil {
+		database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
+	}
+	// log.Println(lastHarvest)
 	lastHarvestTime = lastHarvest.LastTimeHarvested
 	return lastHarvestTime
 }
@@ -134,14 +139,25 @@ func (database *SocialHarvestDB) GetLastHarvestTime(territory string, network st
 func (database *SocialHarvestDB) GetLastHarvestId(territory string, network string, action string, value string) string {
 	lastHarvestId := ""
 	var lastHarvest SocialHarvestHarvest
-	database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
+	if database.Session != nil {
+		database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
+	}
 	lastHarvestId = lastHarvest.LastIdHarvested
 	return lastHarvestId
 }
 
 // Stores a harvested row of data into the configured database.
 func (database *SocialHarvestDB) StoreRow(row interface{}) {
-	tx := database.Session.MustBegin()
+	// A database connection is not required to use Social Harvest (could be logging to file)
+	if database.Session == nil {
+		return
+	}
+	// Though we should ensure that the connection can be established...
+	tx, err := database.Session.Beginx()
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	// The downside to not using upper.io/db or something like it is that INSERT statements incur technical debt.
 	// There will be a maintenance burden in keeping the field names up to date.

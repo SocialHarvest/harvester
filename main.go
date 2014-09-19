@@ -638,9 +638,11 @@ func main() {
 	color.Cyan("   ")
 
 	// Continue configuration
-	// TODO: Make db conneciton optional
 	socialHarvest.Database = config.NewDatabase(socialHarvest.Config)
-	defer socialHarvest.Database.Session.Close()
+	// NOTE: A database is optional for Social Harvest (harvested data can be logged for use with Fluentd for example)
+	if socialHarvest.Database.Session != nil {
+		defer socialHarvest.Database.Session.Close()
+	}
 	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
 
 	// this gets the configuration and the database. TODO: Make database optional
