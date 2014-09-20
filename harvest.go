@@ -95,7 +95,7 @@ func FacebookPublicMessagesByKeyword() {
 				updatedParams, updatedHarvestState := harvester.FacebookSearch(territory.Name, harvestState, params)
 				params = updatedParams
 				harvestState = updatedHarvestState
-				//log.Println("harvested a page of results from facebook for keyword: " + keyword)
+				log.Println("harvested a page of results from facebook for keyword: " + keyword)
 
 				// Always save this on each page (if anything was harvested). Then if something crashes for some reason during a harvest of several pages, we can pick up where we left off. Rather than starting over again.
 				if harvestState.ItemsHarvested > 0 {
