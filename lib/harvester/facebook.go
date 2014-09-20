@@ -280,7 +280,6 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 			}
 			StoreHarvestedData(messageRow)
 			LogJson(messageRow, "messages")
-			log.Println(hostName)
 
 			// Keywords are stored on the same collection as hashtags - but under a `keyword` field instead of `tag` field as to not confuse the two.
 			// Limit to words 4 characters or more and only return 8 keywords. This could greatly increase the database size if not limited.
