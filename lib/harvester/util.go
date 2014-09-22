@@ -345,6 +345,7 @@ func (t *TimeoutTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	resp := make(chan respAndErr, 1)
 
 	go func() {
+		//t.Transport.CloseIdleConnections() // trying this out
 		r, e := t.Transport.RoundTrip(req)
 		resp <- respAndErr{
 			resp: r,

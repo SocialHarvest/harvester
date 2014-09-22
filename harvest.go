@@ -599,12 +599,12 @@ func HarvestAll() {
 // Calls all harvest functions that gather content (public posts and such)
 func HarvestAllContent() {
 	go FacebookPublicMessagesByKeyword()
-	// go FacebookMessagesByAccount()
-	// go TwitterPublicMessagesByKeyword()
-	// go TwitterPublicMessagesByAccount()
-	// go InstagramMediaByKeyword()
-	// go GooglePlusActivitieByKeyword()
-	// go GooglePlusActivitieByAccount()
+	go FacebookMessagesByAccount()
+	go TwitterPublicMessagesByKeyword()
+	go TwitterPublicMessagesByAccount()
+	go InstagramMediaByKeyword()
+	go GooglePlusActivitieByKeyword()
+	go GooglePlusActivitieByAccount()
 }
 
 // Calls all harvest functions that gather information about account changes/growth
