@@ -31,7 +31,6 @@ import (
 )
 
 type SocialHarvestDB struct {
-	Type    string
 	Session *sqlx.DB
 	Series  []string
 }
@@ -68,7 +67,7 @@ func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 }
 
 // Saves a settings key/value (Social Harvest config or dashboard settings, etc. - anything that needs configuration data can optionally store it using this function)
-func (database *SocialHarvestDB) SaveSettings(settingsRow Settings, dbSession sqlx.DB) {
+func (database *SocialHarvestDB) SaveSettings(settingsRow Settings) {
 	if len(settingsRow.Key) > 0 {
 
 		var count int
