@@ -591,7 +591,7 @@ func getFunctionName(i interface{}) string {
 
 // Main - initializes, configures, and sets routes for API
 func main() {
-	appVersion := "0.9.0-preview"
+	appVersion := "0.9.1-preview"
 
 	// Optionally allow a config JSON file to be passed via command line
 	var confFile string
