@@ -157,10 +157,10 @@ func DetectGender(name string) int {
 // Gets the final URL given a short URL (or one that has redirects)
 func ExpandUrl(url string) string {
 	resp, err := http.Get(url)
-	defer resp.Body.Close()
 	if err != nil {
 		return ""
 	}
+	defer resp.Body.Close()
 	return resp.Request.URL.String()
 }
 
