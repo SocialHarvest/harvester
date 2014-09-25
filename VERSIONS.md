@@ -4,6 +4,11 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.9.2
+-------------
+
+Fixed a small bug with HTTP request body being closed in situations where it it was not available to be closed.
+
 ## 0.9.1
 -------------
 

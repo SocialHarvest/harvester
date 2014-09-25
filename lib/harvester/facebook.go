@@ -528,10 +528,10 @@ func FacebookSearch(territoryName string, harvestState config.HarvestState, para
 	}
 	// doo it
 	resp, err := fbHttpClient.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return params, harvestState
 	}
+	defer resp.Body.Close()
 
 	// now to parse response, store and contine along.
 	data := struct {
@@ -609,10 +609,10 @@ func FacebookFeed(territoryName string, harvestState config.HarvestState, accoun
 	}
 	// doo it
 	resp, err := fbHttpClient.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return params, harvestState
 	}
+	defer resp.Body.Close()
 
 	// now to parse response, store and contine along.
 	data := struct {
@@ -681,10 +681,10 @@ func FacebookGetUserInfo(id string, params FacebookParams) FacebookAccount {
 		}
 		// doo it
 		resp, err := fbHttpClient.Do(req)
-		defer resp.Body.Close()
 		if err != nil {
 			return account
 		}
+		defer resp.Body.Close()
 
 		dec := json.NewDecoder(resp.Body)
 		dec.Decode(&account)
