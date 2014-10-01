@@ -18,7 +18,7 @@ package config
 
 import (
 	//"net/http"
-	//"bytes"
+	"bytes"
 	//"github.com/asaskevich/govalidator"
 	//"database/sql"
 	"github.com/jmoiron/sqlx"
@@ -329,6 +329,121 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
 	var count = ResultCount{Count: 0, TimeFrom: sanitizedQueryParams.From, TimeTo: sanitizedQueryParams.To}
 
+	//database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
+	//
+	// OR...
+	//tx, err := database.Session.Beginx()
+	// if err != nil {
+	// 	log.Println(err)
+	// 	return
+	// }
+	// tx.NamedExec("INSERT INTO settings (key, value, modified) VALUES (:key, :value, :modified)", settingsRow)
+	// tx.Commit()
+
+	var buffer bytes.Buffer
+	buffer.WriteString("SELECT COUNT(*) FROM ")
+	buffer.WriteString(sanitizedQueryParams.Series)
+	//buffer.WriteString(" WHERE 1=1")
+
+	condCount := 0
+
+	// optional date range (can have either or both)
+	if sanitizedQueryParams.From != "" {
+		buffer.WriteString(" WHERE time >=:timeFrom")
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("time >= ")
+		// buffer.WriteString(sanitizedQueryParams.From)
+	}
+	if sanitizedQueryParams.To != "" {
+		if condCount > 0 {
+			buffer.WriteString(" AND time<=:timeTo")
+		} else {
+			buffer.WriteString(" WHERE time<=:timeTo")
+		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("time <= ")
+		// buffer.WriteString(sanitizedQueryParams.To)
+	}
+	if sanitizedQueryParams.Network != "" {
+		//multiple - but i think this was for upper.io/db ... we ultimately want it as a string so why split to only join somewhere else again?
+		//networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
+
+		// singular
+		// conditions["network"] = sanitizedQueryParams.Network
+
+		if condCount > 0 {
+			buffer.WriteString(" AND network IN(:network)")
+		} else {
+			buffer.WriteString(" WHERE network IN(:network)")
+		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("network IN(")
+		// buffer.WriteString(sanitizedQueryParams.Network)
+		// buffer.WriteString(")")
+	}
+	if sanitizedQueryParams.Territory != "" {
+		if condCount > 0 {
+			buffer.WriteString(" AND territory=:territory")
+		} else {
+			buffer.WriteString(" WHERE territory=:territory")
+		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("territory = ")
+		// buffer.WriteString(sanitizedQueryParams.Territory)
+	}
+
+	if sanitizedQueryParams.Field != "" && fieldValue != "" {
+		if condCount > 0 {
+			buffer.WriteString(" AND ")
+			buffer.WriteString(sanitizedQueryParams.Field)
+			buffer.WriteString("=")
+			buffer.WriteString(fieldValue)
+		}
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString(sanitizedQueryParams.Field)
+		// buffer.WriteString(" = ")
+		// buffer.WriteString(fieldValue)
+	}
+
+	sqlQuery := buffer.String()
+	buffer.Reset()
+
+	log.Println(sqlQuery)
+
+	data := struct {
+		TimeFrom  string `db:timeFrom`
+		TimeTo    string `db:timeTo`
+		Network   string `db:network`
+		Territory string `db:territory`
+		//FieldValue interface{} `db:fieldValue`
+	}{
+		TimeFrom:  sanitizedQueryParams.From,
+		TimeTo:    sanitizedQueryParams.To,
+		Network:   sanitizedQueryParams.Network,
+		Territory: sanitizedQueryParams.Territory,
+		//FieldValue: fieldValue,
+	}
+	rows, err := database.Session.NamedQuery(sqlQuery, data)
+	if err != nil {
+		// log.Println(err)
+		return count
+	}
+	for rows.Next() {
+		err := rows.StructScan(&count)
+		if err != nil {
+			// log.Println(err)
+		}
+	}
+
 	return count
 }
 
@@ -339,4 +454,95 @@ func (database *SocialHarvestDB) Messages(queryParams CommonQueryParams, conds M
 	var total uint64
 
 	return results, total, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
+}
+
+// http://localhost:3000/test?from=2014-07-07&to=2014-10-11&resolution=1440#
+// TODO: REMOVE
+func (database *SocialHarvestDB) TestQueries(queryParams CommonQueryParams) []SocialHarvestSharedLink {
+	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
+	var sharedLink = SocialHarvestSharedLink{}
+	var sharedLinks = []SocialHarvestSharedLink{}
+
+	var buffer bytes.Buffer
+	buffer.WriteString("SELECT * FROM ")
+	buffer.WriteString("shared_links")
+	//buffer.WriteString(sanitizedQueryParams.Series)
+	//buffer.WriteString(" WHERE 1=1")
+
+	condCount := 0
+
+	// optional date range (can have either or both)
+	if sanitizedQueryParams.From != "" {
+		buffer.WriteString(" WHERE time >=:timeFrom")
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("time >= ")
+		// buffer.WriteString(sanitizedQueryParams.From)
+	}
+	if sanitizedQueryParams.To != "" {
+		if condCount > 0 {
+			buffer.WriteString(" AND time<=:timeTo")
+		} else {
+			buffer.WriteString(" WHERE time<=:timeTo")
+		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("time <= ")
+		// buffer.WriteString(sanitizedQueryParams.To)
+	}
+	if sanitizedQueryParams.Network != "" {
+		//multiple - but i think this was for upper.io/db ... we ultimately want it as a string so why split to only join somewhere else again?
+		//networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
+
+		// singular
+		// conditions["network"] = sanitizedQueryParams.Network
+
+		if condCount > 0 {
+			buffer.WriteString(" AND network IN(:network)")
+		} else {
+			buffer.WriteString(" WHERE network IN(:network)")
+		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("network IN(")
+		// buffer.WriteString(sanitizedQueryParams.Network)
+		// buffer.WriteString(")")
+	}
+	if sanitizedQueryParams.Territory != "" {
+		if condCount > 0 {
+			buffer.WriteString(" AND territory=:territory")
+		} else {
+			buffer.WriteString(" WHERE territory=:territory")
+		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("territory = ")
+		// buffer.WriteString(sanitizedQueryParams.Territory)
+	}
+
+	sqlQuery := buffer.String()
+	buffer.Reset()
+
+	log.Println(sqlQuery)
+
+	data := map[string]interface{}{"timeFrom": sanitizedQueryParams.From, "timeTo": sanitizedQueryParams.To, "network": sanitizedQueryParams.Network, "territory": sanitizedQueryParams.Territory}
+	rows, err := database.Session.NamedQuery(sqlQuery, data)
+	if err != nil {
+		log.Println(err)
+		return sharedLinks
+	}
+	for rows.Next() {
+		err := rows.StructScan(&sharedLink)
+		if err != nil {
+			log.Println(err)
+		} else {
+			sharedLinks = append(sharedLinks, sharedLink)
+		}
+	}
+
+	return sharedLinks
 }

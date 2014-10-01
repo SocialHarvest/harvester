@@ -66,6 +66,7 @@ var SeriesCollections = map[string]string{
 	"SocialHarvestHashtag":           "hashtags",
 	"SocialHarvestContributorGrowth": "contributor_growth",
 	"SocialHarvestHarvest":           "harvest",
+	"SocialHarvestReport":            "reports",
 }
 
 // Posts, status updates, comments, etc.
@@ -254,4 +255,20 @@ type SocialHarvestHarvest struct {
 	LastIdHarvested   string    `json:"last_id_harvested" db:"last_id_harvested" bson:"last_id_harvested"`
 	ItemsHarvested    int       `json:"items_harvested" db:"items_harvested" bson:"items_harvested"`
 	HarvestTime       time.Time `json:"harvest_time" db:"harvest_time" bson:"harvest_time"`
+}
+
+// Social Harvest reports are generated for several reasons and is designed specifically for the Social Harvest Dashboard tool.
+// 1: Performance
+// 		- reports contain aggregate data, real-time queries over the potential amount of data would be silly (slow UX/dashboard)
+// 		- the dashboard's widgets can pretty much all share from the same JSON response from the API now
+// 2: Storage
+// 		- reports are smaller and raw data can be removed reduce database size and lowering hosting cost
+// 3: Consistency
+// 		- this makes the available data to the front-end dashboard reliable and well defined (we know what we'll have)
+//
+// Reports are always on an hourly basis. However, the current hour (partial) can be queried as if it was already built as a report.
+// This ensures the dashboard shows data up to the minute. If a higher resolution is desired (ie. aggregate data by the minute), then custom tools would need to be built.
+// This is of course possible since Social Harvest has all that data...But it is outside the design of the Social Harvest dashboard and requires custom code.
+// However, the dashboard lets users look through messages. So we still need to keep (at least some of) that around.
+type SocialHarvestReport struct {
 }
