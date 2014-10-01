@@ -89,13 +89,13 @@ ALTER TABLE "messages" ADD CONSTRAINT "messages_harvest_id_unique" UNIQUE ("harv
 `
 
 func (s *FacebookSuite) SetUpSuite(c *C) {
-	s.config = config.SocialHarvestConf{}
-	s.config.Database.Type = "postgres"
-	s.config.Database.Host = "localhost"
-	s.config.Database.Port = 5432
-	s.config.Database.Database = "socialharvest-test"
-	s.config.Database.User = "tom"
-	s.config.Database.Password = ""
+	// s.config = config.SocialHarvestConf{}
+	// s.config.Database.Type = "postgres"
+	// s.config.Database.Host = "localhost"
+	// s.config.Database.Port = 5432
+	// s.config.Database.Database = "socialharvest-test"
+	// s.config.Database.User = "tom"
+	// s.config.Database.Password = ""
 
 	// TODO: DO NOT CHECK THIS IN. We will need some sort of test config JSON I guess...
 	s.config.Services = config.ServicesConfig{}
@@ -125,14 +125,14 @@ func (s *FacebookSuite) SetUpSuite(c *C) {
 	// Actually connect to a live test database. This is all more of an integration test.. And testing this would be to test sqlx... But it's nice to have an actual test database setup.
 	// It's more easily lets us catch issues like connection limits (even if each server has different limits and is configured differently, it still helps) and even helps with benchmarking.
 	// Of course the test environment may not be setup like the production environment, but this can still give us some ideas.
-	db, err := sqlx.Connect(s.config.Database.Type, "host="+s.config.Database.Host+" port="+strconv.Itoa(s.config.Database.Port)+" sslmode=disable dbname="+s.config.Database.Database+" user="+s.config.Database.User+" password="+s.config.Database.Password)
-	if err != nil {
-		c.Error(err)
-		c.Fail()
-	}
+	// db, err := sqlx.Connect(s.config.Database.Type, "host="+s.config.Database.Host+" port="+strconv.Itoa(s.config.Database.Port)+" sslmode=disable dbname="+s.config.Database.Database+" user="+s.config.Database.User+" password="+s.config.Database.Password)
+	// if err != nil {
+	// 	c.Error(err)
+	// 	c.Fail()
+	// }
 
 	// Setup the schema for tests.
-	db.MustExec(schema)
+	//db.MustExec(schema)
 }
 
 func (s *FacebookSuite) TestNewFacebook(c *C) {
