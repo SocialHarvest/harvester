@@ -1,6 +1,5 @@
-[![Stories in Ready](https://badge.waffle.io/socialharvest/harvester.png?label=ready&title=Ready)](https://waffle.io/socialharvest/harvester)
 #Social Harvest (harvester)
-[![Gitter chat](https://badges.gitter.im/SocialHarvest/harvester.png)](https://gitter.im/SocialHarvest/harvester) [![Build Status](https://drone.io/github.com/SocialHarvest/harvester/status.png)](https://drone.io/github.com/SocialHarvest/harvester/latest) [![Coverage Status](https://coveralls.io/repos/SocialHarvest/harvester/badge.png?branch=master)](https://coveralls.io/r/SocialHarvest/harvester?branch=master)
+[![Gitter chat](https://badges.gitter.im/SocialHarvest/harvester.png)](https://gitter.im/SocialHarvest/harvester) [![Build Status](https://drone.io/github.com/SocialHarvest/harvester/status.png)](https://drone.io/github.com/SocialHarvest/harvester/latest) [![Coverage Status](https://coveralls.io/repos/SocialHarvest/harvester/badge.png?branch=master)](https://coveralls.io/r/SocialHarvest/harvester?branch=master) [![Stories in Ready](https://badge.waffle.io/socialharvest/harvester.png?label=ready&title=Ready)](https://waffle.io/socialharvest/harvester)
 
 http://www.socialharvest.io
 
