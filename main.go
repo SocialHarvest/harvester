@@ -27,7 +27,7 @@ import (
 	"github.com/fatih/color"
 	"log"
 	"net/http"
-	// _ "net/http/pprof"
+	//_ "net/http/pprof"
 	"os"
 	"reflect"
 	"runtime"
@@ -572,15 +572,6 @@ func (bamw *BasicAuthMw) unauthorized(writer rest.ResponseWriter) {
 
 // Set the initial schedule entries from config SocialHarvestConf
 func setInitialSchedule() {
-	// Clean up for MongoDB (empty documents on dupe)
-	// TODO: Look into why this happens and fix it properly so we can remove this
-	socialHarvest.Schedule.Cron.AddFunc("*/5 * * * * *", func() {
-		socialHarvest.Database.RemoveEmpty("messages")
-		socialHarvest.Database.RemoveEmpty("shared_links")
-		socialHarvest.Database.RemoveEmpty("hashtags")
-		socialHarvest.Database.RemoveEmpty("mentions")
-		socialHarvest.Database.RemoveEmpty("contributor_growth")
-	}, "MongoDB empty document cleanup")
 
 	for _, territory := range socialHarvest.Config.Harvest.Territories {
 		if territory.Schedule.Everything.Accounts != "" {
@@ -600,7 +591,7 @@ func getFunctionName(i interface{}) string {
 
 // Main - initializes, configures, and sets routes for API
 func main() {
-	appVersion := "0.8.0-preview"
+	appVersion := "0.9.2-preview"
 
 	// Optionally allow a config JSON file to be passed via command line
 	var confFile string
@@ -647,9 +638,11 @@ func main() {
 	color.Cyan("   ")
 
 	// Continue configuration
-	// TODO: Make db conneciton optional
 	socialHarvest.Database = config.NewDatabase(socialHarvest.Config)
-	defer socialHarvest.Database.Session.Close()
+	// NOTE: A database is optional for Social Harvest (harvested data can be logged for use with Fluentd for example)
+	if socialHarvest.Database.Session != nil {
+		defer socialHarvest.Database.Session.Close()
+	}
 	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
 
 	// this gets the configuration and the database. TODO: Make database optional
@@ -673,6 +666,7 @@ func main() {
 	//go InstagramMediaByKeyword()
 	//go GooglePlusActivitieByKeyword()
 	//go GooglePlusActivitieByAccount()
+	//go HarvestAllContent()
 
 	//harvester.YoutubeVideoSearch("obama")
 	///
@@ -728,13 +722,16 @@ func main() {
 			&rest.Route{"GET", "/territory/list", TerritoryList},
 			// NOTE: The routes with "timeseries" are streams.
 			// Simple aggregates for a territory
-			&rest.Route{"GET", "/territory/aggregate/:territory/:series", TerritoryAggregateData},
-			&rest.Route{"GET", "/territory/timeseries/aggregate/:territory/:series", TerritoryTimeSeriesAggregateData},
+			//&rest.Route{"GET", "/territory/aggregate/:territory/:series", TerritoryAggregateData},
+			//&rest.Route{"GET", "/territory/timeseries/aggregate/:territory/:series", TerritoryTimeSeriesAggregateData},
 			// Simple counts for a territory
-			&rest.Route{"GET", "/territory/count/:territory/:series/:field", TerritoryCountData},
-			&rest.Route{"GET", "/territory/timeseries/count/:territory/:series/:field", TerritoryTimeseriesCountData},
+			//&rest.Route{"GET", "/territory/count/:territory/:series/:field", TerritoryCountData},
+			//&rest.Route{"GET", "/territory/timeseries/count/:territory/:series/:field", TerritoryTimeseriesCountData},
 			// Messages for a territory
-			&rest.Route{"GET", "/territory/messages/:territory", TerritoryMessages},
+			//&rest.Route{"GET", "/territory/messages/:territory", TerritoryMessages},
+
+			// FOR TESTING. TODO: REMOVE
+			//&rest.Route{"GET", "/test", TestQueries},
 
 			// A utility route to help get some details about any given external web page
 			&rest.Route{"GET", "/link/details", LinkDetails},
@@ -756,4 +753,88 @@ func main() {
 			log.Fatal(http.ListenAndServe(":"+p, &handler))
 		}
 	}
+}
+
+// TODO REMOVE ME
+func TestQueries(w rest.ResponseWriter, r *rest.Request) {
+	queryParams := r.URL.Query()
+
+	timeFrom := ""
+	if len(queryParams["from"]) > 0 {
+		timeFrom = queryParams["from"][0]
+	}
+	timeTo := ""
+	if len(queryParams["to"]) > 0 {
+		timeTo = queryParams["to"][0]
+	}
+
+	network := ""
+	if len(queryParams["network"]) > 0 {
+		network = queryParams["network"][0]
+	}
+
+	// likely not used here
+	limit := 0
+	if len(queryParams["limit"]) > 0 {
+		parsedLimit, err := strconv.Atoi(queryParams["limit"][0])
+		if err == nil {
+			limit = parsedLimit
+		}
+	}
+
+	territory := "SocialMedia"
+	series := "shared_links"
+
+	// in minutes (one day by default)
+	resolution := 1440
+	if len(queryParams["resolution"]) > 0 {
+		parsedResolution, err := strconv.Atoi(queryParams["resolution"][0])
+		if err == nil {
+			resolution = parsedResolution
+		}
+	}
+	// TODO: limit the resolution? 5, 10, 15, 30, 45, 60, 180, 1440 etc.? (minutes, hour, 3 hours, day, etc.)
+	// TODO: maybe also add timezone? (this would require changes all over to date picker, other queries, etc.)
+
+	//log.Println(resolution)
+	if resolution != 0 && territory != "" && series != "" {
+		// only accepting days for now - not down to minutes or hours (yet)
+		tF, _ := time.Parse("2006-01-02", timeFrom)
+		tT, _ := time.Parse("2006-01-02", timeTo)
+
+		timeRange := tT.Sub(tF)
+		//totalRangeMinutes := int(timeRange.Minutes())
+		periodsInRange := int(timeRange.Minutes() / float64(resolution))
+
+		params := config.CommonQueryParams{
+			Series:    series,
+			Territory: territory,
+			Network:   network,
+			From:      timeFrom,
+			To:        timeTo,
+			Limit:     uint(limit),
+		}
+
+		//w.Header().Set("Content-Type", "application/json")
+
+		for i := 0; i < periodsInRange; i++ {
+			params.From = tF.Format("2006-01-02 15:04:05")
+			tF = tF.Add(time.Duration(resolution) * time.Minute)
+			params.To = tF.Format("2006-01-02 15:04:05")
+
+			result := socialHarvest.Database.TestQueries(params)
+
+			w.WriteJson(result)
+			w.(http.ResponseWriter).Write([]byte("\n"))
+			// Flush the buffer to client immediately
+			// (for most cases, this stream will be quick and short - just how we like it. for the more crazy requests, it may take a little while and that's ok too)
+			w.(http.Flusher).Flush()
+		}
+	}
+
+	//w.WriteJson(result)
+	//w.(http.ResponseWriter).Write([]byte("\n"))
+	// Flush the buffer to client immediately
+	// (for most cases, this stream will be quick and short - just how we like it. for the more crazy requests, it may take a little while and that's ok too)
+	//w.(http.Flusher).Flush()
 }

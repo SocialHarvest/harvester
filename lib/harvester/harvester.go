@@ -68,7 +68,8 @@ func New(configuration config.SocialHarvestConf, database *config.SocialHarvestD
 			// RoundTripTimeout: time.Nanosecond * 10, // <--- still was completing requests in this amount of time (holy smokes that's fast)!
 			// I'm going to go a little tiny bit longer because I don't know what kind of machine this will run on.
 			// Though the geocoding service is fast and the payload small, so requests should be fast.
-			RoundTripTimeout: time.Millisecond * 300,
+			//RoundTripTimeout: time.Millisecond * 300,
+			RoundTripTimeout: time.Second * 5,
 		},
 	}
 }
@@ -86,5 +87,5 @@ func NewGeocoder(servicesConfiguration config.ServicesConfig) {
 // The thing I don't like (and why I used the observer) is passing all the configuration stuff around.
 func StoreHarvestedData(message interface{}) {
 	// Write to database (if configured)
-	socialHarvestDB.StoreRow(message, socialHarvestDB.Session)
+	socialHarvestDB.StoreRow(message)
 }

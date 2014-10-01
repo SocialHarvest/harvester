@@ -19,27 +19,20 @@ package config
 import (
 	//"net/http"
 	"bytes"
-	//"database/sql"
 	//"github.com/asaskevich/govalidator"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	//"database/sql"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"log"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"upper.io/db"
-	"upper.io/db/mongo"
-	"upper.io/db/mysql"
-	"upper.io/db/postgresql"
-	//"upper.io/db/util/sqlutil"
 )
 
 type SocialHarvestDB struct {
-	Settings db.Settings
-	Type     string
-	Session  db.Database
-	Series   []string
+	Session *sqlx.DB
+	Series  []string
 }
 
 var database = SocialHarvestDB{}
@@ -52,115 +45,57 @@ type Settings struct {
 	Modified time.Time `json:"modified" db:"modified" bson:"modified"`
 }
 
-// Initializes the database and returns the client (NOTE: In the future, this *may* be interchangeable for another database)
+// Initializes the database and returns the client, setting it to `database.Session` in the current package scope
 func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
-	database.Type = config.Database.Type
-	if database.Type == "postgres" {
-		database.Type = "postgresql"
+	// A database is not required to use Social Harvest
+	if config.Database.Type == "" {
+		return &database
 	}
-	database.Settings = db.Settings{
-		Host:     config.Database.Host,
-		Port:     config.Database.Port,
-		Database: config.Database.Database,
-		User:     config.Database.User,
-		Password: config.Database.Password,
+	// Note that sqlx just wraps database/sql and `database.Session` gets a sqlx.DB which is essentially a wrapped sql.DB
+	var err error
+	database.Session, err = sqlx.Connect(config.Database.Type, "host="+config.Database.Host+" port="+strconv.Itoa(config.Database.Port)+" sslmode=disable dbname="+config.Database.Database+" user="+config.Database.User+" password="+config.Database.Password)
+	if err != nil {
+		log.Println(err)
+		return &database
 	}
 
 	// Keep a list of series (tables/collections/series - whatever the database calls them, we're going with series because we're really dealing with time with just about all our data)
 	// These do relate to structures in lib/config/series.go
 	database.Series = []string{"messages", "shared_links", "mentions", "hashtags", "contributor_growth"}
 
-	// Set some indicies
-	SetupIndicies()
-
-	// Keep a session for queries (writers have their own) - main.go will defer the close of this session.
-	database.Session = database.GetSession()
-
 	return &database
 }
 
-// We'll want to set a unique index on "harvest_id" to mitigate dupes up front so we don't need to worry when querying later (and so those queries execute faster)
-func SetupIndicies() {
-	harvestIdCollections := []string{"messages", "shared_links", "mentions", "hashtags"}
-	switch database.Type {
-	case "mongodb":
-		sess, err := db.Open(mongo.Adapter, database.Settings)
-		defer sess.Close()
-		if err == nil {
-			drv := sess.Driver().(*mgo.Session)
-			db := drv.DB(database.Settings.Database)
-			for _, v := range harvestIdCollections {
-				col := db.C(v)
-				index := mgo.Index{
-					Key:      []string{"harvest_id"},
-					Unique:   true,
-					DropDups: true,
-					Sparse:   true,
-				}
-
-				err := col.EnsureIndex(index)
-				if err != nil {
-					log.Println(err)
-				}
-
-			}
-		}
-		break
-	}
-}
-
-// For some reason empty documents are being saved in MongoDB when there are duplicate key errors.
-// If the unique index is not sparse then things save fine, otherwise once one empty document gets saved, it blocks others from saving.
-// So the unique index needs to be sparse to allow this null value. This is only happening with MongoDB. The SQL databases don't have
-// any empty records. While I'm not in love with this hack, I'll live with it for now.
-func (database *SocialHarvestDB) RemoveEmpty(collection string) {
-	// TODO: Fix whatever is wrong
-	switch database.Type {
-	case "mongodb":
-		sess, err := db.Open(mongo.Adapter, database.Settings)
-		defer sess.Close()
-		if err == nil {
-			drv := sess.Driver().(*mgo.Session)
-			db := drv.DB(database.Settings.Database)
-			col := db.C(collection)
-			// _ could instead be set to return an info struct that would have number of docs removed, etc. - I don't care about this right now.
-			_, removeErr := col.RemoveAll(bson.M{"harvest_id": bson.M{"$exists": false}})
-			if removeErr != nil {
-				log.Println(removeErr)
-			}
-		}
-		break
-	}
-}
-
 // Saves a settings key/value (Social Harvest config or dashboard settings, etc. - anything that needs configuration data can optionally store it using this function)
-func (database *SocialHarvestDB) SaveSettings(settingsRow Settings, dbSession db.Database) {
+func (database *SocialHarvestDB) SaveSettings(settingsRow Settings) {
 	if len(settingsRow.Key) > 0 {
-		col, colErr := dbSession.Collection("settings")
-		if colErr != nil {
-			//log.Fatalf("sessionCopy.Collection(): %q\n", colErr)
-			log.Printf("dbSession.Collection(%s): %q\n", "settings", colErr)
+
+		var count int
+		err := database.Session.Get(&count, "SELECT count(*) FROM settings;")
+		if err != nil {
+			log.Println(err)
 			return
 		}
 
 		// If it already exists, update
-		res := col.Find(db.Cond{"key": settingsRow.Key})
-		count, findErr := res.Count()
-		if findErr != nil {
-			log.Println(findErr)
-		}
 		if count > 0 {
-			updateErr := res.Update(settingsRow)
-			if updateErr != nil {
-				log.Println(updateErr)
+			tx, err := database.Session.Beginx()
+			if err != nil {
+				log.Println(err)
+				return
 			}
+			tx.MustExec("UPDATE settings SET value = $1 WHERE key = $2", settingsRow.Value, settingsRow.Key)
+			tx.Commit()
+
 		} else {
 			// Otherwise, save new
-			_, appendErr := col.Append(settingsRow)
-			if appendErr != nil {
-				// this would log a bunch of errors on duplicate entries (not too many, but enough to be annoying)
-				//log.Println(appendErr)
+			tx, err := database.Session.Beginx()
+			if err != nil {
+				log.Println(err)
+				return
 			}
+			tx.NamedExec("INSERT INTO settings (key, value, modified) VALUES (:key, :value, :modified)", settingsRow)
+			tx.Commit()
 		}
 	}
 	return
@@ -172,138 +107,94 @@ func (database *SocialHarvestDB) SaveSettings(settingsRow Settings, dbSession db
 // that tells Facebook to not give us anything before the last harvest date...assuming we
 // already have it for that particular search query. Multiple params separated by colon.
 func (database *SocialHarvestDB) SetLastHarvestTime(territory string, network string, action string, value string, lastTimeHarvested time.Time, lastIdHarvested string, itemsHarvested int) {
-	lastHarvestRow := SocialHarvestHarvest{territory, network, action, value, lastTimeHarvested, lastIdHarvested, itemsHarvested, time.Now()}
+	lastHarvestRow := SocialHarvestHarvest{
+		Territory:         territory,
+		Network:           network,
+		Action:            action,
+		Value:             value,
+		LastTimeHarvested: lastTimeHarvested,
+		LastIdHarvested:   lastIdHarvested,
+		ItemsHarvested:    itemsHarvested,
+		HarvestTime:       time.Now(),
+	}
 
-	log.Println(lastTimeHarvested)
-	dbSession := database.GetSession()
-	defer dbSession.Close()
-	database.StoreRow(lastHarvestRow, dbSession)
+	//log.Println(lastTimeHarvested)
+	database.StoreRow(lastHarvestRow)
 }
 
 // Gets the last harvest time for a given action, value, and network (NOTE: This doesn't necessarily need to have been set, it could be empty...check with time.IsZero()).
 func (database *SocialHarvestDB) GetLastHarvestTime(territory string, network string, action string, value string) time.Time {
 	var lastHarvestTime time.Time
-
-	sess := database.GetSession()
-	defer sess.Close()
-	col, err := sess.Collection("harvest")
-	if err != nil {
-		log.Fatalf("sess.Collection(): %q\n", err)
-		return lastHarvestTime
-	}
-	result := col.Find(db.Cond{"network": network, "action": action, "value": value, "territory": territory}).Sort("-harvest_time")
-	defer result.Close()
-
 	var lastHarvest SocialHarvestHarvest
-	err = result.One(&lastHarvest)
-	if err != nil {
-		log.Println(err)
-		return lastHarvestTime
+	if database.Session != nil {
+		database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
 	}
-
+	// log.Println(lastHarvest)
 	lastHarvestTime = lastHarvest.LastTimeHarvested
-
 	return lastHarvestTime
 }
 
 // Gets the last harvest id for a given task, param, and network.
 func (database *SocialHarvestDB) GetLastHarvestId(territory string, network string, action string, value string) string {
 	lastHarvestId := ""
-
-	sess := database.GetSession()
-	defer sess.Close()
-	col, err := sess.Collection("harvest")
-	if err != nil {
-		log.Println(err)
-		return lastHarvestId
-	}
-	result := col.Find(db.Cond{"network": network, "action": action, "value": value, "territory": territory}).Sort("-harvest_time")
-	defer result.Close()
-
 	var lastHarvest SocialHarvestHarvest
-	err = result.One(&lastHarvest)
-	if err != nil {
-		log.Println(err)
-		return lastHarvestId
+	if database.Session != nil {
+		database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
 	}
-
 	lastHarvestId = lastHarvest.LastIdHarvested
-
 	return lastHarvestId
 }
 
 // Stores a harvested row of data into the configured database.
-func (database *SocialHarvestDB) StoreRow(row interface{}, dbSession db.Database) {
-	// TODO: change to collection to series for consistency - it's a little confusing in some areas because Mongo uses "collection" (but SQL of course is table so...)
-	collection := ""
+func (database *SocialHarvestDB) StoreRow(row interface{}) {
+	// A database connection is not required to use Social Harvest (could be logging to file)
+	if database.Session == nil {
+		return
+	}
+
+	// The downside to not using upper.io/db or something like it is that INSERT statements incur technical debt.
+	// There will be a maintenance burden in keeping the field names up to date.
+	// ...and values have to be in the right order, maintaining this in a repeated fashion leads to spelling mistakes, etc. All the reasons I HATE dealing with SQL...But oh well.
+
+	var err error
 
 	// Check if valid type to store and determine the proper table/collection based on it
 	switch row.(type) {
 	case SocialHarvestMessage:
-		collection = SeriesCollections["SocialHarvestMessage"]
+		_, err = database.Session.NamedExec("INSERT INTO messages (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county, contributor_likes, contributor_statuses_count, contributor_listed_count, contributor_followers, contributor_verified, message, is_question, category, facebook_shares, twitter_retweet_count, twitter_favorite_count, like_count, google_plus_reshares, google_plus_ones) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county, :contributor_likes, :contributor_statuses_count, :contributor_listed_count, :contributor_followers, :contributor_verified, :message, :is_question, :category, :facebook_shares, :twitter_retweet_count, :twitter_favorite_count, :like_count, :google_plus_reshares, :google_plus_ones);", row)
+		if err != nil {
+			//log.Println(err)
+		} else {
+			//log.Println("Successful insert")
+		}
 	case SocialHarvestSharedLink:
-		collection = SeriesCollections["SocialHarvestSharedLink"]
+		_, err = database.Session.NamedExec("INSERT INTO shared_links (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county, type, preview, source, url, expanded_url, host) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county, :type, :preview, :source, :url, :expanded_url, :host);", row)
+		if err != nil {
+			//log.Println(err)
+		}
 	case SocialHarvestMention:
-		collection = SeriesCollections["SocialHarvestMention"]
+		_, err = database.Session.NamedExec("INSERT INTO mentions (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, mentioned_id, mentioned_screen_name, mentioned_name, mentioned_gender, mentioned_type, mentioned_longitude, mentioned_latitude, mentioned_geohash, mentioned_lang) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :mentioned_id, :mentioned_screen_name, :mentioned_name, :mentioned_gender, :mentioned_type, :mentioned_longitude, :mentioned_latitude, :mentioned_geohash, :mentioned_lang);", row)
+		if err != nil {
+			//log.Println(err)
+		}
 	case SocialHarvestHashtag:
-		collection = SeriesCollections["SocialHarvestHashtag"]
+		_, err = database.Session.NamedExec("INSERT INTO hashtags (time, harvest_id, territory, network, message_id, tag, keyword, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county) VALUES (:time, :harvest_id, :territory, :network, :message_id, :tag, :keyword, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county);", row)
+		if err != nil {
+			//log.Println(err)
+		}
 	case SocialHarvestContributorGrowth:
-		collection = SeriesCollections["SocialHarvestContributorGrowth"]
+		// TODO: this.
+		//database.Session.NamedExec("INSERT INTO contributor_growth ", row)
+		//collection = SeriesCollections["SocialHarvestContributorGrowth"]
 	case SocialHarvestHarvest:
-		collection = SeriesCollections["SocialHarvestHarvest"]
+		_, err = database.Session.NamedExec("INSERT INTO harvest (territory, network, action, value, last_time_harvested, last_id_harvested, items_harvested, harvest_time) VALUES (:territory, :network, :action, :value, :last_time_harvested, :last_id_harvested, :items_harvested, :harvest_time);", row)
+		if err != nil {
+			//log.Println(err)
+		}
 	default:
 		// log.Println("trying to store unknown collection")
 	}
-	//log.Println("saving to collection: " + collection)
 
-	//col, colErr := dbSession.Collection(collection)
-	col, colErr := dbSession.Collection(collection)
-	if colErr != nil {
-		//log.Fatalf("sessionCopy.Collection(): %q\n", colErr)
-		log.Printf("dbSession.Collection(%s): %q\n", collection, colErr)
-		return
-	}
-
-	if collection != "" {
-		// Save
-		_, appendErr := col.Append(row)
-		if appendErr != nil {
-			// this would log a bunch of errors on duplicate entries (not too many, but enough to be annoying)
-			//log.Println(appendErr)
-		}
-	} else {
-		log.Println("trying to store to an unknown collection")
-	}
-
-}
-
-func (database *SocialHarvestDB) GetSession() db.Database {
-	// Figure out which database is being used
-	var dbAdapter = ""
-	switch database.Type {
-	case "mongodb":
-		dbAdapter = mongo.Adapter
-		break
-	case "postgresql":
-		dbAdapter = postgresql.Adapter
-		break
-	case "mysql", "mariadb":
-		dbAdapter = mysql.Adapter
-		break
-	}
-
-	// If one is even being used, connect to it and store the data
-	sess, err := db.Open(dbAdapter, database.Settings)
-
-	// Remember to close the database session. - call this from where ever GetSession() is being called.
-	// Closing it here would be a problem for another function =)
-	//defer sess.Close()
-
-	if err != nil {
-		log.Fatalf("db.Open(): %q\n", err)
-	}
-
-	return sess
 }
 
 // -------- GETTING STUFF BACK OUT ------------
@@ -429,128 +320,6 @@ func (database *SocialHarvestDB) FieldCounts(queryParams CommonQueryParams, fiel
 	total.TimeTo = sanitizedQueryParams.To
 	total.TimeFrom = sanitizedQueryParams.From
 
-	var err error
-	var sess db.Database
-	var col db.Collection
-	var conditions = db.Cond{}
-
-	var dbAdapter = ""
-	switch database.Type {
-	case "mongodb":
-		dbAdapter = mongo.Adapter
-		break
-	case "postgresql":
-		dbAdapter = postgresql.Adapter
-		break
-	case "mysql", "mariadb":
-		dbAdapter = mysql.Adapter
-		break
-	}
-
-	// If one is even being used, connect to it and store the data
-	sess, err = db.Open(dbAdapter, database.Settings)
-	if err != nil {
-		log.Println(err)
-		return fieldCounts, total
-	}
-	defer sess.Close()
-
-	col, err = sess.Collection(sanitizedQueryParams.Series)
-	if err != nil {
-		log.Println(err)
-		return fieldCounts, total
-	}
-
-	// optional date range (can have either or both)
-	if sanitizedQueryParams.From != "" {
-		switch database.Type {
-		case "mongodb":
-			conditions["time $gte"] = sanitizedQueryParams.From
-			break
-		default:
-			conditions["time >="] = sanitizedQueryParams.From
-			break
-		}
-	}
-	if sanitizedQueryParams.To != "" {
-		switch database.Type {
-		case "mongodb":
-			conditions["time $lte"] = sanitizedQueryParams.To
-			break
-		default:
-			conditions["time <="] = sanitizedQueryParams.To
-			break
-		}
-	}
-	if sanitizedQueryParams.Network != "" {
-		networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
-		switch database.Type {
-		case "mongodb":
-			conditions["network $in"] = networkMultiple
-			break
-		default:
-			conditions["network"] = db.Func{"IN", networkMultiple}
-			break
-		}
-		// singular
-		// conditions["network"] = sanitizedQueryParams.Network
-	}
-	if sanitizedQueryParams.Territory != "" {
-		conditions["territory"] = sanitizedQueryParams.Territory
-	}
-
-	// First count total
-	res := col.Find(conditions)
-	defer res.Close()
-	total.Count, err = res.Count()
-	if err != nil {
-		res.Close()
-		log.Println(err)
-		return fieldCounts, total
-	}
-
-	// Then the group query
-	switch database.Type {
-	case "mongodb":
-		// TODO: The GROUP query here, it'll differ from the SQL version below
-		break
-	case "postgresql", "mysql", "mariadb":
-		for _, field := range fields {
-			if sanitizedQueryParams.Limit > 0 {
-				res = col.Find(conditions).Select(db.Raw{"COUNT(" + field + ") AS count," + field + " AS value"}).Group(field).Sort("-count").Limit(sanitizedQueryParams.Limit)
-			} else {
-				res = col.Find(conditions).Select(db.Raw{"COUNT(" + field + ") AS count," + field + " AS value"}).Group(field).Sort("-count")
-			}
-			var results []map[string]interface{}
-			if err = res.All(&results); err != nil {
-				res.Close()
-				log.Println(err)
-			} else {
-				count := map[string][]ResultAggregateCount{}
-				var valueCounts []ResultAggregateCount
-				// Loop each field and take the value counts
-				for _, f := range results {
-					cnt, cntErr := strconv.ParseUint(f["count"].(string), 10, 64)
-					if cntErr == nil {
-						c := ResultAggregateCount{
-							Value: f["value"].(string),
-							Count: cnt,
-						}
-						valueCounts = append(valueCounts, c)
-					} else {
-						res.Close()
-					}
-				}
-				count[field] = valueCounts
-				// Append the field value counts on to the main struct to return
-				fieldCount := ResultAggregateFields{Count: count, TimeFrom: sanitizedQueryParams.From, TimeTo: sanitizedQueryParams.To, Total: total.Count}
-				fieldCounts = append(fieldCounts, fieldCount)
-			}
-			res.Close()
-		}
-		break
-	}
-
 	return fieldCounts, total
 }
 
@@ -560,88 +329,119 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
 	var count = ResultCount{Count: 0, TimeFrom: sanitizedQueryParams.From, TimeTo: sanitizedQueryParams.To}
 
-	var err error
-	var sess db.Database
-	var col db.Collection
-	var conditions = db.Cond{}
+	//database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
+	//
+	// OR...
+	//tx, err := database.Session.Beginx()
+	// if err != nil {
+	// 	log.Println(err)
+	// 	return
+	// }
+	// tx.NamedExec("INSERT INTO settings (key, value, modified) VALUES (:key, :value, :modified)", settingsRow)
+	// tx.Commit()
 
-	var dbAdapter = ""
-	switch database.Type {
-	case "mongodb":
-		dbAdapter = mongo.Adapter
-		break
-	case "postgresql":
-		dbAdapter = postgresql.Adapter
-		break
-	case "mysql", "mariadb":
-		dbAdapter = mysql.Adapter
-		break
-	}
+	var buffer bytes.Buffer
+	buffer.WriteString("SELECT COUNT(*) FROM ")
+	buffer.WriteString(sanitizedQueryParams.Series)
+	//buffer.WriteString(" WHERE 1=1")
 
-	// If one is even being used, connect to it and store the data
-	sess, err = db.Open(dbAdapter, database.Settings)
-	if err != nil {
-		log.Println(err)
-		return count
-	}
-	defer sess.Close()
-
-	col, err = sess.Collection(sanitizedQueryParams.Series)
-	if err != nil {
-		log.Println(err)
-		return count
-	}
+	condCount := 0
 
 	// optional date range (can have either or both)
 	if sanitizedQueryParams.From != "" {
-		switch database.Type {
-		case "mongodb":
-			conditions["time $gte"] = sanitizedQueryParams.From
-			break
-		default:
-			conditions["time >="] = sanitizedQueryParams.From
-			break
-		}
+		buffer.WriteString(" WHERE time >=:timeFrom")
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("time >= ")
+		// buffer.WriteString(sanitizedQueryParams.From)
 	}
 	if sanitizedQueryParams.To != "" {
-		switch database.Type {
-		case "mongodb":
-			conditions["time $lte"] = sanitizedQueryParams.To
-			break
-		default:
-			conditions["time <="] = sanitizedQueryParams.To
-			break
+		if condCount > 0 {
+			buffer.WriteString(" AND time<=:timeTo")
+		} else {
+			buffer.WriteString(" WHERE time<=:timeTo")
 		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("time <= ")
+		// buffer.WriteString(sanitizedQueryParams.To)
 	}
 	if sanitizedQueryParams.Network != "" {
-		networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
-		switch database.Type {
-		case "mongodb":
-			conditions["network $in"] = networkMultiple
-			break
-		default:
-			conditions["network"] = db.Func{"IN", networkMultiple}
-			break
-		}
+		//multiple - but i think this was for upper.io/db ... we ultimately want it as a string so why split to only join somewhere else again?
+		//networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
+
 		// singular
 		// conditions["network"] = sanitizedQueryParams.Network
+
+		if condCount > 0 {
+			buffer.WriteString(" AND network IN(:network)")
+		} else {
+			buffer.WriteString(" WHERE network IN(:network)")
+		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("network IN(")
+		// buffer.WriteString(sanitizedQueryParams.Network)
+		// buffer.WriteString(")")
 	}
 	if sanitizedQueryParams.Territory != "" {
-		conditions["territory"] = sanitizedQueryParams.Territory
+		if condCount > 0 {
+			buffer.WriteString(" AND territory=:territory")
+		} else {
+			buffer.WriteString(" WHERE territory=:territory")
+		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("territory = ")
+		// buffer.WriteString(sanitizedQueryParams.Territory)
 	}
 
 	if sanitizedQueryParams.Field != "" && fieldValue != "" {
-		conditions[sanitizedQueryParams.Field] = fieldValue
+		if condCount > 0 {
+			buffer.WriteString(" AND ")
+			buffer.WriteString(sanitizedQueryParams.Field)
+			buffer.WriteString("=")
+			buffer.WriteString(fieldValue)
+		}
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString(sanitizedQueryParams.Field)
+		// buffer.WriteString(" = ")
+		// buffer.WriteString(fieldValue)
 	}
 
-	res := col.Find(conditions)
-	defer res.Close()
+	sqlQuery := buffer.String()
+	buffer.Reset()
 
-	count.Count, err = res.Count()
+	log.Println(sqlQuery)
+
+	data := struct {
+		TimeFrom  string `db:timeFrom`
+		TimeTo    string `db:timeTo`
+		Network   string `db:network`
+		Territory string `db:territory`
+		//FieldValue interface{} `db:fieldValue`
+	}{
+		TimeFrom:  sanitizedQueryParams.From,
+		TimeTo:    sanitizedQueryParams.To,
+		Network:   sanitizedQueryParams.Network,
+		Territory: sanitizedQueryParams.Territory,
+		//FieldValue: fieldValue,
+	}
+	rows, err := database.Session.NamedQuery(sqlQuery, data)
 	if err != nil {
-		res.Close()
-		log.Println(err)
-		count.Count = 0
+		// log.Println(err)
+		return count
+	}
+	for rows.Next() {
+		err := rows.StructScan(&count)
+		if err != nil {
+			// log.Println(err)
+		}
 	}
 
 	return count
@@ -651,166 +451,98 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 func (database *SocialHarvestDB) Messages(queryParams CommonQueryParams, conds MessageConditions) ([]SocialHarvestMessage, uint64, uint, uint) {
 	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
 	var results = []SocialHarvestMessage{}
+	var total uint64
 
-	var err error
-	var sess db.Database
-	var col db.Collection
-	var conditions = db.Cond{}
+	return results, total, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
+}
 
-	var dbAdapter = ""
-	switch database.Type {
-	case "mongodb":
-		dbAdapter = mongo.Adapter
-		break
-	case "postgresql":
-		dbAdapter = postgresql.Adapter
-		break
-	case "mysql", "mariadb":
-		dbAdapter = mysql.Adapter
-		break
-	}
+// http://localhost:3000/test?from=2014-07-07&to=2014-10-11&resolution=1440#
+// TODO: REMOVE
+func (database *SocialHarvestDB) TestQueries(queryParams CommonQueryParams) []SocialHarvestSharedLink {
+	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
+	var sharedLink = SocialHarvestSharedLink{}
+	var sharedLinks = []SocialHarvestSharedLink{}
 
-	// If one is even being used, connect to it and store the data
-	sess, err = db.Open(dbAdapter, database.Settings)
-	if err != nil {
-		log.Println(err)
-		return results, 0, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
-	}
-	defer sess.Close()
+	var buffer bytes.Buffer
+	buffer.WriteString("SELECT * FROM ")
+	buffer.WriteString("shared_links")
+	//buffer.WriteString(sanitizedQueryParams.Series)
+	//buffer.WriteString(" WHERE 1=1")
 
-	col, err = sess.Collection("messages")
-	if err != nil {
-		log.Println(err)
-		return results, 0, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
-	}
+	condCount := 0
 
 	// optional date range (can have either or both)
 	if sanitizedQueryParams.From != "" {
-		switch database.Type {
-		case "mongodb":
-			conditions["time $gte"] = sanitizedQueryParams.From
-			break
-		default:
-			conditions["time >="] = sanitizedQueryParams.From
-			break
-		}
+		buffer.WriteString(" WHERE time >=:timeFrom")
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("time >= ")
+		// buffer.WriteString(sanitizedQueryParams.From)
 	}
 	if sanitizedQueryParams.To != "" {
-		switch database.Type {
-		case "mongodb":
-			conditions["time $lte"] = sanitizedQueryParams.To
-			break
-		default:
-			conditions["time <="] = sanitizedQueryParams.To
-			break
+		if condCount > 0 {
+			buffer.WriteString(" AND time<=:timeTo")
+		} else {
+			buffer.WriteString(" WHERE time<=:timeTo")
 		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("time <= ")
+		// buffer.WriteString(sanitizedQueryParams.To)
 	}
 	if sanitizedQueryParams.Network != "" {
-		networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
-		switch database.Type {
-		case "mongodb":
-			conditions["network $in"] = networkMultiple
-			break
-		default:
-			conditions["network"] = db.Func{"IN", networkMultiple}
-			break
-		}
-		// conditions["network"] = db.Func{"IN", networkMultiple)
+		//multiple - but i think this was for upper.io/db ... we ultimately want it as a string so why split to only join somewhere else again?
+		//networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
+
 		// singular
-		// conditions["network"] = networkMultiple
-	}
+		// conditions["network"] = sanitizedQueryParams.Network
 
+		if condCount > 0 {
+			buffer.WriteString(" AND network IN(:network)")
+		} else {
+			buffer.WriteString(" WHERE network IN(:network)")
+		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("network IN(")
+		// buffer.WriteString(sanitizedQueryParams.Network)
+		// buffer.WriteString(")")
+	}
 	if sanitizedQueryParams.Territory != "" {
-		conditions["territory"] = sanitizedQueryParams.Territory
+		if condCount > 0 {
+			buffer.WriteString(" AND territory=:territory")
+		} else {
+			buffer.WriteString(" WHERE territory=:territory")
+		}
+		condCount++
+
+		// buffer.WriteString(" AND ")
+		// buffer.WriteString("territory = ")
+		// buffer.WriteString(sanitizedQueryParams.Territory)
 	}
 
-	// MessageConditions (specific conditions for messages series)
-	if conds.Lang != "" {
-		conditions["contributor_lang"] = conds.Lang
+	sqlQuery := buffer.String()
+	buffer.Reset()
+
+	log.Println(sqlQuery)
+
+	data := map[string]interface{}{"timeFrom": sanitizedQueryParams.From, "timeTo": sanitizedQueryParams.To, "network": sanitizedQueryParams.Network, "territory": sanitizedQueryParams.Territory}
+	rows, err := database.Session.NamedQuery(sqlQuery, data)
+	if err != nil {
+		log.Println(err)
+		return sharedLinks
 	}
-	if conds.Country != "" {
-		conditions["contributor_country"] = conds.Country
-	}
-	if conds.Geohash != "" {
-		// Ensure the goehash is alphanumeric.
-		// TODO: Pass these conditions through a sanitizer too, though the ORM should use prepared statements and take care of SQL injection....right? TODO: Check that too.
-		pattern := `(?i)[A-z0-9]`
-		r, _ := regexp.Compile(pattern)
-		if r.MatchString(conds.Geohash) {
-			switch database.Type {
-			case "mongodb":
-				conditions["contributor_geohash"] = "/" + conds.Geohash + "."
-				break
-			default:
-				conditions["contributor_geohash LIKE"] = conds.Geohash + "%"
-				break
-			}
-		}
-	}
-	if conds.Search != "" {
-		// TODO: Ensure this is not a SQL injection problem
-		switch database.Type {
-		case "mongodb":
-			conditions["message"] = "/" + conds.Search + ".*/"
-			break
-		default:
-			conditions["message LIKE"] = "%" + conds.Search + "%"
-			break
+	for rows.Next() {
+		err := rows.StructScan(&sharedLink)
+		if err != nil {
+			log.Println(err)
+		} else {
+			sharedLinks = append(sharedLinks, sharedLink)
 		}
 	}
 
-	if conds.Gender != "" {
-		switch conds.Gender {
-		case "-1", "f", "female":
-			conditions["contributor_gender"] = -1
-			break
-		case "1", "m", "male":
-			conditions["contributor_gender"] = 1
-			break
-		case "0", "u", "unknown":
-			conditions["contributor_gender"] = 0
-			break
-		}
-	}
-	if conds.IsQuestion != 0 {
-		conditions["is_question"] = 1
-	}
-
-	sortBy := "-time"
-	if sanitizedQueryParams.Sort != "" {
-		sortDirection := "-"
-		sortField := sanitizedQueryParams.Sort
-		sortPieces := strings.Split(sortField, ",")
-		if len(sortPieces) > 0 {
-			sortField = sortPieces[0]
-		}
-		if len(sortPieces) > 1 {
-			sortDirection = sortPieces[1]
-			if sortDirection == "desc" || sortDirection == "dsc" {
-				sortDirection = "-"
-			}
-			if sortDirection == "asc" {
-				sortDirection = "+"
-			}
-		}
-		var buffer bytes.Buffer
-		buffer.WriteString(sortDirection)
-		buffer.WriteString(sortField)
-		sortBy = buffer.String()
-		buffer.Reset()
-	}
-
-	// TODO: Allow other sorting options? I'm not sure it matters because people likely want timely data. More important would be a search.
-	res := col.Find(conditions).Skip(sanitizedQueryParams.Skip).Limit(sanitizedQueryParams.Limit).Sort(sortBy)
-	defer res.Close()
-	total, resCountErr := res.Count()
-	if resCountErr != nil {
-		return results, 0, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
-	}
-	resErr := res.All(&results)
-	if resErr != nil {
-		return results, total, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
-	}
-
-	return results, total, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
+	return sharedLinks
 }

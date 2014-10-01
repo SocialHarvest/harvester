@@ -144,6 +144,7 @@ type FacebookAccount struct {
 }
 
 var fbToken string
+
 var fbHttpClient *http.Client
 var fbGraphApiBaseUrl = "https://graph.facebook.com/"
 
@@ -158,6 +159,8 @@ func NewFacebook(servicesConfig config.ServicesConfig) {
 					//log.Printf("dial to %s://%s", netw, addr)
 					return net.Dial(netw, addr) // Regular ass dial.
 				},
+				DisableKeepAlives: true,
+				//DisableCompression: true,
 			},
 			// Facebook's payload (especially with 100 results) will take a little while to download
 			RoundTripTimeout: time.Second * 10,
@@ -504,6 +507,7 @@ func FacebookSearch(territoryName string, harvestState config.HarvestState, para
 		return params, harvestState
 	}
 
+	// Concatenate and build the searchUrl
 	var buffer bytes.Buffer
 	buffer.WriteString(fbGraphApiBaseUrl)
 	buffer.WriteString("/search?")
@@ -514,18 +518,17 @@ func FacebookSearch(territoryName string, harvestState config.HarvestState, para
 		return params, harvestState
 	}
 	buffer.WriteString(v.Encode())
+	searchUrl := buffer.String()
+	buffer.Reset()
 
 	// set up the request
-	// log.Println(buffer.String())
-	req, err := http.NewRequest("GET", buffer.String(), nil)
-	buffer.Reset()
+	req, err := http.NewRequest("GET", searchUrl, nil)
 	if err != nil {
 		return params, harvestState
 	}
 	// doo it
 	resp, err := fbHttpClient.Do(req)
 	if err != nil {
-		log.Println(err)
 		return params, harvestState
 	}
 	defer resp.Body.Close()
@@ -596,17 +599,17 @@ func FacebookFeed(territoryName string, harvestState config.HarvestState, accoun
 		return params, harvestState
 	}
 	buffer.WriteString(v.Encode())
+	feedUrl := buffer.String()
+	buffer.Reset()
 
 	// set up the request
-	req, err := http.NewRequest("GET", buffer.String(), nil)
-	buffer.Reset()
+	req, err := http.NewRequest("GET", feedUrl, nil)
 	if err != nil {
 		return params, harvestState
 	}
 	// doo it
 	resp, err := fbHttpClient.Do(req)
 	if err != nil {
-		log.Println(err)
 		return params, harvestState
 	}
 	defer resp.Body.Close()
@@ -668,24 +671,25 @@ func FacebookGetUserInfo(id string, params FacebookParams) FacebookAccount {
 			return account
 		}
 		buffer.WriteString(v.Encode())
+		userInfoUrl := buffer.String()
+		buffer.Reset()
 
 		// set up the request
-		req, err := http.NewRequest("GET", buffer.String(), nil)
-		buffer.Reset()
+		req, err := http.NewRequest("GET", userInfoUrl, nil)
 		if err != nil {
 			return account
 		}
 		// doo it
 		resp, err := fbHttpClient.Do(req)
 		if err != nil {
-			log.Println(err)
 			return account
 		}
 		defer resp.Body.Close()
 
 		dec := json.NewDecoder(resp.Body)
 		dec.Decode(&account)
-		// close the response now, we don't need it anymore - otherwise it'll stay open while we write to the database. best to close it.
+		// close the response now, we don't need it anymore - it should close right after this anyway because of the defer... but these calls are atomic. so just to be safe.
+		// i've had too much trouble with unclosed http requests. i'm happy to be paranoid and safe rather than sorry, because i've been sorry and sore before.
 		resp.Body.Close()
 	}
 

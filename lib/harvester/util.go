@@ -156,15 +156,20 @@ func DetectGender(name string) int {
 
 // Gets the final URL given a short URL (or one that has redirects)
 func ExpandUrl(url string) string {
-	req, err := http.NewRequest("GET", url, nil)
+	if url == "" {
+		return ""
+	}
+	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
+		//log.Println(err)
 		return ""
 	}
 	resp, err := httpClient.Do(req)
-	// resp, err := http.Get(url)
 	if err != nil {
+		//log.Println(err)
 		return ""
 	}
+	defer resp.Body.Close()
 	return resp.Request.URL.String()
 }
 
@@ -345,6 +350,7 @@ func (t *TimeoutTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	resp := make(chan respAndErr, 1)
 
 	go func() {
+		//t.Transport.CloseIdleConnections() // trying this out
 		r, e := t.Transport.RoundTrip(req)
 		resp <- respAndErr{
 			resp: r,

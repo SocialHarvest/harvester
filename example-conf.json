@@ -6,7 +6,7 @@
         }
     },
     "database": {
-        "type": "postgresql",
+        "type": "postgres",
         "host": "localhost",
         "port": 5432,
         "database": "socialharvest"
