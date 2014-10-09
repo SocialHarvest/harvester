@@ -591,7 +591,7 @@ func getFunctionName(i interface{}) string {
 
 // Main - initializes, configures, and sets routes for API
 func main() {
-	appVersion := "0.9.2-preview"
+	appVersion := "0.10.0-preview"
 
 	// Optionally allow a config JSON file to be passed via command line
 	var confFile string
@@ -667,6 +667,7 @@ func main() {
 	//go GooglePlusActivitieByKeyword()
 	//go GooglePlusActivitieByAccount()
 	//go HarvestAllContent()
+	//go HarvestAllAccounts()
 
 	//harvester.YoutubeVideoSearch("obama")
 	///

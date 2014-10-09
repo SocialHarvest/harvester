@@ -89,6 +89,7 @@ type HarvestConfig struct {
 			Facebook   []string `json:"facebook"`
 			GooglePlus []string `json:"googlePlus"`
 			YouTube    []string `json:"youTube"`
+			Instagram  []string `json:"instagram"`
 		} `json:"accounts"`
 		Schedule struct {
 			Everything struct {

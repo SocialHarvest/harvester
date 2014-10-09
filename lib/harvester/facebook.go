@@ -695,3 +695,27 @@ func FacebookGetUserInfo(id string, params FacebookParams) FacebookAccount {
 
 	return account
 }
+
+// Harvests Facebook account details to track changes in likes, etc. (only for public pages)
+func FacebookAccountDetails(territoryName string, account string) {
+	params := FacebookParams{}
+	contributor := FacebookGetUserInfo(account, params)
+	now := time.Now()
+	// The harvest id in this case will be unique by time / account / network / territory, since there is no post id or anything else like that
+	harvestId := GetHarvestMd5(account + now.String() + "facebook" + territoryName)
+
+	row := config.SocialHarvestContributorGrowth{
+		Time:          now,
+		HarvestId:     harvestId,
+		Territory:     territoryName,
+		Network:       "facebook",
+		ContributorId: contributor.Id,
+		Likes:         contributor.Likes,
+		TalkingAbout:  contributor.TalkingAboutCount,
+		WereHere:      contributor.WereHereCount,
+		Checkins:      contributor.Checkins,
+	}
+	StoreHarvestedData(row)
+	LogJson(row, "contributor_growth")
+	return
+}

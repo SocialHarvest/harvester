@@ -349,3 +349,27 @@ func InstagramFindTags(keyword string) string {
 
 	return tag
 }
+
+// Harvests Instagram account details to track changes in followers, etc.
+func InstagramAccountDetails(territoryName string, account string) {
+	contributor, err := services.instagram.Users.Get(account)
+	if err == nil {
+		now := time.Now()
+		// The harvest id in this case will be unique by time / account / network / territory, since there is no post id or anything else like that
+		harvestId := GetHarvestMd5(account + now.String() + "instagram" + territoryName)
+
+		row := config.SocialHarvestContributorGrowth{
+			Time:          now,
+			HarvestId:     harvestId,
+			Territory:     territoryName,
+			Network:       "instagram",
+			ContributorId: contributor.ID,
+			Followers:     contributor.Counts.FollowedBy,
+			Following:     contributor.Counts.Follows,
+			StatusUpdates: contributor.Counts.Media,
+		}
+		StoreHarvestedData(row)
+		LogJson(row, "contributor_growth")
+	}
+	return
+}

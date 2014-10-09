@@ -4,6 +4,17 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.10.0
+-------------
+
+The harvesting of growth metrics has been added. Not all services offer as much detail through their APIs as one can get 
+by using the network's own tools (Facebook's Insights, Google's Analytics, etc.). However, this data is useful for tracking 
+the basic growth metrics available and in particular comparing to competitors and other accounts/pages. This will likely 
+change over time as new data becomes available through various APIs.
+
+This completes all harvesting for alpha and beta. There are a few more analysis tasks left to be done before beta, such as 
+sentiment analysis, but at this point all data to be harvested for the immediate future is being gathered.
+
 ## 0.9.2
 -------------
 

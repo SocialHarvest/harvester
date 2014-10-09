@@ -149,6 +149,7 @@ func (database *SocialHarvestDB) GetLastHarvestId(territory string, network stri
 func (database *SocialHarvestDB) StoreRow(row interface{}) {
 	// A database connection is not required to use Social Harvest (could be logging to file)
 	if database.Session == nil {
+		// log.Println("There appears to be no database connection.")
 		return
 	}
 
@@ -183,9 +184,46 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			//log.Println(err)
 		}
 	case SocialHarvestContributorGrowth:
-		// TODO: this.
-		//database.Session.NamedExec("INSERT INTO contributor_growth ", row)
-		//collection = SeriesCollections["SocialHarvestContributorGrowth"]
+		_, err = database.Session.NamedExec(`INSERT INTO contributor_growth (
+			time, 
+			harvest_id, 
+			territory, 
+			network, 
+			contributor_id, 
+			likes,
+			talking_about,
+			were_here, 
+			checkins, 
+			views, 
+			subscribers, 
+			status_updates, 
+			listed, 
+			favorites, 
+			followers, 
+			following,
+			plus_ones
+		) VALUES (
+			:time, 
+			:harvest_id, 
+			:territory, 
+			:network, 
+			:contributor_id, 
+			:likes, 
+			:talking_about,
+			:were_here, 
+			:checkins, 
+			:views, 
+			:subscribers, 
+			:status_updates, 
+			:listed, 
+			:favorites, 
+			:followers,
+			:following,
+			:plus_ones
+		);`, row)
+		if err != nil {
+			// log.Println(err)
+		}
 	case SocialHarvestHarvest:
 		_, err = database.Session.NamedExec("INSERT INTO harvest (territory, network, action, value, last_time_harvested, last_id_harvested, items_harvested, harvest_time) VALUES (:territory, :network, :action, :value, :last_time_harvested, :last_id_harvested, :items_harvested, :harvest_time);", row)
 		if err != nil {

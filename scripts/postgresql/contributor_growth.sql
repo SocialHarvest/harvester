@@ -13,19 +13,18 @@ CREATE TABLE "contributor_growth" (
 	"territory" varchar(255) COLLATE "default",
 	"network" varchar(75) COLLATE "default",
 	"contributor_id" varchar(255) COLLATE "default",
-	"contributor_longitude" float8,
-	"contributor_latitude" float8,
-	"contributor_geohash" varchar(100) COLLATE "default",
 	"likes" int8,
-	"talking_about_count" int8,
+	"talking_about" int8,
+	"were_here" int8,
 	"checkins" int8,
 	"views" int8,
 	"subscribers" int8,
-	"statuses_count" int8,
-	"listed_count" int8,
+	"status_updates" int8,
+	"listed" int8,
+	"favorites" int8,
 	"followers" int8,
 	"following" int8,
-	"were_here_count" int8
+	"plus_ones" int8
 )
 WITH (OIDS=FALSE);
 

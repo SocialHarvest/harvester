@@ -214,6 +214,8 @@ type SocialHarvestMention struct {
 // It would be interesting to track all of this for every contributor discovered, but API rate limits restrict us from doing that.
 // So this will only track for accounts under the "accounts" section of the harvest configuration.
 // NOTE: contributor details (like location, about, website url, etc.) can be obtained when necessary via the service's API on the front-end. A lot of that data changes.
+// A note about convention: I'm not keeping "_count" on fields. It's superfluous. Assume these are all counts. The int type would make that obvious. Keep field names shorter.
+// Also, field names can be used for multiple networks, ie. "followers" - so saying "followers_count" would be very Twitter specific and maybe therefore misleading.
 type SocialHarvestContributorGrowth struct {
 	Time      time.Time `json:"time" db:"time" bson:"time"`
 	HarvestId string    `json:"harvest_id" db:"harvest_id" bson:"harvest_id"`
@@ -221,28 +223,40 @@ type SocialHarvestContributorGrowth struct {
 	Network   string    `json:"network" db:"network" bson:"network"`
 	// We can look up additional contributor details (like name, location, website URL, etc.) via service API calls as needed. It doesn't change often.
 	// So storing in the database would really be wasteful.
-	ContributorId        string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
-	ContributorLongitude float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
-	ContributorLatitude  float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
-	ContributorGeohash   string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
+	ContributorId string `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
+	// Location doesn't change that frequently. Leave it out for now. It can be obtained very easily on demand via the API.
+	// The only situation where it'd be nice to track is if someone is posting from a mobile device and moves around a lot.
+	// I don't think this is common enough to include for now (excess geolocation lookups and database storage), but can include it later if there is demand for it.
+	// ContributorLongitude float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
+	// ContributorLatitude  float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
+	// ContributorGeohash   string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
 	// NOTE: No need to prefix fields with network...because we have the network field. Unused fields will simply be empty.
 	// It is also possible for networks to share fields (if they use the same semantics / have the same kind of data).
 
 	// Facebook specific (mostly)
-	Likes             int `json:"likes" db:"likes" bson:"likes"`
-	TalkingAboutCount int `json:"talking_about_count" db:"talking_about_count" bson:"talking_about_count"`
-	WereHereCount     int `json:"were_here_count" db:"were_here_count" bson:"were_here_count"`
-	Checkins          int `json:"checkins" db:"checkins" bson:"checkins"`
+	Likes        int `json:"likes" db:"likes" bson:"likes"`
+	TalkingAbout int `json:"talking_about" db:"talking_about" bson:"talking_about"`
+	WereHere     int `json:"were_here" db:"were_here" bson:"were_here"`
+	Checkins     int `json:"checkins" db:"checkins" bson:"checkins"`
 
 	// Youtube (mostly)
 	Views       int `json:"views" db:"views" bson:"views"`
 	Subscribers int `json:"subscribers" db:"subscribers" bson:"subscribers"`
 
-	// Twitter specific (mostly)
-	StatusesCount int `json:"statuses_count" db:"statuses_count" bson:"statuses_count"`
-	ListedCount   int `json:"listed_count" db:"listed_count" bson:"listed_count"`
-	Followers     int `json:"followers" db:"followers" bson:"followers"`
-	Following     int `json:"following" db:"following" bson:"following"`
+	// Twitter uses status updates, but Instagram uses "media" - this field is used for any count of (primary) content posted.
+	StatusUpdates int `json:"status_udpates" db:"status_updates" bson:"status_updates"`
+
+	// Twitter specific (mostly )
+	Listed    int `json:"listed" db:"listed" bson:"listed"`
+	Favorites int `json:"favorites" db:"favorites" bson:"favorites"`
+	// Many social networks have the sense of followers/following (ie. Google+ calls it circledByCount for People)
+	Followers int `json:"followers" db:"followers" bson:"followers"`
+	Following int `json:"following" db:"following" bson:"following"`
+
+	// Google+ specific
+	PlusOnes int `json:"plus_ones" db:"plus_ones" bson:"plus_ones"`
+	// NOTE: Google+ page specific data use Views and Followers; however, it comes from scraping pages. There is no public API for pages yet. It's invite only.
+	// This kind of disobeys policy and so for now we won't do that. Social Harvest is designed to respect ToS.
 }
 
 // Used for efficiently harvesting (help avoid gathering duplicate data), running through paginated results from APIs, as well as information about harvester performance.

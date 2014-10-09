@@ -188,7 +188,13 @@ func FacebookMessagesByAccount() {
 
 // Track Facebook account changes for public pages (without extended permissions, we can't determine personal account growth/number of friends)
 func FacebookGrowthByAccount() {
-
+	for _, territory := range socialHarvest.Config.Harvest.Territories {
+		for _, account := range territory.Accounts.Facebook {
+			harvester.FacebookAccountDetails(territory.Name, account)
+			// log.Println("harvested a account stats from facebook")
+		}
+	}
+	return
 }
 
 // Searches Twitter for status updates by territory keyword criteria
@@ -337,6 +343,17 @@ func TwitterPublicMessagesByAccount() {
 	return
 }
 
+// Track Twitter account changes
+func TwitterGrowthByAccount() {
+	for _, territory := range socialHarvest.Config.Harvest.Territories {
+		for _, account := range territory.Accounts.Twitter {
+			harvester.TwitterAccountDetails(territory.Name, account)
+			// log.Println("harvested a account stats from twitter")
+		}
+	}
+	return
+}
+
 // Searches Instagram for media by territory keyword criteria (first needs to get tags)
 func InstagramMediaByKeyword() {
 	for _, territory := range socialHarvest.Config.Harvest.Territories {
@@ -434,6 +451,17 @@ func InstagramMediaByKeyword() {
 		}
 
 	}
+}
+
+// Track Instagram account changes
+func InstagramGrowthByAccount() {
+	for _, territory := range socialHarvest.Config.Harvest.Territories {
+		for _, account := range territory.Accounts.Instagram {
+			harvester.InstagramAccountDetails(territory.Name, account)
+			// log.Println("harvested a account stats from instagram")
+		}
+	}
+	return
 }
 
 // Searches Google+ for activities (posts) by territory keyword criteria
@@ -590,6 +618,17 @@ func GooglePlusActivitieByAccount() {
 	}
 }
 
+// Track Google+ account changes
+func GooglePlusGrowthByAccount() {
+	for _, territory := range socialHarvest.Config.Harvest.Territories {
+		for _, account := range territory.Accounts.GooglePlus {
+			harvester.GooglePlusAccountDetails(territory.Name, account)
+			// log.Println("harvested a account stats from google+")
+		}
+	}
+	return
+}
+
 // Simply calls every other function here, harvesting everything
 func HarvestAll() {
 	HarvestAllContent()
@@ -609,5 +648,8 @@ func HarvestAllContent() {
 
 // Calls all harvest functions that gather information about account changes/growth
 func HarvestAllAccounts() {
-	//FacebookGrowthByAccount()
+	go FacebookGrowthByAccount()
+	go TwitterGrowthByAccount()
+	go InstagramGrowthByAccount()
+	go GooglePlusGrowthByAccount()
 }

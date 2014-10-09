@@ -423,3 +423,26 @@ func GooglePlusActivityByAccount(territoryName string, harvestState config.Harve
 
 	return options, harvestState
 }
+
+// Harvests Google+ account details to track changes in followers, etc. (NOTE: Pages can't currently be tracked by the existing API, it's invite only)
+func GooglePlusAccountDetails(territoryName string, account string) {
+	contributor, err := services.googlePlus.People.Get(account).Do()
+	if err == nil {
+		now := time.Now()
+		// The harvest id in this case will be unique by time / account / network / territory, since there is no post id or anything else like that
+		harvestId := GetHarvestMd5(account + now.String() + "googlePlus" + territoryName)
+
+		row := config.SocialHarvestContributorGrowth{
+			Time:          now,
+			HarvestId:     harvestId,
+			Territory:     territoryName,
+			Network:       "googlePlus",
+			ContributorId: contributor.Id,
+			Followers:     int(contributor.CircledByCount),
+			PlusOnes:      int(contributor.PlusOneCount),
+		}
+		StoreHarvestedData(row)
+		LogJson(row, "contributor_growth")
+	}
+	return
+}

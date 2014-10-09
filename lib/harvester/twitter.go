@@ -23,6 +23,7 @@ import (
 	"github.com/tmaiaroto/geocoder"
 	"log"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -669,4 +670,35 @@ func TwitterAccountStream(territoryName string, harvestState config.HarvestState
 	}
 
 	return options, harvestState
+}
+
+// Harvests Twitter account details to track changes in followers, etc.
+func TwitterAccountDetails(territoryName string, account string) {
+	params := url.Values{}
+	var contributor anaconda.User
+	if accountId, err := strconv.Atoi(account); err == nil {
+		contributor, _ = services.twitter.GetUsersShowById(int64(accountId), params)
+	} else {
+		contributor, _ = services.twitter.GetUsersShow(account, params)
+	}
+
+	now := time.Now()
+	// The harvest id in this case will be unique by time / account / network / territory, since there is no post id or anything else like that
+	harvestId := GetHarvestMd5(account + now.String() + "twitter" + territoryName)
+
+	row := config.SocialHarvestContributorGrowth{
+		Time:          now,
+		HarvestId:     harvestId,
+		Territory:     territoryName,
+		Network:       "twitter",
+		ContributorId: contributor.IdStr,
+		Followers:     int(contributor.FollowersCount),
+		Following:     int(contributor.FriendsCount),
+		StatusUpdates: int(contributor.StatusesCount),
+		Listed:        int(contributor.ListedCount),
+		Favorites:     int(contributor.FavouritesCount),
+	}
+	StoreHarvestedData(row)
+	LogJson(row, "contributor_growth")
+	return
 }
