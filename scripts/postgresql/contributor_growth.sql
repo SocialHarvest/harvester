@@ -18,13 +18,13 @@ CREATE TABLE "contributor_growth" (
 	"were_here" int8,
 	"checkins" int8,
 	"views" int8,
-	"subscribers" int8,
 	"status_updates" int8,
 	"listed" int8,
 	"favorites" int8,
 	"followers" int8,
 	"following" int8,
-	"plus_ones" int8
+	"plus_ones" int8,
+	"comments" int8
 )
 WITH (OIDS=FALSE);
 

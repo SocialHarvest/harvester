@@ -239,17 +239,15 @@ type SocialHarvestContributorGrowth struct {
 	WereHere     int `json:"were_here" db:"were_here" bson:"were_here"`
 	Checkins     int `json:"checkins" db:"checkins" bson:"checkins"`
 
-	// Youtube (mostly)
-	Views       int `json:"views" db:"views" bson:"views"`
-	Subscribers int `json:"subscribers" db:"subscribers" bson:"subscribers"`
+	Views int `json:"views" db:"views" bson:"views"`
 
-	// Twitter uses status updates, but Instagram uses "media" - this field is used for any count of (primary) content posted.
+	// Twitter uses status updates, but Instagram uses "media" and YouTube channels use "videoCount" - this field is used for any count of (primary) content posted.
 	StatusUpdates int `json:"status_udpates" db:"status_updates" bson:"status_updates"`
 
 	// Twitter specific (mostly )
 	Listed    int `json:"listed" db:"listed" bson:"listed"`
 	Favorites int `json:"favorites" db:"favorites" bson:"favorites"`
-	// Many social networks have the sense of followers/following (ie. Google+ calls it circledByCount for People)
+	// Many social networks have the sense of followers/following (ie. Google+ calls it circledByCount for People, YouTube uses subscriberCount)
 	Followers int `json:"followers" db:"followers" bson:"followers"`
 	Following int `json:"following" db:"following" bson:"following"`
 
@@ -257,6 +255,9 @@ type SocialHarvestContributorGrowth struct {
 	PlusOnes int `json:"plus_ones" db:"plus_ones" bson:"plus_ones"`
 	// NOTE: Google+ page specific data use Views and Followers; however, it comes from scraping pages. There is no public API for pages yet. It's invite only.
 	// This kind of disobeys policy and so for now we won't do that. Social Harvest is designed to respect ToS.
+
+	// YouTube specific (though comment count seems like it'll appear elsewhere)
+	Comments int `json:"comments" db:"comments" bson:"comments"`
 }
 
 // Used for efficiently harvesting (help avoid gathering duplicate data), running through paginated results from APIs, as well as information about harvester performance.

@@ -195,13 +195,13 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			were_here, 
 			checkins, 
 			views, 
-			subscribers, 
 			status_updates, 
 			listed, 
 			favorites, 
 			followers, 
 			following,
-			plus_ones
+			plus_ones, 
+			comments
 		) VALUES (
 			:time, 
 			:harvest_id, 
@@ -213,13 +213,13 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			:were_here, 
 			:checkins, 
 			:views, 
-			:subscribers, 
 			:status_updates, 
 			:listed, 
 			:favorites, 
 			:followers,
 			:following,
-			:plus_ones
+			:plus_ones, 
+			:comments
 		);`, row)
 		if err != nil {
 			// log.Println(err)

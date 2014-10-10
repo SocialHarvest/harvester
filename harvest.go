@@ -629,6 +629,17 @@ func GooglePlusGrowthByAccount() {
 	return
 }
 
+// Track YouTube account (channel) changes
+func YouTubeGrowthByAccount() {
+	for _, territory := range socialHarvest.Config.Harvest.Territories {
+		for _, account := range territory.Accounts.YouTube {
+			harvester.YouTubeAccountDetails(territory.Name, account)
+			// log.Println("harvested a account stats from YouTube")
+		}
+	}
+	return
+}
+
 // Simply calls every other function here, harvesting everything
 func HarvestAll() {
 	HarvestAllContent()
@@ -652,4 +663,5 @@ func HarvestAllAccounts() {
 	go TwitterGrowthByAccount()
 	go InstagramGrowthByAccount()
 	go GooglePlusGrowthByAccount()
+	go YouTubeGrowthByAccount()
 }
