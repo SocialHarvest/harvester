@@ -267,91 +267,97 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 	}
 
 	if database.InfluxDB != nil {
-		v := reflect.ValueOf(row)
-		values := make([]interface{}, v.NumField())
-		for i := 0; i < v.NumField(); i++ {
-			switch v.Field(i).Interface().(type) {
-			case time.Time:
-				// InfluxDB wants time as float
-				timeField := v.Field(i).Interface()
-				values[i] = float64(timeField.(time.Time).Unix())
-			default:
-				values[i] = v.Field(i).Interface()
-			}
-		}
-		// If we have a HarvestId, convert it to a sequence_number for InfluxDB (helps prevent dupes)
-		harvestId := reflect.ValueOf(row).FieldByName("HarvestId")
-		if harvestId.IsValid() {
-			sequenceHash := MakeSequenceHash(harvestId.String())
-			values = append(values, sequenceHash)
-		}
-		points := [][]interface{}{}
-		points = append(points, values)
-		var series = []*influxdb.Series{}
+		for i := 0; i < 500; i++ {
 
-		switch row.(type) {
-		case SocialHarvestMessage:
-			message := &influxdb.Series{
-				Name:    "messages",
-				Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "contributor_likes", "contributor_statuses_count", "contributor_listed_count", "contributor_followers", "contributor_verified", "message", "is_question", "category", "facebook_shares", "twitter_retweet_count", "twitter_favorite_count", "like_count", "google_plus_reshares", "google_plus_ones", "sequence_number"},
-				Points:  points,
+			v := reflect.ValueOf(row)
+			values := make([]interface{}, v.NumField())
+			for i := 0; i < v.NumField(); i++ {
+				switch v.Field(i).Interface().(type) {
+				case time.Time:
+					// InfluxDB wants time as float
+					timeField := v.Field(i).Interface()
+					values[i] = float64(timeField.(time.Time).Unix())
+				default:
+					values[i] = v.Field(i).Interface()
+				}
 			}
-			series = append(series, message)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
+			// If we have a HarvestId, convert it to a sequence_number for InfluxDB (helps prevent dupes)
+			harvestId := reflect.ValueOf(row).FieldByName("HarvestId")
+			if harvestId.IsValid() {
+				//sequenceHash := MakeSequenceHash(harvestId.String() + strconv.Itoa(i))
+				//values = append(values, sequenceHash)
 			}
-		case SocialHarvestSharedLink:
-			sharedLink := &influxdb.Series{
-				Name:    "shared_links",
-				Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "type", "preview", "source", "url", "expanded_url", "host", "sequence_number"},
-				Points:  points,
+			points := [][]interface{}{}
+			points = append(points, values)
+			var series = []*influxdb.Series{}
+
+			switch row.(type) {
+			case SocialHarvestMessage:
+				message := &influxdb.Series{
+					Name:    "messages",
+					Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "contributor_likes", "contributor_statuses_count", "contributor_listed_count", "contributor_followers", "contributor_verified", "message", "is_question", "category", "facebook_shares", "twitter_retweet_count", "twitter_favorite_count", "like_count", "google_plus_reshares", "google_plus_ones"},
+					Points:  points,
+				}
+				series = append(series, message)
+				if err := database.InfluxDB.WriteSeries(series); err != nil {
+					log.Println(err)
+				} else {
+					log.Println("inserted 500 records?")
+					log.Println(len(series))
+				}
+			// case SocialHarvestSharedLink:
+			// 	sharedLink := &influxdb.Series{
+			// 		Name:    "shared_links",
+			// 		Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "type", "preview", "source", "url", "expanded_url", "host", "sequence_number"},
+			// 		Points:  points,
+			// 	}
+			// 	series = append(series, sharedLink)
+			// 	if err := database.InfluxDB.WriteSeries(series); err != nil {
+			// 		log.Println(err)
+			// 	}
+			// case SocialHarvestMention:
+			// 	mention := &influxdb.Series{
+			// 		Name:    "mentions",
+			// 		Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "mentioned_id", "mentioned_screen_name", "mentioned_name", "mentioned_gender", "mentioned_type", "mentioned_longitude", "mentioned_latitude", "mentioned_geohash", "mentioned_lang", "sequence_number"},
+			// 		Points:  points,
+			// 	}
+			// 	series = append(series, mention)
+			// 	if err := database.InfluxDB.WriteSeries(series); err != nil {
+			// 		log.Println(err)
+			// 	}
+			// case SocialHarvestHashtag:
+			// 	hashtag := &influxdb.Series{
+			// 		Name:    "hashtags",
+			// 		Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "tag", "keyword", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "sequence_number"},
+			// 		Points:  points,
+			// 	}
+			// 	series = append(series, hashtag)
+			// 	if err := database.InfluxDB.WriteSeries(series); err != nil {
+			// 		log.Println(err)
+			// 	}
+			// case SocialHarvestContributorGrowth:
+			// 	growth := &influxdb.Series{
+			// 		Name:    "contributor_growth",
+			// 		Columns: []string{"time", "harvest_id", "territory", "network", "contributor_id", "likes", "talking_about", "were_here", "checkins", "views", "status_updates", "listed", "favorites", "followers", "following", "plus_ones", "comments", "sequence_number"},
+			// 		Points:  points,
+			// 	}
+			// 	series = append(series, growth)
+			// 	if err := database.InfluxDB.WriteSeries(series); err != nil {
+			// 		log.Println(err)
+			// 	}
+			// case SocialHarvestHarvest:
+			// 	harvest := &influxdb.Series{
+			// 		Name:    "harvest",
+			// 		Columns: []string{"territory", "network", "action", "value", "last_time_harvested", "last_id_harvested", "items_harvested", "harvest_time"},
+			// 		Points:  points,
+			// 	}
+			// 	series = append(series, harvest)
+			// 	if err := database.InfluxDB.WriteSeries(series); err != nil {
+			// 		log.Println(err)
+			// 	}
+			default:
+				// log.Println("trying to store unknown collection")
 			}
-			series = append(series, sharedLink)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
-			}
-		case SocialHarvestMention:
-			mention := &influxdb.Series{
-				Name:    "mentions",
-				Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "mentioned_id", "mentioned_screen_name", "mentioned_name", "mentioned_gender", "mentioned_type", "mentioned_longitude", "mentioned_latitude", "mentioned_geohash", "mentioned_lang", "sequence_number"},
-				Points:  points,
-			}
-			series = append(series, mention)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
-			}
-		case SocialHarvestHashtag:
-			hashtag := &influxdb.Series{
-				Name:    "hashtags",
-				Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "tag", "keyword", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "sequence_number"},
-				Points:  points,
-			}
-			series = append(series, hashtag)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
-			}
-		case SocialHarvestContributorGrowth:
-			growth := &influxdb.Series{
-				Name:    "contributor_growth",
-				Columns: []string{"time", "harvest_id", "territory", "network", "contributor_id", "likes", "talking_about", "were_here", "checkins", "views", "status_updates", "listed", "favorites", "followers", "following", "plus_ones", "comments", "sequence_number"},
-				Points:  points,
-			}
-			series = append(series, growth)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
-			}
-		case SocialHarvestHarvest:
-			harvest := &influxdb.Series{
-				Name:    "harvest",
-				Columns: []string{"territory", "network", "action", "value", "last_time_harvested", "last_id_harvested", "items_harvested", "harvest_time"},
-				Points:  points,
-			}
-			series = append(series, harvest)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
-			}
-		default:
-			// log.Println("trying to store unknown collection")
 		}
 	}
 
