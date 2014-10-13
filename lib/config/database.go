@@ -274,6 +274,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			for i := 0; i < v.NumField(); i++ {
 				switch v.Field(i).Interface().(type) {
 				case time.Time:
+					values[i] = nil
 					// InfluxDB wants time as float
 				//	timeField := v.Field(i).Interface()
 				//	values[i] = float64(timeField.(time.Time).Unix())
@@ -295,7 +296,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			case SocialHarvestMessage:
 				message := &influxdb.Series{
 					Name:    "messages",
-					Columns: []string{"harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "contributor_likes", "contributor_statuses_count", "contributor_listed_count", "contributor_followers", "contributor_verified", "message", "is_question", "category", "facebook_shares", "twitter_retweet_count", "twitter_favorite_count", "like_count", "google_plus_reshares", "google_plus_ones"},
+					Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "contributor_likes", "contributor_statuses_count", "contributor_listed_count", "contributor_followers", "contributor_verified", "message", "is_question", "category", "facebook_shares", "twitter_retweet_count", "twitter_favorite_count", "like_count", "google_plus_reshares", "google_plus_ones"},
 					Points:  points,
 				}
 				series = append(series, message)
