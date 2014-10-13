@@ -19,7 +19,7 @@ package config
 import (
 	"bytes"
 	//"github.com/asaskevich/govalidator"
-	"github.com/influxdb/influxdb-go"
+	influxdb "github.com/influxdb/influxdb/client"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"hash/crc64"
