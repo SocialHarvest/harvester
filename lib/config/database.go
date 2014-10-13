@@ -17,13 +17,15 @@
 package config
 
 import (
-	//"net/http"
 	"bytes"
 	//"github.com/asaskevich/govalidator"
-	//"database/sql"
+	"github.com/influxdb/influxdb-go"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"hash/crc64"
 	"log"
+	"net/http"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,8 +33,9 @@ import (
 )
 
 type SocialHarvestDB struct {
-	Session *sqlx.DB
-	Series  []string
+	Postgres *sqlx.DB
+	InfluxDB *influxdb.Client
+	Series   []string
 }
 
 var database = SocialHarvestDB{}
@@ -45,18 +48,39 @@ type Settings struct {
 	Modified time.Time `json:"modified" db:"modified" bson:"modified"`
 }
 
-// Initializes the database and returns the client, setting it to `database.Session` in the current package scope
+// Initializes the database and returns the client, setting it to `database.Postgres` in the current package scope
 func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 	// A database is not required to use Social Harvest
 	if config.Database.Type == "" {
 		return &database
 	}
-	// Note that sqlx just wraps database/sql and `database.Session` gets a sqlx.DB which is essentially a wrapped sql.DB
 	var err error
-	database.Session, err = sqlx.Connect(config.Database.Type, "host="+config.Database.Host+" port="+strconv.Itoa(config.Database.Port)+" sslmode=disable dbname="+config.Database.Database+" user="+config.Database.User+" password="+config.Database.Password)
-	if err != nil {
-		log.Println(err)
-		return &database
+
+	// Now supporting Postgres OR InfluxDB
+	// (for now...may add more in the future...the re-addition of InfluxDB is to satisfy performance curiosities, it may go away. Postgres will ALWAYS be supported.)
+	// actually, if config.Database becomes an array, we can write to multiple databases...
+	switch config.Database.Type {
+	case "influxdb":
+		config := &influxdb.ClientConfig{
+			Host:       config.Database.Host + ":" + strconv.Itoa(config.Database.Port),
+			Username:   config.Database.User,
+			Password:   config.Database.Password,
+			Database:   config.Database.Database,
+			HttpClient: http.DefaultClient,
+		}
+		database.InfluxDB, err = influxdb.NewClient(config)
+		if err != nil {
+			log.Println(err)
+			return &database
+		}
+	case "postgres":
+	case "postgresql":
+		// Note that sqlx just wraps database/sql and `database.Postgres` gets a sqlx.DB which is essentially a wrapped sql.DB
+		database.Postgres, err = sqlx.Connect("postgres", "host="+config.Database.Host+" port="+strconv.Itoa(config.Database.Port)+" sslmode=disable dbname="+config.Database.Database+" user="+config.Database.User+" password="+config.Database.Password)
+		if err != nil {
+			log.Println(err)
+			return &database
+		}
 	}
 
 	// Keep a list of series (tables/collections/series - whatever the database calls them, we're going with series because we're really dealing with time with just about all our data)
@@ -71,7 +95,7 @@ func (database *SocialHarvestDB) SaveSettings(settingsRow Settings) {
 	if len(settingsRow.Key) > 0 {
 
 		var count int
-		err := database.Session.Get(&count, "SELECT count(*) FROM settings;")
+		err := database.Postgres.Get(&count, "SELECT count(*) FROM settings;")
 		if err != nil {
 			log.Println(err)
 			return
@@ -79,7 +103,7 @@ func (database *SocialHarvestDB) SaveSettings(settingsRow Settings) {
 
 		// If it already exists, update
 		if count > 0 {
-			tx, err := database.Session.Beginx()
+			tx, err := database.Postgres.Beginx()
 			if err != nil {
 				log.Println(err)
 				return
@@ -89,7 +113,7 @@ func (database *SocialHarvestDB) SaveSettings(settingsRow Settings) {
 
 		} else {
 			// Otherwise, save new
-			tx, err := database.Session.Beginx()
+			tx, err := database.Postgres.Beginx()
 			if err != nil {
 				log.Println(err)
 				return
@@ -126,8 +150,8 @@ func (database *SocialHarvestDB) SetLastHarvestTime(territory string, network st
 func (database *SocialHarvestDB) GetLastHarvestTime(territory string, network string, action string, value string) time.Time {
 	var lastHarvestTime time.Time
 	var lastHarvest SocialHarvestHarvest
-	if database.Session != nil {
-		database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
+	if database.Postgres != nil {
+		database.Postgres.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
 	}
 	// log.Println(lastHarvest)
 	lastHarvestTime = lastHarvest.LastTimeHarvested
@@ -138,17 +162,24 @@ func (database *SocialHarvestDB) GetLastHarvestTime(territory string, network st
 func (database *SocialHarvestDB) GetLastHarvestId(territory string, network string, action string, value string) string {
 	lastHarvestId := ""
 	var lastHarvest SocialHarvestHarvest
-	if database.Session != nil {
-		database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
+	if database.Postgres != nil {
+		database.Postgres.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
 	}
 	lastHarvestId = lastHarvest.LastIdHarvested
 	return lastHarvestId
 }
 
+// For InfluxDB. This hash (crc64 checksum) should not easily repeat itself with the time field. Time is to the second in most cases, hashing the message id (id_str for Twitter and Facebook's Id values are strings) should avoid dupes just in case a message is processed twice.
+func MakeSequenceHash(hash string) uint64 {
+	crcTable := crc64.MakeTable(crc64.ECMA)
+	hashBytes := []byte(hash)
+	return crc64.Checksum(hashBytes, crcTable)
+}
+
 // Stores a harvested row of data into the configured database.
 func (database *SocialHarvestDB) StoreRow(row interface{}) {
 	// A database connection is not required to use Social Harvest (could be logging to file)
-	if database.Session == nil {
+	if database.Postgres == nil && database.InfluxDB == nil {
 		// log.Println("There appears to be no database connection.")
 		return
 	}
@@ -159,32 +190,33 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 
 	var err error
 
-	// Check if valid type to store and determine the proper table/collection based on it
-	switch row.(type) {
-	case SocialHarvestMessage:
-		_, err = database.Session.NamedExec("INSERT INTO messages (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county, contributor_likes, contributor_statuses_count, contributor_listed_count, contributor_followers, contributor_verified, message, is_question, category, facebook_shares, twitter_retweet_count, twitter_favorite_count, like_count, google_plus_reshares, google_plus_ones) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county, :contributor_likes, :contributor_statuses_count, :contributor_listed_count, :contributor_followers, :contributor_verified, :message, :is_question, :category, :facebook_shares, :twitter_retweet_count, :twitter_favorite_count, :like_count, :google_plus_reshares, :google_plus_ones);", row)
-		if err != nil {
-			//log.Println(err)
-		} else {
-			//log.Println("Successful insert")
-		}
-	case SocialHarvestSharedLink:
-		_, err = database.Session.NamedExec("INSERT INTO shared_links (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county, type, preview, source, url, expanded_url, host) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county, :type, :preview, :source, :url, :expanded_url, :host);", row)
-		if err != nil {
-			//log.Println(err)
-		}
-	case SocialHarvestMention:
-		_, err = database.Session.NamedExec("INSERT INTO mentions (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, mentioned_id, mentioned_screen_name, mentioned_name, mentioned_gender, mentioned_type, mentioned_longitude, mentioned_latitude, mentioned_geohash, mentioned_lang) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :mentioned_id, :mentioned_screen_name, :mentioned_name, :mentioned_gender, :mentioned_type, :mentioned_longitude, :mentioned_latitude, :mentioned_geohash, :mentioned_lang);", row)
-		if err != nil {
-			//log.Println(err)
-		}
-	case SocialHarvestHashtag:
-		_, err = database.Session.NamedExec("INSERT INTO hashtags (time, harvest_id, territory, network, message_id, tag, keyword, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county) VALUES (:time, :harvest_id, :territory, :network, :message_id, :tag, :keyword, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county);", row)
-		if err != nil {
-			//log.Println(err)
-		}
-	case SocialHarvestContributorGrowth:
-		_, err = database.Session.NamedExec(`INSERT INTO contributor_growth (
+	if database.Postgres != nil {
+		// Check if valid type to store and determine the proper table/collection based on it
+		switch row.(type) {
+		case SocialHarvestMessage:
+			_, err = database.Postgres.NamedExec("INSERT INTO messages (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county, contributor_likes, contributor_statuses_count, contributor_listed_count, contributor_followers, contributor_verified, message, is_question, category, facebook_shares, twitter_retweet_count, twitter_favorite_count, like_count, google_plus_reshares, google_plus_ones) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county, :contributor_likes, :contributor_statuses_count, :contributor_listed_count, :contributor_followers, :contributor_verified, :message, :is_question, :category, :facebook_shares, :twitter_retweet_count, :twitter_favorite_count, :like_count, :google_plus_reshares, :google_plus_ones);", row)
+			if err != nil {
+				//log.Println(err)
+			} else {
+				//log.Println("Successful insert")
+			}
+		case SocialHarvestSharedLink:
+			_, err = database.Postgres.NamedExec("INSERT INTO shared_links (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county, type, preview, source, url, expanded_url, host) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county, :type, :preview, :source, :url, :expanded_url, :host);", row)
+			if err != nil {
+				//log.Println(err)
+			}
+		case SocialHarvestMention:
+			_, err = database.Postgres.NamedExec("INSERT INTO mentions (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, mentioned_id, mentioned_screen_name, mentioned_name, mentioned_gender, mentioned_type, mentioned_longitude, mentioned_latitude, mentioned_geohash, mentioned_lang) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :mentioned_id, :mentioned_screen_name, :mentioned_name, :mentioned_gender, :mentioned_type, :mentioned_longitude, :mentioned_latitude, :mentioned_geohash, :mentioned_lang);", row)
+			if err != nil {
+				//log.Println(err)
+			}
+		case SocialHarvestHashtag:
+			_, err = database.Postgres.NamedExec("INSERT INTO hashtags (time, harvest_id, territory, network, message_id, tag, keyword, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county) VALUES (:time, :harvest_id, :territory, :network, :message_id, :tag, :keyword, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county);", row)
+			if err != nil {
+				//log.Println(err)
+			}
+		case SocialHarvestContributorGrowth:
+			_, err = database.Postgres.NamedExec(`INSERT INTO contributor_growth (
 			time, 
 			harvest_id, 
 			territory, 
@@ -221,16 +253,106 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			:plus_ones, 
 			:comments
 		);`, row)
-		if err != nil {
-			// log.Println(err)
+			if err != nil {
+				// log.Println(err)
+			}
+		case SocialHarvestHarvest:
+			_, err = database.Postgres.NamedExec("INSERT INTO harvest (territory, network, action, value, last_time_harvested, last_id_harvested, items_harvested, harvest_time) VALUES (:territory, :network, :action, :value, :last_time_harvested, :last_id_harvested, :items_harvested, :harvest_time);", row)
+			if err != nil {
+				//log.Println(err)
+			}
+		default:
+			// log.Println("trying to store unknown collection")
 		}
-	case SocialHarvestHarvest:
-		_, err = database.Session.NamedExec("INSERT INTO harvest (territory, network, action, value, last_time_harvested, last_id_harvested, items_harvested, harvest_time) VALUES (:territory, :network, :action, :value, :last_time_harvested, :last_id_harvested, :items_harvested, :harvest_time);", row)
-		if err != nil {
-			//log.Println(err)
+	}
+
+	if database.InfluxDB != nil {
+		v := reflect.ValueOf(row)
+		values := make([]interface{}, v.NumField())
+		for i := 0; i < v.NumField(); i++ {
+			switch v.Field(i).Interface().(type) {
+			case time.Time:
+				// InfluxDB wants time as float
+				timeField := v.Field(i).Interface()
+				values[i] = float64(timeField.(time.Time).Unix())
+			default:
+				values[i] = v.Field(i).Interface()
+			}
 		}
-	default:
-		// log.Println("trying to store unknown collection")
+		// If we have a HarvestId, convert it to a sequence_number for InfluxDB (helps prevent dupes)
+		harvestId := reflect.ValueOf(row).FieldByName("HarvestId")
+		if harvestId.IsValid() {
+			sequenceHash := MakeSequenceHash(harvestId.String())
+			values = append(values, sequenceHash)
+		}
+		points := [][]interface{}{}
+		points = append(points, values)
+		var series = []*influxdb.Series{}
+
+		switch row.(type) {
+		case SocialHarvestMessage:
+			message := &influxdb.Series{
+				Name:    "messages",
+				Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "contributor_likes", "contributor_statuses_count", "contributor_listed_count", "contributor_followers", "contributor_verified", "message", "is_question", "category", "facebook_shares", "twitter_retweet_count", "twitter_favorite_count", "like_count", "google_plus_reshares", "google_plus_ones", "sequence_number"},
+				Points:  points,
+			}
+			series = append(series, message)
+			if err := database.InfluxDB.WriteSeries(series); err != nil {
+				log.Println(err)
+			}
+		case SocialHarvestSharedLink:
+			sharedLink := &influxdb.Series{
+				Name:    "shared_links",
+				Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "type", "preview", "source", "url", "expanded_url", "host", "sequence_number"},
+				Points:  points,
+			}
+			series = append(series, sharedLink)
+			if err := database.InfluxDB.WriteSeries(series); err != nil {
+				log.Println(err)
+			}
+		case SocialHarvestMention:
+			mention := &influxdb.Series{
+				Name:    "mentions",
+				Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "mentioned_id", "mentioned_screen_name", "mentioned_name", "mentioned_gender", "mentioned_type", "mentioned_longitude", "mentioned_latitude", "mentioned_geohash", "mentioned_lang", "sequence_number"},
+				Points:  points,
+			}
+			series = append(series, mention)
+			if err := database.InfluxDB.WriteSeries(series); err != nil {
+				log.Println(err)
+			}
+		case SocialHarvestHashtag:
+			hashtag := &influxdb.Series{
+				Name:    "hashtags",
+				Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "tag", "keyword", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_state", "contributor_county", "sequence_number"},
+				Points:  points,
+			}
+			series = append(series, hashtag)
+			if err := database.InfluxDB.WriteSeries(series); err != nil {
+				log.Println(err)
+			}
+		case SocialHarvestContributorGrowth:
+			growth := &influxdb.Series{
+				Name:    "contributor_growth",
+				Columns: []string{"time", "harvest_id", "territory", "network", "contributor_id", "likes", "talking_about", "were_here", "checkins", "views", "status_updates", "listed", "favorites", "followers", "following", "plus_ones", "comments", "sequence_number"},
+				Points:  points,
+			}
+			series = append(series, growth)
+			if err := database.InfluxDB.WriteSeries(series); err != nil {
+				log.Println(err)
+			}
+		case SocialHarvestHarvest:
+			harvest := &influxdb.Series{
+				Name:    "harvest",
+				Columns: []string{"territory", "network", "action", "value", "last_time_harvested", "last_id_harvested", "items_harvested", "harvest_time"},
+				Points:  points,
+			}
+			series = append(series, harvest)
+			if err := database.InfluxDB.WriteSeries(series); err != nil {
+				log.Println(err)
+			}
+		default:
+			// log.Println("trying to store unknown collection")
+		}
 	}
 
 }
@@ -367,10 +489,10 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
 	var count = ResultCount{Count: 0, TimeFrom: sanitizedQueryParams.From, TimeTo: sanitizedQueryParams.To}
 
-	//database.Session.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
+	//database.Postgres.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
 	//
 	// OR...
-	//tx, err := database.Session.Beginx()
+	//tx, err := database.Postgres.Beginx()
 	// if err != nil {
 	// 	log.Println(err)
 	// 	return
@@ -470,7 +592,7 @@ func (database *SocialHarvestDB) Count(queryParams CommonQueryParams, fieldValue
 		Territory: sanitizedQueryParams.Territory,
 		//FieldValue: fieldValue,
 	}
-	rows, err := database.Session.NamedQuery(sqlQuery, data)
+	rows, err := database.Postgres.NamedQuery(sqlQuery, data)
 	if err != nil {
 		// log.Println(err)
 		return count
@@ -492,95 +614,4 @@ func (database *SocialHarvestDB) Messages(queryParams CommonQueryParams, conds M
 	var total uint64
 
 	return results, total, sanitizedQueryParams.Skip, sanitizedQueryParams.Limit
-}
-
-// http://localhost:3000/test?from=2014-07-07&to=2014-10-11&resolution=1440#
-// TODO: REMOVE
-func (database *SocialHarvestDB) TestQueries(queryParams CommonQueryParams) []SocialHarvestSharedLink {
-	sanitizedQueryParams := SanitizeCommonQueryParams(queryParams)
-	var sharedLink = SocialHarvestSharedLink{}
-	var sharedLinks = []SocialHarvestSharedLink{}
-
-	var buffer bytes.Buffer
-	buffer.WriteString("SELECT * FROM ")
-	buffer.WriteString("shared_links")
-	//buffer.WriteString(sanitizedQueryParams.Series)
-	//buffer.WriteString(" WHERE 1=1")
-
-	condCount := 0
-
-	// optional date range (can have either or both)
-	if sanitizedQueryParams.From != "" {
-		buffer.WriteString(" WHERE time >=:timeFrom")
-		condCount++
-
-		// buffer.WriteString(" AND ")
-		// buffer.WriteString("time >= ")
-		// buffer.WriteString(sanitizedQueryParams.From)
-	}
-	if sanitizedQueryParams.To != "" {
-		if condCount > 0 {
-			buffer.WriteString(" AND time<=:timeTo")
-		} else {
-			buffer.WriteString(" WHERE time<=:timeTo")
-		}
-		condCount++
-
-		// buffer.WriteString(" AND ")
-		// buffer.WriteString("time <= ")
-		// buffer.WriteString(sanitizedQueryParams.To)
-	}
-	if sanitizedQueryParams.Network != "" {
-		//multiple - but i think this was for upper.io/db ... we ultimately want it as a string so why split to only join somewhere else again?
-		//networkMultiple := strings.Split(sanitizedQueryParams.Network, ",")
-
-		// singular
-		// conditions["network"] = sanitizedQueryParams.Network
-
-		if condCount > 0 {
-			buffer.WriteString(" AND network IN(:network)")
-		} else {
-			buffer.WriteString(" WHERE network IN(:network)")
-		}
-		condCount++
-
-		// buffer.WriteString(" AND ")
-		// buffer.WriteString("network IN(")
-		// buffer.WriteString(sanitizedQueryParams.Network)
-		// buffer.WriteString(")")
-	}
-	if sanitizedQueryParams.Territory != "" {
-		if condCount > 0 {
-			buffer.WriteString(" AND territory=:territory")
-		} else {
-			buffer.WriteString(" WHERE territory=:territory")
-		}
-		condCount++
-
-		// buffer.WriteString(" AND ")
-		// buffer.WriteString("territory = ")
-		// buffer.WriteString(sanitizedQueryParams.Territory)
-	}
-
-	sqlQuery := buffer.String()
-	buffer.Reset()
-
-	log.Println(sqlQuery)
-
-	data := map[string]interface{}{"timeFrom": sanitizedQueryParams.From, "timeTo": sanitizedQueryParams.To, "network": sanitizedQueryParams.Network, "territory": sanitizedQueryParams.Territory}
-	rows, err := database.Session.NamedQuery(sqlQuery, data)
-	if err != nil {
-		log.Println(err)
-		return sharedLinks
-	}
-	for rows.Next() {
-		err := rows.StructScan(&sharedLink)
-		if err != nil {
-			log.Println(err)
-		} else {
-			sharedLinks = append(sharedLinks, sharedLink)
-		}
-	}
-
-	return sharedLinks
 }

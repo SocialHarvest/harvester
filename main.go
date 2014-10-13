@@ -640,8 +640,8 @@ func main() {
 	// Continue configuration
 	socialHarvest.Database = config.NewDatabase(socialHarvest.Config)
 	// NOTE: A database is optional for Social Harvest (harvested data can be logged for use with Fluentd for example)
-	if socialHarvest.Database.Session != nil {
-		defer socialHarvest.Database.Session.Close()
+	if socialHarvest.Database.Postgres != nil {
+		defer socialHarvest.Database.Postgres.Close()
 	}
 	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
 
@@ -731,9 +731,6 @@ func main() {
 			// Messages for a territory
 			//&rest.Route{"GET", "/territory/messages/:territory", TerritoryMessages},
 
-			// FOR TESTING. TODO: REMOVE
-			//&rest.Route{"GET", "/test", TestQueries},
-
 			// A utility route to help get some details about any given external web page
 			&rest.Route{"GET", "/link/details", LinkDetails},
 		)
@@ -754,88 +751,4 @@ func main() {
 			log.Fatal(http.ListenAndServe(":"+p, &handler))
 		}
 	}
-}
-
-// TODO REMOVE ME
-func TestQueries(w rest.ResponseWriter, r *rest.Request) {
-	queryParams := r.URL.Query()
-
-	timeFrom := ""
-	if len(queryParams["from"]) > 0 {
-		timeFrom = queryParams["from"][0]
-	}
-	timeTo := ""
-	if len(queryParams["to"]) > 0 {
-		timeTo = queryParams["to"][0]
-	}
-
-	network := ""
-	if len(queryParams["network"]) > 0 {
-		network = queryParams["network"][0]
-	}
-
-	// likely not used here
-	limit := 0
-	if len(queryParams["limit"]) > 0 {
-		parsedLimit, err := strconv.Atoi(queryParams["limit"][0])
-		if err == nil {
-			limit = parsedLimit
-		}
-	}
-
-	territory := "SocialMedia"
-	series := "shared_links"
-
-	// in minutes (one day by default)
-	resolution := 1440
-	if len(queryParams["resolution"]) > 0 {
-		parsedResolution, err := strconv.Atoi(queryParams["resolution"][0])
-		if err == nil {
-			resolution = parsedResolution
-		}
-	}
-	// TODO: limit the resolution? 5, 10, 15, 30, 45, 60, 180, 1440 etc.? (minutes, hour, 3 hours, day, etc.)
-	// TODO: maybe also add timezone? (this would require changes all over to date picker, other queries, etc.)
-
-	//log.Println(resolution)
-	if resolution != 0 && territory != "" && series != "" {
-		// only accepting days for now - not down to minutes or hours (yet)
-		tF, _ := time.Parse("2006-01-02", timeFrom)
-		tT, _ := time.Parse("2006-01-02", timeTo)
-
-		timeRange := tT.Sub(tF)
-		//totalRangeMinutes := int(timeRange.Minutes())
-		periodsInRange := int(timeRange.Minutes() / float64(resolution))
-
-		params := config.CommonQueryParams{
-			Series:    series,
-			Territory: territory,
-			Network:   network,
-			From:      timeFrom,
-			To:        timeTo,
-			Limit:     uint(limit),
-		}
-
-		//w.Header().Set("Content-Type", "application/json")
-
-		for i := 0; i < periodsInRange; i++ {
-			params.From = tF.Format("2006-01-02 15:04:05")
-			tF = tF.Add(time.Duration(resolution) * time.Minute)
-			params.To = tF.Format("2006-01-02 15:04:05")
-
-			result := socialHarvest.Database.TestQueries(params)
-
-			w.WriteJson(result)
-			w.(http.ResponseWriter).Write([]byte("\n"))
-			// Flush the buffer to client immediately
-			// (for most cases, this stream will be quick and short - just how we like it. for the more crazy requests, it may take a little while and that's ok too)
-			w.(http.Flusher).Flush()
-		}
-	}
-
-	//w.WriteJson(result)
-	//w.(http.ResponseWriter).Write([]byte("\n"))
-	// Flush the buffer to client immediately
-	// (for most cases, this stream will be quick and short - just how we like it. for the more crazy requests, it may take a little while and that's ok too)
-	//w.(http.Flusher).Flush()
 }
