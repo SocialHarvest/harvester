@@ -274,10 +274,9 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			for i := 0; i < v.NumField(); i++ {
 				switch v.Field(i).Interface().(type) {
 				case time.Time:
-					values[i] = nil
 					// InfluxDB wants time as float
-				//	timeField := v.Field(i).Interface()
-				//	values[i] = float64(timeField.(time.Time).Unix())
+					timeField := v.Field(i).Interface()
+					values[i] = float64(timeField.(time.Time).Unix())
 				default:
 					values[i] = v.Field(i).Interface()
 				}
