@@ -272,7 +272,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 		for i := 0; i < v.NumField(); i++ {
 			switch v.Field(i).Interface().(type) {
 			case time.Time:
-				// InfluxDB wants time as float
+				// InfluxDB wants time as int64, ms precision.
 				timeField := v.Field(i).Interface()
 				values[i] = (timeField.(time.Time).Unix() * 1000)
 			default:
