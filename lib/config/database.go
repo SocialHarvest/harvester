@@ -274,7 +274,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			case time.Time:
 				// InfluxDB wants time as float
 				timeField := v.Field(i).Interface()
-				values[i] = float64(timeField.(time.Time).Unix())
+				values[i] = (timeField.(time.Time).Unix() * 1000)
 			default:
 				values[i] = v.Field(i).Interface()
 			}
