@@ -298,7 +298,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			}
 			series = append(series, message)
 			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
+				//log.Println(err)
 			}
 		case SocialHarvestSharedLink:
 			sharedLink := &influxdb.Series{
@@ -308,7 +308,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			}
 			series = append(series, sharedLink)
 			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
+				//log.Println(err)
 			}
 		case SocialHarvestMention:
 			mention := &influxdb.Series{
@@ -318,7 +318,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			}
 			series = append(series, mention)
 			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
+				//log.Println(err)
 			}
 		case SocialHarvestHashtag:
 			hashtag := &influxdb.Series{
@@ -328,7 +328,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			}
 			series = append(series, hashtag)
 			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
+				//log.Println(err)
 			}
 		case SocialHarvestContributorGrowth:
 			growth := &influxdb.Series{
@@ -338,7 +338,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			}
 			series = append(series, growth)
 			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
+				//log.Println(err)
 			}
 		case SocialHarvestHarvest:
 			harvest := &influxdb.Series{
@@ -348,7 +348,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 			}
 			series = append(series, harvest)
 			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				log.Println(err)
+				//log.Println(err)
 			}
 		default:
 			// log.Println("trying to store unknown collection")
