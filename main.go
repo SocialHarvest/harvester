@@ -251,7 +251,7 @@ func main() {
 	//go InstagramMediaByKeyword()
 	//go GooglePlusActivitieByKeyword()
 	//go GooglePlusActivitieByAccount()
-	go HarvestAllContent()
+	//go HarvestAllContent()
 	//go HarvestAllAccounts()
 
 	//harvester.YoutubeVideoSearch("obama")
