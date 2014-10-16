@@ -54,6 +54,9 @@ type SocialHarvestConf struct {
 		Password string `json:"password"`
 		Database string `json:"database"`
 	} `json:"database"`
+	Schema struct {
+		Compact bool `json:"compact"`
+	} `json:"schema"`
 	Logs struct {
 		Directory string `json:"directory"`
 	} `json:"logs"`

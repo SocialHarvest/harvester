@@ -4,6 +4,18 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.11.0
+-------------
+
+Now supporting InfluxDB again as a data store. InfluxDB has many features and advantages over Postgres for time series data. 
+Features include the ability to automatically remove data after an expiration date and many useful aggregation functions. 
+As a result, it will allow the API and dashboard to come together sooner. Postgres and InfluxDB will be the front-runners, 
+but additional database support may be added in the future.
+
+Additionally, the harvester will now only gather data. A separate reporter application will be responsible for getting the 
+data back out for front-end dashboards, etc. This keeps things better organized and allows the harvester to be a smaller binary. 
+It also lets the harvester scale without bringing with it a, perhaps, redundant and unused set of functionality.
+
 ## 0.10.0
 -------------
 
