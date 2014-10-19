@@ -38,6 +38,8 @@ type SocialHarvestDB struct {
 	Schema   struct {
 		Compact bool `json:"compact"`
 	}
+	RetentionDays int
+	PartitionDays int
 }
 
 var database = SocialHarvestDB{}
@@ -86,6 +88,11 @@ func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 			return &database
 		}
 	}
+
+	// Data older than the (optional) retention period won't be stored.
+	database.RetentionDays = config.Database.RetentionDays
+	// Optional partitioning (useful for both InfluxDB's "duration" AND Postgres which has a PARTITION feature)
+	database.PartitionDays = config.Database.PartitionDays
 
 	// Keep a list of series (tables/collections/series - whatever the database calls them, we're going with series because we're really dealing with time with just about all our data)
 	// These do relate to structures in lib/config/series.go
@@ -304,8 +311,26 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 		return
 	}
 
+	// If data is to be expired after a certain point, don't try to save data that is beyond that expiration (the harvester can pull in data from the past - sometimes months in the past)
+	if database.RetentionDays > 0 {
+		// Only certain series will have a "Time" field, if FieldByName("Time") was ran on the wrong row value, then it would panic and crash the application.
+		// TODO: Rethink the use of an interface{} here because I worry about the performance with reflection. Or at least benchmark all this.
+		// It would stink to have "StoreMessage" and "StoreSharedLink" etc. So interface{} was convenient... But also a little annoying.
+		switch row.(type) {
+		case SocialHarvestMessage, SocialHarvestSharedLink, SocialHarvestMention, SocialHarvestHashtag:
+			v := reflect.ValueOf(row)
+			rowTime := v.FieldByName("Time").Interface().(time.Time).Unix()
+			now := time.Now().Unix()
+			retentionSeconds := int64(database.RetentionDays * 86400)
+			if rowTime <= (now - retentionSeconds) {
+				// log.Println("Harvested data falls outside retention period.")
+				return
+			}
+		}
+	}
+
 	// The downside to not using upper.io/db or something like it is that INSERT statements incur technical debt.
-	// There will be a maintenance burden in keeping the field names up to date.
+	// There will be a maintenance burden in keeping the field names up to date...But I think it's manageable.
 	// ...and values have to be in the right order, maintaining this in a repeated fashion leads to spelling mistakes, etc. All the reasons I HATE dealing with SQL...But oh well.
 
 	var err error

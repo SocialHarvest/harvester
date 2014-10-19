@@ -17,6 +17,12 @@
 package config
 
 import (
+	"encoding/json"
+	"io"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
 	"time"
 )
 
@@ -37,22 +43,32 @@ type Harvest struct{}
 
 // The configuration structure mapping from JSON
 type SocialHarvestConf struct {
-	Server struct {
+	HarvesterServer struct {
 		Port int `json:"port"`
 		Cors struct {
 			AllowedOrigins []string `json:"allowedOrigins"`
 		} `json:"cors"`
 		AuthKeys []string `json:"authKeys"`
 		Disabled bool     `json:"disabled"`
-	} `json:"server"`
+	} `json:"harvesterServer"`
+	ReporterServer struct {
+		Port int `json:"port"`
+		Cors struct {
+			AllowedOrigins []string `json:"allowedOrigins"`
+		} `json:"cors"`
+		AuthKeys []string `json:"authKeys"`
+		Disabled bool     `json:"disabled"`
+	} `json:"reporterServer"`
 	Database struct {
-		Type     string `json:"type"`
-		Host     string `json:"host"`
-		Port     int    `json:"port"`
-		Socket   string `json:"socket"`
-		User     string `json:"user"`
-		Password string `json:"password"`
-		Database string `json:"database"`
+		Type          string `json:"type"`
+		Host          string `json:"host"`
+		Port          int    `json:"port"`
+		Socket        string `json:"socket"`
+		User          string `json:"user"`
+		Password      string `json:"password"`
+		Database      string `json:"database"`
+		RetentionDays int    `json:"retentionDays"`
+		PartitionDays int    `json:"partitionDays"`
 	} `json:"database"`
 	Schema struct {
 		Compact bool `json:"compact"`
@@ -149,4 +165,75 @@ type ServicesConfig struct {
 	MapQuest struct {
 		ApplicationKey string `json:"applicationKey"`
 	} `json:"mapQuest"`
+}
+
+// Checks to ensure the data directory exists and is writable. It will be created if not. Config and training data go into this directory.
+func CheckDataDir() {
+	_, err := os.Stat("./sh-data")
+	if err != nil {
+		if os.IsNotExist(err) {
+			os.Mkdir("./sh-data", 0766)
+		}
+	}
+}
+
+// Copies default or configured training data to `sh-data` if it isn't there already.
+func CopyTrainingData() {
+	// NOTE: In the future, these will also come from the config so users can use their own data files instead of the defaults.
+	// Additionally, there may be training data coming from S3 or other locations (as to not put large files in the GitHub repo).
+	files := []map[string]string{
+		{"url": "https://raw.githubusercontent.com/SocialHarvest/harvester/master/data/census-female-names.csv", "path": "./sh-data/census-female-names.csv"},
+		{"url": "https://raw.githubusercontent.com/SocialHarvest/harvester/master/data/census-male-names.csv", "path": "./sh-data/census-male-names.csv"},
+		{"url": "https://raw.githubusercontent.com/SocialHarvest/harvester/master/data/keyword-stop-list.txt", "path": "./sh-data/keyword-stop-list.txt"},
+	}
+
+	// TODO: Ultimately, the FileInfo should be checked for size/modification time, etc.
+	// Really, an entire "asset" system should be built. Though I'd like to keep it very simple.
+	for _, f := range files {
+		_, err := os.Stat(f["path"])
+		if err != nil {
+			if os.IsNotExist(err) {
+				log.Println(f["path"] + " does not exist, downloading...")
+				out, oErr := os.Create(f["path"])
+				defer out.Close()
+				if oErr == nil {
+					r, rErr := http.Get(f["url"])
+					defer r.Body.Close()
+					if rErr == nil {
+						_, nErr := io.Copy(out, r.Body)
+						if nErr != nil {
+							log.Println("Failed to copy data file, it will be tried again on next application start.")
+							// remove file so another attempt can be made, should something fail
+							err = os.Remove(f["path"])
+						}
+						r.Body.Close()
+					}
+					out.Close()
+				} else {
+					log.Println(oErr)
+				}
+			}
+		}
+	}
+	return
+}
+
+// Saves the current configuration to the shared data directory on disk as to not overwrite the original. Unless removed, this will be used should the application be restarted (overwriting the default config).
+func SaveConfig(c SocialHarvestConf, f ...string) bool {
+	fN := "social-harvest-conf.json"
+	if len(f) > 0 {
+		fN = f[0]
+	}
+	// Set the full file path (default) - always store in "sh-data"
+	fP := "./sh-data/" + fN
+	// If the configuration says to use a different path
+	b, err := json.Marshal(c)
+	if err == nil {
+		err = ioutil.WriteFile(fP, b, 0766)
+		if err != nil {
+			return false
+		}
+		return true
+	}
+	return false
 }

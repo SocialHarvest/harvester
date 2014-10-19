@@ -4,6 +4,35 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.12.0
+-------------
+
+Lots of configuration enhancements.
+
+Data files (for gender detection, and in the future sentiment analysis) will now be downloaded and installed automatically. 
+This makes the installation process much easier for the harvester. It should really just be a matter of downloading a binary 
+(or clone from GitHub) and running it. Users won't need to go hunting down files and copying them to specific locations. 
+This will become a more robust asset system in the future (allowing for custom replacement data files).
+
+Configuration updates also go into this new ```sh-data``` directory. The harvester does not require a database. So the 
+configuration is stored in a JSON file (sure, could have been SQLite or something too). Many users will simply provide this 
+config file with each harvester server that they bring online in an automated fashion...But other users will want to change 
+the config through the harvester API and have it persist should the harvester crash and restart.
+
+Again, this will become a more robust system in the future because multiple harvesters will be at work in parallel and so 
+config updates will need to propagate out to all of those machines as well.
+
+Configuration can now be reloaded, reset, and managed via the harvester API. The application will also exit if there is no 
+JSON configuration file available. There must be, at least a minimal, config file.
+
+Also, the database config takes new ```retentionDays``` and ```partitionDays``` values. This helps the harvester with data 
+retention. InfluxDB automatically can expire old data, but in the future the harvester will use Postgres' PARTITION feature 
+to set partitions and then scheduled tasks will simply drop old tables outside this retention period. For now, only the 
+```retentionDays``` setting is used. If greater than 0, it will currently prevent older data from being stored. It is possible 
+for the harvester to pick up old data (sometimes months old) and this adds unnecessary strain on InfluxDB because soon after 
+the data is added, it's removed by the database. This can happen over and over and over. So this age check on data helps. 
+It's also going to help when using Postgres of course. Any gate keeping that prevents un-used data from being inserted helps.
+
 ## 0.11.0
 -------------
 

@@ -45,12 +45,16 @@ Installation is pretty simple. You'll need to have Go installed and with your $G
 
 Getting the Go packages this application uses is as simple as issueing a ```go get``` command before running or building.
 
-You'll need to copy the ```data``` directory (and its contents) to be next to the program you run (the built binary, if you built one). 
-So if you build the harvester, ensure where ever you put the harvester binary, you have this data directory sitting in the same directory. 
-This will change in the future, but for now it contains the data sets for detecting gender.
+The data files used for various machine learning and analysis purposes will automatically be copied into an ```sh-data``` directory. 
+This directory will be created next to the binary or the source (if you ran without building). The data will be downloaded, if it doesn't 
+exist in this directory already, each time the application starts. So if something goes wrong, feel free to remove this directory and restart
+the harvester application.
 
-If you're using a SQL database, be sure to setup your tables using the SQL files in the ```scripts``` directory. It'll save you a lot of trouble. 
-However, these will change quite frequently during development until Social Harvest has a stable version released. So keep an eye on them.
+Why the file download? Because ultimately these files could be quite large and they might come from S3 and this process more or less 
+installs things for you so you don't need to go wrangling dependencies. This will become more robust over time.
+
+If you're harvesting into a Postgres database, be sure to setup your tables using the SQL files in the ```scripts/postgresql``` directory. 
+It'll save you a lot of trouble. However, these will change during development until Social Harvest has a stable version released. 
 
 Alternatively, if you want to use InfluxDB, you'll need to install InfluxDB and set the configuration file. Since InfluxDB is schemaless, you won't 
 need to setup any series.

@@ -33,9 +33,9 @@ import (
 	"strconv"
 )
 
+var appVersion = "0.12.0-preview"
+var confFile string
 var socialHarvest = config.SocialHarvest{}
-
-var harvestChannel = make(chan interface{})
 
 // --------- Route functions for the harvester API (which allows for the configuration of the harvester after it is up and running as well as various statistics about the harvester)
 
@@ -78,8 +78,75 @@ func ShowSocialHarvestConfig(w rest.ResponseWriter, r *rest.Request) {
 	res.Links["self"] = config.HypermediaLink{
 		Href: "/config/read",
 	}
+	res.Links["reload"] = config.HypermediaLink{
+		Href: "/config/reload{?original}",
+	}
+	res.Links["write"] = config.HypermediaLink{
+		Href: "/config/write",
+	}
 	res.Data["config"] = socialHarvest.Config.Harvest
 	res.Success()
+	w.WriteJson(res.End())
+}
+
+// Reloads the configuration from the available file on disk
+func ReloadSocialHarvestConfig(w rest.ResponseWriter, r *rest.Request) {
+	res := config.NewHypermediaResource()
+	res.Links["self"] = config.HypermediaLink{
+		Href: "/config/reload{?original}",
+	}
+	res.Links["read"] = config.HypermediaLink{
+		Href: "/config/read",
+	}
+	res.Links["write"] = config.HypermediaLink{
+		Href: "/config/write",
+	}
+
+	// If the original configuration (passed via --conf flag or the default social-harvest-conf.json) is desired, pass true to setConfig() by looking
+	// for an "?original=true" in the route. By default, it will look for an updated config in the "sh-data" directory.
+	queryParams := r.URL.Query()
+	original := false
+	if len(queryParams["original"]) > 0 {
+		original = true
+		res.Meta.Message = "Original configuration loaded."
+	}
+	setConfig(original)
+
+	// Return the updated config
+	res.Data["config"] = socialHarvest.Config.Harvest
+	res.Success()
+	w.WriteJson(res.End())
+}
+
+// Writes a new JSON configuration file into "sh-data" (a reload should be called afer this unless there's an error) so that the original is preserved
+func WriteSocialHarvestConfig(w rest.ResponseWriter, r *rest.Request) {
+	res := config.NewHypermediaResource()
+	res.Links["self"] = config.HypermediaLink{
+		Href: "/config/write",
+	}
+	res.Links["read"] = config.HypermediaLink{
+		Href: "/config/read",
+	}
+	res.Links["reload"] = config.HypermediaLink{
+		Href: "/config/reload{?original}",
+	}
+
+	// TODO: Take JSON from request and create new SocialHarvestConf struct with it.
+	// Then save to disk in "sh-data" path.
+	// Validate it? Aside from being able to convert it to a struct... Make sure it has a certain number of fields?
+
+	var c = config.SocialHarvestConf{}
+	err := r.DecodeJsonPayload(&c)
+	if err != nil {
+		//rest.Error(w, err.Error(), http.StatusInternalServerError)
+		//return
+		res.Meta.Message = "Invalid configuration."
+		w.WriteJson(res.End())
+	}
+	if config.SaveConfig(c) {
+		res.Success()
+	}
+
 	w.WriteJson(res.End())
 }
 
@@ -133,7 +200,7 @@ func (bamw *BasicAuthMw) MiddlewareFunc(handler rest.HandlerFunc) rest.HandlerFu
 		}
 
 		keyFound := false
-		for _, key := range socialHarvest.Config.Server.AuthKeys {
+		for _, key := range socialHarvest.Config.HarvesterServer.AuthKeys {
 			if bamw.Key == key {
 				keyFound = true
 			}
@@ -157,7 +224,8 @@ func (bamw *BasicAuthMw) unauthorized(writer rest.ResponseWriter) {
 
 // Set the initial schedule entries from config SocialHarvestConf
 func setInitialSchedule() {
-
+	// NOTE: For now the schedule will always be set by an entire config reload, but in the future allowing the schedule to be updated without an entire config reload would be nice.
+	// TODO: ^^^^
 	for _, territory := range socialHarvest.Config.Harvest.Territories {
 		if territory.Schedule.Everything.Accounts != "" {
 			socialHarvest.Schedule.Cron.AddFunc(territory.Schedule.Everything.Accounts, HarvestAllAccounts, "Harvesting all accounts - "+territory.Schedule.Everything.Accounts)
@@ -174,26 +242,31 @@ func getFunctionName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
-// Main - initializes, configures, and sets routes for API
-func main() {
-	appVersion := "0.11.0-preview"
-
-	// Optionally allow a config JSON file to be passed via command line
-	var confFile string
-	flag.StringVar(&confFile, "conf", "social-harvest-conf.json", "Path to the Social Harvest configuration file.")
-	flag.Parse()
-
-	// Open the config JSON and decode it.
-	file, _ := os.Open(confFile)
-	decoder := json.NewDecoder(file)
-	configuration := config.SocialHarvestConf{}
-	err := decoder.Decode(&configuration)
-	if err != nil {
-		log.Println("error:", err)
+// Sets (or updates) the configuration for the application. If true is passed, then it won't look for an updated config in the "sh-data" path. The original config will be used instead.
+func setConfig(original bool) error {
+	var err error
+	var f *os.File
+	// First try to load the config file from the "sh-data" path where it would be if it was updated via the API. Unless the original config is to be loaded.
+	if !original {
+		f, err = os.Open("./sh-data/social-harvest-conf.json")
+		if !os.IsExist(err) {
+			// If that fails, go back to the original "confFile" path given at run time using the "--conf" flag (or the default value).
+			// In this case, the config may have been updated on disk and perhaps someone wanted to reload the config without restarting the application.
+			// Of course there is no reload config from the command line. This call must be made from the RESTful API for now.
+			f, err = os.Open(confFile)
+		}
+	} else {
+		f, err = os.Open(confFile)
 	}
 
-	// Set the configuration, DB client, etc. so that it is available to other stuff.
-	socialHarvest.Config = configuration
+	decoder := json.NewDecoder(f)
+	c := config.SocialHarvestConf{}
+	err = decoder.Decode(&c)
+	if err != nil {
+		log.Println("config decode error:", err)
+		return err
+	}
+	socialHarvest.Config = c
 
 	// Setup Bugsnag (first), profiling, etc.
 	if socialHarvest.Config.Debug.Bugsnag.ApiKey != "" {
@@ -203,6 +276,44 @@ func main() {
 			ProjectPackages: []string{"main", "github.com/SocialHarvest/harvester/*"},
 			AppVersion:      appVersion,
 		})
+	}
+
+	// Check the data directory, copy data needed by the harvester for various analysis of harvested data.
+	// Note: The data will only be copied if it doesn't exist already.
+	// TODO: Allow configuration to define this data and when that updates...new files get put into place.
+	config.CheckDataDir()
+	config.CopyTrainingData()
+
+	// Continue configuration
+	socialHarvest.Database = config.NewDatabase(socialHarvest.Config)
+	// NOTE: A database is optional for Social Harvest (harvested data can be logged for use with Fluentd for example)
+	if socialHarvest.Database.Postgres != nil {
+		defer socialHarvest.Database.Postgres.Close()
+	}
+	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
+
+	// this gets the configuration and the database. TODO: Make database optional
+	harvester.New(socialHarvest.Config, socialHarvest.Database)
+	// Load new gender data from CSV files for detecting gender (this is callable so it can be changed during runtime)
+	// TODO: Considerations with an asset system.
+	harvester.NewGenderData("./sh-data/census-female-names.csv", "./sh-data/census-male-names.csv")
+
+	// Set the initial schedule (can be changed via API if available)
+	setInitialSchedule()
+
+	return err
+}
+
+// Main - initializes, configures, and sets routes for API
+func main() {
+	// Optionally allow a config JSON file to be passed via command line
+	flag.StringVar(&confFile, "conf", "social-harvest-conf.json", "Path to the Social Harvest configuration file.")
+	flag.Parse()
+
+	// Set the configuration, DB client, etc. so that it is available to other stuff.
+	cErr := setConfig(false)
+	if cErr != nil {
+		log.Fatalln("Failed to load the harvester configuration.")
 	}
 
 	// Debug - do not compile with this
@@ -222,23 +333,6 @@ func main() {
 	color.Yellow("_____________________________________________version " + appVersion)
 	color.Cyan("   ")
 
-	// Continue configuration
-	socialHarvest.Database = config.NewDatabase(socialHarvest.Config)
-	// NOTE: A database is optional for Social Harvest (harvested data can be logged for use with Fluentd for example)
-	if socialHarvest.Database.Postgres != nil {
-		defer socialHarvest.Database.Postgres.Close()
-	}
-	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
-
-	// this gets the configuration and the database. TODO: Make database optional
-	harvester.New(socialHarvest.Config, socialHarvest.Database)
-	// Load new gender data from CSV files for detecting gender (this is callable so it can be changed during runtime)
-	// TODO: Think about being able to post more gender statistics via the API to add to the data set...
-	harvester.NewGenderData("data/census-female-names.csv", "data/census-male-names.csv")
-
-	// Set the initial schedule (can be changed via API if available)
-	setInitialSchedule()
-
 	// Immedate calls to use for testing during development
 	// Search Facebook public posts using keywords in Social Harvest config
 	//go FacebookPublicMessagesByKeyword()
@@ -254,25 +348,19 @@ func main() {
 	//go HarvestAllContent()
 	//go HarvestAllAccounts()
 
-	//harvester.YoutubeVideoSearch("obama")
-	///
-
-	// The RESTful API server can be completely disabled by setting {"server":{"disabled": true}} in the config
-	// NOTE: If this is done, main() returns and that means the schedule will not be processed. This is typically
-	// for other packages that want to import Social Harvest. If a server is not desired, simply ensure whatever port
-	// Social Harvest runs on is has appropriate firewall settings. Alternatively, we could prevent main() from returning,
-	// but that would lead to a more confusing configuration.
-	// TODO: Think about accepting command line arguments for adhoc harvesting.
-	if !socialHarvest.Config.Server.Disabled {
+	// The RESTful API harvester server can be completely disabled by setting {"harvesterServer":{"disabled": true}} in the config.
+	// NOTE: The actual API server (if running) can not be updated (port changes, etc.) without the harvester application being restarted.
+	// TODO: Think about accepting command line arguments for adhoc harvesting (useful if the server is disabled because main() will return then).
+	if !socialHarvest.Config.HarvesterServer.Disabled {
 		restMiddleware := []rest.Middleware{}
 
 		// If additional origins were allowed for CORS, handle them
-		if len(socialHarvest.Config.Server.Cors.AllowedOrigins) > 0 {
+		if len(socialHarvest.Config.HarvesterServer.Cors.AllowedOrigins) > 0 {
 			restMiddleware = append(restMiddleware,
 				&rest.CorsMiddleware{
 					RejectNonCorsRequests: false,
 					OriginValidator: func(origin string, request *rest.Request) bool {
-						for _, allowedOrigin := range socialHarvest.Config.Server.Cors.AllowedOrigins {
+						for _, allowedOrigin := range socialHarvest.Config.HarvesterServer.Cors.AllowedOrigins {
 							// If the request origin matches one of the allowed origins, return true
 							if origin == allowedOrigin {
 								return true
@@ -289,10 +377,10 @@ func main() {
 			)
 		}
 		// If api keys are defined, setup basic auth (any key listed allows full access, there are no roles for now, this is just very basic auth)
-		if len(socialHarvest.Config.Server.AuthKeys) > 0 {
+		if len(socialHarvest.Config.HarvesterServer.AuthKeys) > 0 {
 			restMiddleware = append(restMiddleware,
 				&BasicAuthMw{
-					Realm: "Social Harvest API",
+					Realm: "Social Harvest (harvester) API",
 					Key:   "",
 				},
 			)
@@ -305,6 +393,8 @@ func main() {
 		err := handler.SetRoutes(
 			&rest.Route{"GET", "/schedule/read", ShowSchedule},
 			&rest.Route{"GET", "/config/read", ShowSocialHarvestConfig},
+			&rest.Route{"POST", "/config/write", WriteSocialHarvestConfig},
+			&rest.Route{"GET", "/config/reload", ReloadSocialHarvestConfig},
 			&rest.Route{"GET", "/territory/list", TerritoryList},
 		)
 		if err != nil {
@@ -312,7 +402,7 @@ func main() {
 		}
 
 		// Allow the port to be configured (we need it as a string, but let the config define an int)
-		p := strconv.Itoa(socialHarvest.Config.Server.Port)
+		p := strconv.Itoa(socialHarvest.Config.HarvesterServer.Port)
 		// But if it can't be parsed (maybe wasn't set) then set it to 3000
 		if p == "0" {
 			p = "3000"
