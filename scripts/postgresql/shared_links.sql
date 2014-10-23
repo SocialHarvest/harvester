@@ -34,7 +34,6 @@ CREATE TABLE "shared_links" (
 	"contributor_county" varchar(75) COLLATE "default"
 )
 WITH (OIDS=FALSE);
-ALTER TABLE "shared_links" OWNER TO "upper";
 
 -- ----------------------------
 --  Primary key structure for table shared_links

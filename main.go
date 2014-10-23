@@ -33,7 +33,7 @@ import (
 	"strconv"
 )
 
-var appVersion = "0.12.0-preview"
+var appVersion = "0.12.1-preview"
 var confFile string
 var socialHarvest = config.SocialHarvest{}
 
@@ -147,6 +147,34 @@ func WriteSocialHarvestConfig(w rest.ResponseWriter, r *rest.Request) {
 		res.Success()
 	}
 
+	w.WriteJson(res.End())
+}
+
+// Returns information about the currently configured database, if it's reachable, etc.
+func DatabaseInfo(w rest.ResponseWriter, r *rest.Request) {
+	res := config.NewHypermediaResource()
+	res.Links["database:info"] = config.HypermediaLink{
+		Href: "/database/info",
+	}
+
+	if socialHarvest.Database.Postgres != nil {
+		res.Data["type"] = "postgres"
+		// SELECT * FROM has_database_privilege('username', 'database', 'connect');
+		// var r struct {
+		// 	hasAccess string `db:"has_database_privilege" json:"has_database_privilege"`
+		// }
+		//err := socialHarvest.Database.Postgres.Get(&r, "SELECT * FROM has_database_privilege("+socialHarvest.Config.Database.User+", "+socialHarvest.Config.Database.Database+", 'connect')")
+		//res.Data["r"] = r
+		//res.Data["err"] = err
+		res.Data["hasAccess"] = socialHarvest.Database.HasAccess()
+	}
+	if socialHarvest.Database.InfluxDB != nil {
+		res.Data["type"] = "infxludb"
+	}
+
+	res.Data["configuredType"] = socialHarvest.Config.Database.Type
+
+	res.Success()
 	w.WriteJson(res.End())
 }
 
@@ -286,10 +314,6 @@ func setConfig(original bool) error {
 
 	// Continue configuration
 	socialHarvest.Database = config.NewDatabase(socialHarvest.Config)
-	// NOTE: A database is optional for Social Harvest (harvested data can be logged for use with Fluentd for example)
-	if socialHarvest.Database.Postgres != nil {
-		defer socialHarvest.Database.Postgres.Close()
-	}
 	socialHarvest.Schedule = config.NewSchedule(socialHarvest.Config)
 
 	// this gets the configuration and the database. TODO: Make database optional
@@ -314,6 +338,10 @@ func main() {
 	cErr := setConfig(false)
 	if cErr != nil {
 		log.Fatalln("Failed to load the harvester configuration.")
+	}
+	// NOTE: A database is optional for Social Harvest (harvested data can be logged for use with Fluentd for example)
+	if socialHarvest.Database.Postgres != nil {
+		defer socialHarvest.Database.Postgres.Close()
 	}
 
 	// Debug - do not compile with this
@@ -395,6 +423,7 @@ func main() {
 			&rest.Route{"GET", "/config/read", ShowSocialHarvestConfig},
 			&rest.Route{"POST", "/config/write", WriteSocialHarvestConfig},
 			&rest.Route{"GET", "/config/reload", ReloadSocialHarvestConfig},
+			&rest.Route{"GET", "/database/info", DatabaseInfo},
 			&rest.Route{"GET", "/territory/list", TerritoryList},
 		)
 		if err != nil {

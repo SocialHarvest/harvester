@@ -4,6 +4,14 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.12.1
+-------------
+
+Fixing an issue with configuration where Postgres connection would be closed after configuring the database. It now will 
+be closed once the application exits (like before). Fixing a SQL create table script as well.
+
+Added an API endpoint to test the connection to the Postgres database. Will need to do the same for InfluxDB. 
+
 ## 0.12.0
 -------------
 

@@ -490,3 +490,23 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 	}
 
 }
+
+// Checks access to the database
+func (database *SocialHarvestDB) HasAccess() bool {
+	var err error
+
+	if database.Postgres != nil {
+		var c int
+		err = database.Postgres.Get(&c, "SELECT COUNT(*) FROM messages")
+		if err == nil {
+			return true
+		} else {
+			return false
+		}
+	}
+	if database.InfluxDB != nil {
+
+	}
+
+	return false
+}
