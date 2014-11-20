@@ -21,7 +21,6 @@ import (
 	"code.google.com/p/google-api-go-client/plus/v1"
 	"github.com/SocialHarvest/harvester/lib/config"
 	geohash "github.com/TomiHiltunen/geohash-golang"
-	"github.com/tmaiaroto/geocoder"
 	"log"
 	"net/http"
 	"net/url"
@@ -122,13 +121,11 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 					if item.Location.Position.Latitude != 0.0 && item.Location.Position.Longitude != 0.0 {
 						itemLat = item.Location.Position.Latitude
 						itemLng = item.Location.Position.Longitude
-						reverseLocation, geoErr := geocoder.ReverseGeocode(item.Location.Position.Latitude, item.Location.Position.Longitude)
-						if geoErr == nil {
-							contributorState = reverseLocation.State
-							contributorCity = reverseLocation.City
-							contributorCountry = reverseLocation.CountryCode
-							contributorCounty = reverseLocation.County
-						}
+						reverseLocation := services.geocoder.ReverseGeocode(item.Location.Position.Latitude, item.Location.Position.Longitude)
+						contributorState = reverseLocation.Region
+						contributorCity = reverseLocation.City
+						contributorCountry = reverseLocation.Country
+						//contributorCounty = reverseLocation.County
 					}
 				}
 
@@ -322,13 +319,11 @@ func GooglePlusActivityByAccount(territoryName string, harvestState config.Harve
 					if item.Location.Position.Latitude != 0.0 && item.Location.Position.Longitude != 0.0 {
 						itemLat = item.Location.Position.Latitude
 						itemLng = item.Location.Position.Longitude
-						reverseLocation, geoErr := geocoder.ReverseGeocode(item.Location.Position.Latitude, item.Location.Position.Longitude)
-						if geoErr == nil {
-							contributorState = reverseLocation.State
-							contributorCity = reverseLocation.City
-							contributorCountry = reverseLocation.CountryCode
-							contributorCounty = reverseLocation.County
-						}
+						reverseLocation := services.geocoder.ReverseGeocode(item.Location.Position.Latitude, item.Location.Position.Longitude)
+						contributorState = reverseLocation.Region
+						contributorCity = reverseLocation.City
+						contributorCountry = reverseLocation.Country
+						//contributorCounty = reverseLocation.County
 					}
 				}
 

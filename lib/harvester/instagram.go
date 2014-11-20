@@ -22,7 +22,6 @@ import (
 	"github.com/SocialHarvest/harvester/lib/config"
 	geohash "github.com/TomiHiltunen/geohash-golang"
 	"github.com/carbocation/go-instagram/instagram"
-	"github.com/tmaiaroto/geocoder"
 	"log"
 	"net"
 	"net/http"
@@ -116,13 +115,12 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 				contributorLat := 0.0
 				contributorLng := 0.0
 				if statusLatitude != 0.0 && statusLatitude != 0.0 {
-					reverseLocation, geoErr := geocoder.ReverseGeocode(statusLatitude, statusLongitude)
-					if geoErr == nil {
-						contributorState = reverseLocation.State
-						contributorCity = reverseLocation.City
-						contributorCountry = reverseLocation.CountryCode
-						contributorCounty = reverseLocation.County
-					}
+					reverseLocation := services.geocoder.ReverseGeocode(statusLatitude, statusLongitude)
+					contributorState = reverseLocation.Region
+					contributorCity = reverseLocation.City
+					contributorCountry = reverseLocation.Country
+					//contributorCounty = reverseLocation.County
+
 					// They don't provide user location of any sort, so use the status lat/lng.
 					contributorLat = statusLatitude
 					contributorLng = statusLongitude

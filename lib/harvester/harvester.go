@@ -20,9 +20,9 @@ import (
 	"code.google.com/p/google-api-go-client/plus/v1"
 	"code.google.com/p/google-api-go-client/youtube/v3"
 	"github.com/ChimeraCoder/anaconda"
+	"github.com/SocialHarvest/geobed"
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/carbocation/go-instagram/instagram"
-	"github.com/tmaiaroto/geocoder"
 	"net"
 	"net/http"
 	"time"
@@ -34,6 +34,7 @@ type harvesterServices struct {
 	instagram        *instagram.Client
 	googlePlus       *plus.Service
 	youTube          *youtube.Service
+	geocoder         geobed.GeoBed
 }
 
 var harvestConfig = config.HarvestConfig{}
@@ -50,7 +51,8 @@ func New(configuration config.SocialHarvestConf, database *config.SocialHarvestD
 	NewInstagram(configuration.Services)
 	NewGooglePlus(configuration.Services)
 	NewYouTube(configuration.Services)
-	NewGeocoder(configuration.Services)
+	// I'm calling this a "service" because I want to treat it as such, though it's local in memory data.
+	services.geocoder = geobed.NewGeobed()
 
 	// StoreHarvestedData() needs this now
 	socialHarvestDB = database
@@ -74,14 +76,6 @@ func New(configuration config.SocialHarvestConf, database *config.SocialHarvestD
 			//RoundTripTimeout: time.Millisecond * 300,
 			RoundTripTimeout: time.Second * 5,
 		},
-	}
-}
-
-// Sets the API key from configuration (or possibly Social Harvest API)
-func NewGeocoder(servicesConfiguration config.ServicesConfig) {
-	if servicesConfiguration.MapQuest.ApplicationKey != "" {
-		geocoder.NewGeocoder()
-		geocoder.SetAPIKey(servicesConfiguration.MapQuest.ApplicationKey)
 	}
 }
 

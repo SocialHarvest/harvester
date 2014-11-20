@@ -261,8 +261,9 @@ func setInitialSchedule() {
 		if territory.Schedule.Everything.Content != "" {
 			socialHarvest.Schedule.Cron.AddFunc(territory.Schedule.Everything.Content, HarvestAllContent, "Harvesting all content - "+territory.Schedule.Everything.Content)
 		}
-
 	}
+
+	// Set cron tasks for creating partitions in Postgres
 }
 
 // Helper function to get the name of a function (primarily used to show scheduled tasks)
@@ -375,6 +376,9 @@ func main() {
 	//go GooglePlusActivitieByAccount()
 	//go HarvestAllContent()
 	//go HarvestAllAccounts()
+
+	//TODO: Continue with this...
+	//socialHarvest.Database.CreatePartitionTable("messages")
 
 	// The RESTful API harvester server can be completely disabled by setting {"harvesterServer":{"disabled": true}} in the config.
 	// NOTE: The actual API server (if running) can not be updated (port changes, etc.) without the harvester application being restarted.

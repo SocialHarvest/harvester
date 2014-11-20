@@ -22,6 +22,7 @@ import (
 	influxdb "github.com/influxdb/influxdb/client"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	// _ "github.com/mathume/monet"
 	"github.com/mitchellh/mapstructure"
 	"hash/crc64"
 	"log"
@@ -34,6 +35,7 @@ import (
 type SocialHarvestDB struct {
 	Postgres *sqlx.DB
 	InfluxDB *influxdb.Client
+	MonetDB  *sqlx.DB
 	Series   []string
 	Schema   struct {
 		Compact bool `json:"compact"`
@@ -87,6 +89,13 @@ func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 			log.Println(err)
 			return &database
 		}
+		// TODO: Try MonetDB
+		// case "monetdb":
+		// 	database.MonetDB, err = sqlx.Connect("monetdb", "host="+config.Database.Host+" port="+strconv.Itoa(config.Database.Port)+" dbname="+config.Database.Database+" user="+config.Database.User+" password="+config.Database.Password)
+		// 	if err != nil {
+		// 		log.Println(err)
+		// 		return &database
+		// 	}
 	}
 
 	// Data older than the (optional) retention period won't be stored.
@@ -345,7 +354,7 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 		case SocialHarvestMessage:
 			_, err = database.Postgres.NamedExec("INSERT INTO messages (time, harvest_id, territory, network, message_id, contributor_id, contributor_screen_name, contributor_name, contributor_gender, contributor_type, contributor_longitude, contributor_latitude, contributor_geohash, contributor_lang, contributor_country, contributor_city, contributor_state, contributor_county, contributor_likes, contributor_statuses_count, contributor_listed_count, contributor_followers, contributor_verified, message, is_question, category, facebook_shares, twitter_retweet_count, twitter_favorite_count, like_count, google_plus_reshares, google_plus_ones) VALUES (:time, :harvest_id, :territory, :network, :message_id, :contributor_id, :contributor_screen_name, :contributor_name, :contributor_gender, :contributor_type, :contributor_longitude, :contributor_latitude, :contributor_geohash, :contributor_lang, :contributor_country, :contributor_city, :contributor_state, :contributor_county, :contributor_likes, :contributor_statuses_count, :contributor_listed_count, :contributor_followers, :contributor_verified, :message, :is_question, :category, :facebook_shares, :twitter_retweet_count, :twitter_favorite_count, :like_count, :google_plus_reshares, :google_plus_ones);", row)
 			if err != nil {
-				//log.Println(err)
+				log.Println(err)
 			} else {
 				//log.Println("Successful insert")
 			}
@@ -489,6 +498,114 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 		}
 	}
 
+}
+
+// Creates a partition table in a Postgres database
+// NOTE: If this fails to run ahead of time, we have a problem... Though checking on a trigger on every insert carries with it too much overhead.
+// So I'm going to look into columnar store databases in hopes to find performance there. FDWs for Postgres perhaps and also MonetDB (which should be SQL compatible).
+// Though I imagine partitioning will still be a really nice thing to have in the future. Come back to this...
+// TODO: Look at this: https://github.com/keithf4/pg_partman ... probably should just use that.
+func (database *SocialHarvestDB) CreatePartitionTable(table string) error {
+	var err error
+
+	if database.Postgres != nil && database.PartitionDays > 0 {
+		t := time.Now()
+		df := t.Format("01022006")
+
+		var buffer bytes.Buffer
+		buffer.WriteString("CREATE TABLE IF NOT EXISTS ")
+		buffer.WriteString(table)
+		buffer.WriteString("_")
+		buffer.WriteString(df)
+		buffer.WriteString(" (LIKE ")
+		buffer.WriteString(table)
+		buffer.WriteString(" INCLUDING ALL) INHERITS (")
+		buffer.WriteString(table)
+		buffer.WriteString(");")
+
+		// Unique (if table is in `database.Series` which is a list of tables with harvest_id fields)
+		for _, v := range database.Series {
+			if table == v {
+				buffer.WriteString(`ALTER TABLE "`)
+				buffer.WriteString(table)
+				buffer.WriteString("_")
+				buffer.WriteString(df)
+				buffer.WriteString(`" ADD CONSTRAINT "`)
+				buffer.WriteString(table)
+				buffer.WriteString("_")
+				buffer.WriteString(df)
+				buffer.WriteString(`_harvest_id_unique" UNIQUE ("harvest_id") NOT DEFERRABLE INITIALLY IMMEDIATE;`)
+			}
+		}
+
+		//database.PartitionDays
+
+		// TODO: A few of these to provide enough coverage for harvested data. Unfortunately harvested data can date back a few months...
+		// So there might even need to be a catch all table that catches data.
+		dfu := t.Format("2006-01-02")
+		dfl := t.Format("2006-01-02")
+		// TODO
+		//const day = 24 * 60 * 60
+		//lowerTime := time.Unix((t.Unix() - (database.PartitionDays * day)))
+		//dfl := lowerTime.Format("2006-01-02")
+
+		// ...and create/update the trigger when we make the new partiton. This way the trigger is always kept in sync with the partition tables available
+		buffer.WriteString(" CREATE OR REPLACE FUNCTION public.")
+		buffer.WriteString(table)
+		buffer.WriteString("_part_insert_tgr_func() ")
+		buffer.WriteString("RETURNS TRIGGER AS $$ ")
+		buffer.WriteString("BEGIN ")
+		buffer.WriteString("IF( NEW.time >= '")
+		// lower time limit
+		buffer.WriteString(dfl)
+		buffer.WriteString("' AND NEW.time < '")
+		// upper time limit
+		buffer.WriteString(dfu)
+		buffer.WriteString("' ) THEN ")
+		buffer.WriteString("INSERT INTO public.")
+		buffer.WriteString(table)
+		buffer.WriteString("_")
+		//buffer.WriteString(df) // date
+		buffer.WriteString(" VALUES (NEW.*); ")
+		buffer.WriteString("ELSE ")
+		buffer.WriteString("RAISE EXCEPTION 'Date out of range. Fix trigger function.'; ")
+		buffer.WriteString("END IF; ")
+		buffer.WriteString("RETURN NULL; ")
+		buffer.WriteString("END; ")
+		buffer.WriteString("$$ ")
+		buffer.WriteString("LANGUAGE plpgsql; ")
+
+		// Set a trigger to call the function (only needs to be set once... - is there a create trigger if not exists?)
+		buffer.WriteString("CREATE TRIGGER partition_insert_trigger BEFORE INSERT ON ")
+		buffer.WriteString(table)
+		buffer.WriteString(" FOR EACH ROW EXECUTE PROCEDURE public.")
+		buffer.WriteString(table)
+		buffer.WriteString("_part_insert_tgr_func();")
+
+		// CREATE OR REPLACE FUNCTION my_schema.my_data_insert_trigger_function()
+		// RETURNS TRIGGER AS $$
+		// BEGIN
+		//     IF ( NEW.create_date >= '2010-01-01' AND NEW.create_date < '2010-02-01' ) THEN
+		//         INSERT INTO my_schema.my_data_201001 VALUES (NEW.*);
+		//     ELSE
+		//         RAISE EXCEPTION 'Date out of range.  Fix parent_insert_trigger_function()!';
+		//     END IF;
+		//     RETURN NULL;
+		// END;
+		// $$
+		// LANGUAGE plpgsql;
+
+		// -- Create a trigger to call the function before insert.
+		// CREATE TRIGGER my_data_insert_trigger
+		//     BEFORE INSERT ON my_schema.my_data
+		//     FOR EACH ROW EXECUTE PROCEDURE my_schema.my_data_insert_trigger_function();
+
+		query := buffer.String()
+		buffer.Reset()
+
+		_, err = database.Postgres.Exec(query)
+	}
+	return err
 }
 
 // Checks access to the database

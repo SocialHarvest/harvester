@@ -20,7 +20,6 @@ import (
 	"github.com/SocialHarvest/harvester/lib/config"
 	geohash "github.com/TomiHiltunen/geohash-golang"
 	"github.com/google/go-querystring/query"
-	"github.com/tmaiaroto/geocoder"
 	//"github.com/mitchellh/mapstructure"
 	"bytes"
 	"encoding/json"
@@ -238,13 +237,11 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 			var contributorCity = ""
 			var contributorCounty = ""
 			if contributor.Location.Latitude != 0.0 && contributor.Location.Latitude != 0.0 {
-				reverseLocation, geoErr := geocoder.ReverseGeocode(contributor.Location.Latitude, contributor.Location.Longitude)
-				if geoErr == nil {
-					contributorState = reverseLocation.State
-					contributorCity = reverseLocation.City
-					contributorCountry = reverseLocation.CountryCode
-					contributorCounty = reverseLocation.County
-				}
+				reverseLocation := services.geocoder.ReverseGeocode(contributor.Location.Latitude, contributor.Location.Longitude)
+				contributorState = reverseLocation.Region
+				contributorCity = reverseLocation.City
+				contributorCountry = reverseLocation.Country
+				// contributorCounty = reverseLocation.County // not always available (yet, may add it to geobed)
 			}
 
 			// Geohash

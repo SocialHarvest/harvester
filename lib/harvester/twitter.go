@@ -20,7 +20,6 @@ import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
 	geohash "github.com/TomiHiltunen/geohash-golang"
-	"github.com/tmaiaroto/geocoder"
 	"log"
 	"net/url"
 	"strconv"
@@ -121,25 +120,22 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 			if statusLatitude == 0.0 || statusLatitude == 0.0 {
 				// Do not make a request for nothing (there are no 1 character locations either).
 				if len(tweet.User.Location) > 1 {
-					location, err := geocoder.GeocodeLocation(tweet.User.Location)
-					if err == nil {
-						contributorLat = location.LatLng.Lat
-						contributorLng = location.LatLng.Lng
-						contributorState = location.State
-						contributorCity = location.City
-						contributorCountry = location.CountryCode
-						contributorCounty = location.County
-					}
+					location := services.geocoder.Geocode(tweet.User.Location)
+					contributorLat = location.Latitude
+					contributorLng = location.Longitude
+					contributorState = location.Region
+					contributorCity = location.City
+					contributorCountry = location.Country
+					//contributorCounty = location.County
 				}
 				//contributorLat, contributorLng = Geocode(tweet.User.Location)
 			} else {
-				reverseLocation, geoErr := geocoder.ReverseGeocode(statusLatitude, statusLongitude)
-				if geoErr == nil {
-					contributorState = reverseLocation.State
-					contributorCity = reverseLocation.City
-					contributorCountry = reverseLocation.CountryCode
-					contributorCounty = reverseLocation.County
-				}
+				reverseLocation := services.geocoder.ReverseGeocode(statusLatitude, statusLongitude)
+				contributorState = reverseLocation.Region
+				contributorCity = reverseLocation.City
+				contributorCountry = reverseLocation.Country
+				//contributorCounty = reverseLocation.County
+
 				// keep these, no need to change - might change accuracy, etc.
 				contributorLat = statusLatitude
 				contributorLng = statusLongitude
@@ -443,25 +439,22 @@ func TwitterAccountStream(territoryName string, harvestState config.HarvestState
 			if statusLatitude == 0.0 || statusLatitude == 0.0 {
 				// Do not make a request for nothing (there are no 1 character locations either).
 				if len(tweet.User.Location) > 1 {
-					location, err := geocoder.GeocodeLocation(tweet.User.Location)
-					if err == nil {
-						contributorLat = location.LatLng.Lat
-						contributorLng = location.LatLng.Lng
-						contributorState = location.State
-						contributorCity = location.City
-						contributorCountry = location.CountryCode
-						contributorCounty = location.County
-					}
+					location := services.geocoder.Geocode(tweet.User.Location)
+					contributorLat = location.Latitude
+					contributorLng = location.Longitude
+					contributorState = location.Region
+					contributorCity = location.City
+					contributorCountry = location.Country
+					//contributorCounty = location.County
 				}
 				//contributorLat, contributorLng = Geocode(tweet.User.Location)
 			} else {
-				reverseLocation, geoErr := geocoder.ReverseGeocode(statusLatitude, statusLongitude)
-				if geoErr == nil {
-					contributorState = reverseLocation.State
-					contributorCity = reverseLocation.City
-					contributorCountry = reverseLocation.CountryCode
-					contributorCounty = reverseLocation.County
-				}
+				reverseLocation := services.geocoder.ReverseGeocode(statusLatitude, statusLongitude)
+				contributorState = reverseLocation.Region
+				contributorCity = reverseLocation.City
+				contributorCountry = reverseLocation.Country
+				//contributorCounty = reverseLocation.County
+
 				// keep these, no need to change - might change accuracy, etc.
 				contributorLat = statusLatitude
 				contributorLng = statusLongitude
