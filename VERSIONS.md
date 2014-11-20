@@ -4,6 +4,15 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.13.0
+-------------
+
+Removing depencency on external geocoding APIs. An in memory geodcoer (Geobed) is now used. This is also available as 
+a stand-alone package. The ```ContributorState``` field is now more of a state/province/"admin2 code" value. Different 
+data sets (Geonames/MaxMind) had different values so it's not strictly for US states anymore. The ```ContributorCounty``` 
+field is now not used. It can be in the future though should Geobed add that data set and do all the lookups. The general 
+consuses was that county is so rarely used (and could be figured out later anyway based on city, state/region, country).
+
 ## 0.12.1
 -------------
 

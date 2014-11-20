@@ -33,7 +33,7 @@ import (
 	"strconv"
 )
 
-var appVersion = "0.12.1-preview"
+var appVersion = "0.13.0-preview"
 var confFile string
 var socialHarvest = config.SocialHarvest{}
 
