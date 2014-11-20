@@ -15,6 +15,10 @@ does not affect plotted points on a map of course. The only benefit would be to 
 vector map (like those seen with D3.js). However, those are typically for US counties anyway. So it's limited. We can 
 also always get this kind of information after the fact given we have city, region, country.
 
+Also added city population to the series with city location information. This will allow for a whole new dimension in 
+reporting. It will now be possible to easily look at and aggregate data from major cities. It will also be possible to 
+filter out data from small cities.
+
 ## 0.13.0
 -------------
 

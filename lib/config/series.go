@@ -77,18 +77,19 @@ type SocialHarvestMessage struct {
 	Network   string    `json:"network" db:"network" bson:"network"`
 	MessageId string    `json:"message_id" db:"message_id" bson:"message_id"`
 	// contributor information (some transient information, we take note at the time of the message - can help with a contributor's influence at the time of message - or we can track how certain messages helped a contributor gain influence - OR we can say only show me messages from contributors who have X followers, etc.)
-	ContributorId         string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
-	ContributorScreenName string  `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
-	ContributorName       string  `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
-	ContributorGender     int     `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
-	ContributorType       string  `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
-	ContributorLongitude  float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
-	ContributorLatitude   float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
-	ContributorGeohash    string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
-	ContributorLang       string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
-	ContributorCountry    string  `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
-	ContributorCity       string  `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
-	ContributorRegion     string  `json:"contributor_region" db:"contributor_region" bson:"contributor_region"`
+	ContributorId             string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
+	ContributorScreenName     string  `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
+	ContributorName           string  `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
+	ContributorGender         int     `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
+	ContributorType           string  `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
+	ContributorLongitude      float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
+	ContributorLatitude       float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
+	ContributorGeohash        string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
+	ContributorLang           string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
+	ContributorCountry        string  `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
+	ContributorCity           string  `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
+	ContributorCityPopulation int32   `json:"contributor_city_pop" db:"contributor_city_pop" bson:"contributor_city_pop"`
+	ContributorRegion         string  `json:"contributor_region" db:"contributor_region" bson:"contributor_region"`
 	// County isn't always available with Geobed information and while many counties will be, they still need to be decoded with the Geonames data set (id numbers to string names).
 	// When Geobed updates, then Social Harvest can add county information in again. "State" (US state) has also changed to "Region" due to the data sets being used.
 	// A little consistency has been lost, but geocoding is all internal now. Not a bad trade off.
@@ -122,29 +123,30 @@ type SocialHarvestMessage struct {
 // Shared URLs. The "type" will tell us if it's media (video, photo, etc.) or HTML. It's more about content type. Not necessarily "blog" or something.
 // TODO: Possibly scrape those pages to get extra information to get semantic data being discussed/shared for a particular territory. This would enrich things like "type" ...
 type SocialHarvestSharedLink struct {
-	Time                  time.Time `json:"time" db:"time" bson:"time"`
-	HarvestId             string    `json:"harvest_id" db:"harvest_id" bson:"harvest_id"`
-	Territory             string    `json:"territory" db:"territory" bson:"territory"`
-	Network               string    `json:"network" db:"network" bson:"network"`
-	MessageId             string    `json:"message_id" db:"message_id" bson:"message_id"`
-	ContributorId         string    `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
-	ContributorScreenName string    `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
-	ContributorName       string    `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
-	ContributorGender     int       `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
-	ContributorType       string    `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
-	ContributorLongitude  float64   `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
-	ContributorLatitude   float64   `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
-	ContributorGeohash    string    `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
-	ContributorLang       string    `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
-	ContributorCountry    string    `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
-	ContributorCity       string    `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
-	ContributorRegion     string    `json:"contributor_region" db:"contributor_region" bson:"contributor_region"`
-	Type                  string    `json:"type" db:"type" bson:"type"`
-	Preview               string    `json:"preview" db:"preview" bson:"preview"`
-	Source                string    `json:"source" db:"source" bson:"source"`
-	Url                   string    `json:"url" db:"url" bson:"url"`
-	ExpandedUrl           string    `json:"expanded_url" db:"expanded_url" bson:"expanded_url"`
-	Host                  string    `json:"host" db:"host" bson:"host"`
+	Time                      time.Time `json:"time" db:"time" bson:"time"`
+	HarvestId                 string    `json:"harvest_id" db:"harvest_id" bson:"harvest_id"`
+	Territory                 string    `json:"territory" db:"territory" bson:"territory"`
+	Network                   string    `json:"network" db:"network" bson:"network"`
+	MessageId                 string    `json:"message_id" db:"message_id" bson:"message_id"`
+	ContributorId             string    `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
+	ContributorScreenName     string    `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
+	ContributorName           string    `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
+	ContributorGender         int       `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
+	ContributorType           string    `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
+	ContributorLongitude      float64   `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
+	ContributorLatitude       float64   `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
+	ContributorGeohash        string    `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
+	ContributorLang           string    `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
+	ContributorCountry        string    `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
+	ContributorCity           string    `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
+	ContributorCityPopulation int32     `json:"contributor_city_pop" db:"contributor_city_pop" bson:"contributor_city_pop"`
+	ContributorRegion         string    `json:"contributor_region" db:"contributor_region" bson:"contributor_region"`
+	Type                      string    `json:"type" db:"type" bson:"type"`
+	Preview                   string    `json:"preview" db:"preview" bson:"preview"`
+	Source                    string    `json:"source" db:"source" bson:"source"`
+	Url                       string    `json:"url" db:"url" bson:"url"`
+	ExpandedUrl               string    `json:"expanded_url" db:"expanded_url" bson:"expanded_url"`
+	Host                      string    `json:"host" db:"host" bson:"host"`
 }
 
 // Hashtags are not quite Twitter specific, they're still used all over. Other networks have their own convention too (and their APIs return the tags).
@@ -164,18 +166,19 @@ type SocialHarvestHashtag struct {
 	Keyword string `json:"keyword" db:"keyword" bson:"keyword"`
 
 	// Much of this becomes redundant if using a JOIN, but we want to stay flexible (a little more data stored for a lot more performance and options)
-	ContributorId         string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
-	ContributorScreenName string  `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
-	ContributorName       string  `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
-	ContributorGender     int     `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
-	ContributorType       string  `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
-	ContributorLongitude  float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
-	ContributorLatitude   float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
-	ContributorGeohash    string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
-	ContributorLang       string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
-	ContributorCountry    string  `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
-	ContributorCity       string  `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
-	ContributorRegion     string  `json:"contributor_region" db:"contributor_region" bson:"contributor_region"`
+	ContributorId             string  `json:"contributor_id" db:"contributor_id" bson:"contributor_id"`
+	ContributorScreenName     string  `json:"contributor_screen_name" db:"contributor_screen_name" bson:"contributor_screen_name"`
+	ContributorName           string  `json:"contributor_name" db:"contributor_name" bson:"contributor_name"`
+	ContributorGender         int     `json:"contributor_gender" db:"contributor_gender" bson:"contributor_gender"`
+	ContributorType           string  `json:"contributor_type" db:"contributor_type" bson:"contributor_type"`
+	ContributorLongitude      float64 `json:"contributor_longitude" db:"contributor_longitude" bson:"contributor_longitude"`
+	ContributorLatitude       float64 `json:"contributor_latitude" db:"contributor_latitude" bson:"contributor_latitude"`
+	ContributorGeohash        string  `json:"contributor_geohash" db:"contributor_geohash" bson:"contributor_geohash"`
+	ContributorLang           string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
+	ContributorCountry        string  `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
+	ContributorCity           string  `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
+	ContributorCityPopulation int32   `json:"contributor_city_pop" db:"contributor_city_pop" bson:"contributor_city_pop"`
+	ContributorRegion         string  `json:"contributor_region" db:"contributor_region" bson:"contributor_region"`
 }
 
 // When contributors mention other contributors (and from where - useful for tracking customer base for example). This series tells a good story visually (hopefully on a map).

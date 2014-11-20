@@ -116,6 +116,7 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 				var contributorCountry = ""
 				var contributorRegion = ""
 				var contributorCity = ""
+				var contributorCityPopulation = int32(0)
 				if item.Location != nil && item.Location.Position != nil {
 					if item.Location.Position.Latitude != 0.0 && item.Location.Position.Longitude != 0.0 {
 						itemLat = item.Location.Position.Latitude
@@ -123,6 +124,7 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 						reverseLocation := services.geocoder.ReverseGeocode(item.Location.Position.Latitude, item.Location.Position.Longitude)
 						contributorRegion = reverseLocation.Region
 						contributorCity = reverseLocation.City
+						contributorCityPopulation = reverseLocation.Population
 						contributorCountry = reverseLocation.Country
 					}
 				}
@@ -136,27 +138,28 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 
 				// message row
 				messageRow := config.SocialHarvestMessage{
-					Time:                  itemCreatedTime,
-					HarvestId:             harvestId,
-					Territory:             territoryName,
-					Network:               "googlePlus",
-					MessageId:             item.Id,
-					ContributorId:         item.Actor.Id,
-					ContributorScreenName: item.Actor.DisplayName,
-					ContributorName:       item.Actor.DisplayName,
-					ContributorGender:     contributorGender,
-					ContributorType:       contributorType,
-					ContributorLang:       contributorLanguage,
-					ContributorLongitude:  itemLng,
-					ContributorLatitude:   itemLat,
-					ContributorGeohash:    locationGeoHash,
-					ContributorCity:       contributorCity,
-					ContributorRegion:     contributorRegion,
-					ContributorCountry:    contributorCountry,
-					Message:               item.Object.Content,
-					IsQuestion:            Btoi(IsQuestion(item.Object.OriginalContent, harvestConfig.QuestionRegex)),
-					GooglePlusReshares:    item.Object.Resharers.TotalItems,
-					GooglePlusOnes:        item.Object.Plusoners.TotalItems,
+					Time:                      itemCreatedTime,
+					HarvestId:                 harvestId,
+					Territory:                 territoryName,
+					Network:                   "googlePlus",
+					MessageId:                 item.Id,
+					ContributorId:             item.Actor.Id,
+					ContributorScreenName:     item.Actor.DisplayName,
+					ContributorName:           item.Actor.DisplayName,
+					ContributorGender:         contributorGender,
+					ContributorType:           contributorType,
+					ContributorLang:           contributorLanguage,
+					ContributorLongitude:      itemLng,
+					ContributorLatitude:       itemLat,
+					ContributorGeohash:        locationGeoHash,
+					ContributorCity:           contributorCity,
+					ContributorCityPopulation: contributorCityPopulation,
+					ContributorRegion:         contributorRegion,
+					ContributorCountry:        contributorCountry,
+					Message:                   item.Object.Content,
+					IsQuestion:                Btoi(IsQuestion(item.Object.OriginalContent, harvestConfig.QuestionRegex)),
+					GooglePlusReshares:        item.Object.Resharers.TotalItems,
+					GooglePlusOnes:            item.Object.Plusoners.TotalItems,
 				}
 				StoreHarvestedData(messageRow)
 				LogJson(messageRow, "messages")
@@ -171,24 +174,25 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 
 							// Again, keyword share the same series/table/collection
 							hashtag := config.SocialHarvestHashtag{
-								Time:                  itemCreatedTime,
-								HarvestId:             keywordHarvestId,
-								Territory:             territoryName,
-								Network:               "googlePlus",
-								MessageId:             item.Id,
-								ContributorId:         item.Actor.Id,
-								ContributorScreenName: item.Actor.DisplayName,
-								ContributorName:       item.Actor.DisplayName,
-								ContributorGender:     contributorGender,
-								ContributorType:       contributorType,
-								ContributorLang:       contributorLanguage,
-								ContributorLongitude:  itemLng,
-								ContributorLatitude:   itemLat,
-								ContributorGeohash:    locationGeoHash,
-								ContributorCity:       contributorCity,
-								ContributorRegion:     contributorRegion,
-								ContributorCountry:    contributorCountry,
-								Keyword:               keyword,
+								Time:                      itemCreatedTime,
+								HarvestId:                 keywordHarvestId,
+								Territory:                 territoryName,
+								Network:                   "googlePlus",
+								MessageId:                 item.Id,
+								ContributorId:             item.Actor.Id,
+								ContributorScreenName:     item.Actor.DisplayName,
+								ContributorName:           item.Actor.DisplayName,
+								ContributorGender:         contributorGender,
+								ContributorType:           contributorType,
+								ContributorLang:           contributorLanguage,
+								ContributorLongitude:      itemLng,
+								ContributorLatitude:       itemLat,
+								ContributorGeohash:        locationGeoHash,
+								ContributorCity:           contributorCity,
+								ContributorCityPopulation: contributorCityPopulation,
+								ContributorRegion:         contributorRegion,
+								ContributorCountry:        contributorCountry,
+								Keyword:                   keyword,
 							}
 							StoreHarvestedData(hashtag)
 							LogJson(hashtag, "hashtags")
@@ -214,29 +218,30 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 						}
 
 						sharedLinksRow := config.SocialHarvestSharedLink{
-							Time:                  itemCreatedTime,
-							HarvestId:             harvestId,
-							Territory:             territoryName,
-							Network:               "googlePlus",
-							MessageId:             item.Id,
-							ContributorId:         item.Actor.Id,
-							ContributorScreenName: item.Actor.DisplayName,
-							ContributorName:       item.Actor.DisplayName,
-							ContributorGender:     contributorGender,
-							ContributorType:       contributorType,
-							ContributorLang:       contributorLanguage,
-							ContributorLongitude:  itemLng,
-							ContributorLatitude:   itemLat,
-							ContributorGeohash:    locationGeoHash,
-							ContributorCity:       contributorCity,
-							ContributorRegion:     contributorRegion,
-							ContributorCountry:    contributorCountry,
-							Type:                  attachment.ObjectType,
-							Preview:               previewImg,
-							Source:                fullImg,
-							Url:                   attachment.Url,
-							ExpandedUrl:           ExpandUrl(attachment.Url),
-							Host:                  hostName,
+							Time:                      itemCreatedTime,
+							HarvestId:                 harvestId,
+							Territory:                 territoryName,
+							Network:                   "googlePlus",
+							MessageId:                 item.Id,
+							ContributorId:             item.Actor.Id,
+							ContributorScreenName:     item.Actor.DisplayName,
+							ContributorName:           item.Actor.DisplayName,
+							ContributorGender:         contributorGender,
+							ContributorType:           contributorType,
+							ContributorLang:           contributorLanguage,
+							ContributorLongitude:      itemLng,
+							ContributorLatitude:       itemLat,
+							ContributorGeohash:        locationGeoHash,
+							ContributorCity:           contributorCity,
+							ContributorCityPopulation: contributorCityPopulation,
+							ContributorRegion:         contributorRegion,
+							ContributorCountry:        contributorCountry,
+							Type:                      attachment.ObjectType,
+							Preview:                   previewImg,
+							Source:                    fullImg,
+							Url:                       attachment.Url,
+							ExpandedUrl:               ExpandUrl(attachment.Url),
+							Host:                      hostName,
 						}
 						StoreHarvestedData(sharedLinksRow)
 						LogJson(sharedLinksRow, "shared_links")
@@ -309,6 +314,7 @@ func GooglePlusActivityByAccount(territoryName string, harvestState config.Harve
 				var contributorCountry = ""
 				var contributorRegion = ""
 				var contributorCity = ""
+				var contributorCityPopulation = int32(0)
 				if item.Location != nil && item.Location.Position != nil {
 					if item.Location.Position.Latitude != 0.0 && item.Location.Position.Longitude != 0.0 {
 						itemLat = item.Location.Position.Latitude
@@ -316,6 +322,7 @@ func GooglePlusActivityByAccount(territoryName string, harvestState config.Harve
 						reverseLocation := services.geocoder.ReverseGeocode(item.Location.Position.Latitude, item.Location.Position.Longitude)
 						contributorRegion = reverseLocation.Region
 						contributorCity = reverseLocation.City
+						contributorCityPopulation = reverseLocation.Population
 						contributorCountry = reverseLocation.Country
 					}
 				}
@@ -329,27 +336,28 @@ func GooglePlusActivityByAccount(territoryName string, harvestState config.Harve
 
 				// message row
 				messageRow := config.SocialHarvestMessage{
-					Time:                  itemCreatedTime,
-					HarvestId:             harvestId,
-					Territory:             territoryName,
-					Network:               "googlePlus",
-					MessageId:             item.Id,
-					ContributorId:         item.Actor.Id,
-					ContributorScreenName: item.Actor.DisplayName,
-					ContributorName:       item.Actor.DisplayName,
-					ContributorGender:     contributorGender,
-					ContributorType:       contributorType,
-					ContributorLang:       contributorLanguage,
-					ContributorLongitude:  itemLng,
-					ContributorLatitude:   itemLat,
-					ContributorGeohash:    locationGeoHash,
-					ContributorCity:       contributorCity,
-					ContributorRegion:     contributorRegion,
-					ContributorCountry:    contributorCountry,
-					Message:               item.Object.Content,
-					IsQuestion:            Btoi(IsQuestion(item.Object.OriginalContent, harvestConfig.QuestionRegex)),
-					GooglePlusReshares:    item.Object.Resharers.TotalItems,
-					GooglePlusOnes:        item.Object.Plusoners.TotalItems,
+					Time:                      itemCreatedTime,
+					HarvestId:                 harvestId,
+					Territory:                 territoryName,
+					Network:                   "googlePlus",
+					MessageId:                 item.Id,
+					ContributorId:             item.Actor.Id,
+					ContributorScreenName:     item.Actor.DisplayName,
+					ContributorName:           item.Actor.DisplayName,
+					ContributorGender:         contributorGender,
+					ContributorType:           contributorType,
+					ContributorLang:           contributorLanguage,
+					ContributorLongitude:      itemLng,
+					ContributorLatitude:       itemLat,
+					ContributorGeohash:        locationGeoHash,
+					ContributorCity:           contributorCity,
+					ContributorCityPopulation: contributorCityPopulation,
+					ContributorRegion:         contributorRegion,
+					ContributorCountry:        contributorCountry,
+					Message:                   item.Object.Content,
+					IsQuestion:                Btoi(IsQuestion(item.Object.OriginalContent, harvestConfig.QuestionRegex)),
+					GooglePlusReshares:        item.Object.Resharers.TotalItems,
+					GooglePlusOnes:            item.Object.Plusoners.TotalItems,
 				}
 				StoreHarvestedData(messageRow)
 				LogJson(messageRow, "messages")
@@ -372,29 +380,30 @@ func GooglePlusActivityByAccount(territoryName string, harvestState config.Harve
 						}
 
 						sharedLinksRow := config.SocialHarvestSharedLink{
-							Time:                  itemCreatedTime,
-							HarvestId:             harvestId,
-							Territory:             territoryName,
-							Network:               "googlePlus",
-							MessageId:             item.Id,
-							ContributorId:         item.Actor.Id,
-							ContributorScreenName: item.Actor.DisplayName,
-							ContributorName:       item.Actor.DisplayName,
-							ContributorGender:     contributorGender,
-							ContributorType:       contributorType,
-							ContributorLang:       contributorLanguage,
-							ContributorLongitude:  itemLng,
-							ContributorLatitude:   itemLat,
-							ContributorGeohash:    locationGeoHash,
-							ContributorCity:       contributorCity,
-							ContributorRegion:     contributorRegion,
-							ContributorCountry:    contributorCountry,
-							Type:                  attachment.ObjectType,
-							Preview:               previewImg,
-							Source:                fullImg,
-							Url:                   attachment.Url,
-							ExpandedUrl:           ExpandUrl(attachment.Url),
-							Host:                  hostName,
+							Time:                      itemCreatedTime,
+							HarvestId:                 harvestId,
+							Territory:                 territoryName,
+							Network:                   "googlePlus",
+							MessageId:                 item.Id,
+							ContributorId:             item.Actor.Id,
+							ContributorScreenName:     item.Actor.DisplayName,
+							ContributorName:           item.Actor.DisplayName,
+							ContributorGender:         contributorGender,
+							ContributorType:           contributorType,
+							ContributorLang:           contributorLanguage,
+							ContributorLongitude:      itemLng,
+							ContributorLatitude:       itemLat,
+							ContributorGeohash:        locationGeoHash,
+							ContributorCity:           contributorCity,
+							ContributorCityPopulation: contributorCityPopulation,
+							ContributorRegion:         contributorRegion,
+							ContributorCountry:        contributorCountry,
+							Type:                      attachment.ObjectType,
+							Preview:                   previewImg,
+							Source:                    fullImg,
+							Url:                       attachment.Url,
+							ExpandedUrl:               ExpandUrl(attachment.Url),
+							Host:                      hostName,
 						}
 						StoreHarvestedData(sharedLinksRow)
 						LogJson(sharedLinksRow, "shared_links")

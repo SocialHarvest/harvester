@@ -28,6 +28,7 @@ CREATE TABLE `hashtags` (
   `keyword` varchar(150) DEFAULT NULL,
   `contributor_country` varchar(6) DEFAULT NULL,
   `contributor_city` varchar(75) DEFAULT NULL,
+  `contributor_city_pop` int(11) NOT NULL DEFAULT '0',
   `contributor_region` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`harvest_id`),
   UNIQUE KEY `h_harvest_id_unique` (`harvest_id`),
