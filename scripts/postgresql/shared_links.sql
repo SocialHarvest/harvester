@@ -30,8 +30,7 @@ CREATE TABLE "shared_links" (
 	"contributor_name" varchar(255) COLLATE "default",
 	"contributor_country" varchar(6) COLLATE "default",
 	"contributor_city" varchar(75) COLLATE "default",
-	"contributor_state" varchar(50) COLLATE "default",
-	"contributor_county" varchar(75) COLLATE "default"
+	"contributor_region" varchar(50) COLLATE "default"
 )
 WITH (OIDS=FALSE);
 

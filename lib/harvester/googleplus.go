@@ -114,18 +114,16 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 				var itemLng = 0.0
 				// Reverse code to get city, state, country, etc.
 				var contributorCountry = ""
-				var contributorState = ""
+				var contributorRegion = ""
 				var contributorCity = ""
-				var contributorCounty = ""
 				if item.Location != nil && item.Location.Position != nil {
 					if item.Location.Position.Latitude != 0.0 && item.Location.Position.Longitude != 0.0 {
 						itemLat = item.Location.Position.Latitude
 						itemLng = item.Location.Position.Longitude
 						reverseLocation := services.geocoder.ReverseGeocode(item.Location.Position.Latitude, item.Location.Position.Longitude)
-						contributorState = reverseLocation.Region
+						contributorRegion = reverseLocation.Region
 						contributorCity = reverseLocation.City
 						contributorCountry = reverseLocation.Country
-						//contributorCounty = reverseLocation.County
 					}
 				}
 
@@ -153,9 +151,8 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 					ContributorLatitude:   itemLat,
 					ContributorGeohash:    locationGeoHash,
 					ContributorCity:       contributorCity,
-					ContributorState:      contributorState,
+					ContributorRegion:     contributorRegion,
 					ContributorCountry:    contributorCountry,
-					ContributorCounty:     contributorCounty,
 					Message:               item.Object.Content,
 					IsQuestion:            Btoi(IsQuestion(item.Object.OriginalContent, harvestConfig.QuestionRegex)),
 					GooglePlusReshares:    item.Object.Resharers.TotalItems,
@@ -189,9 +186,8 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 								ContributorLatitude:   itemLat,
 								ContributorGeohash:    locationGeoHash,
 								ContributorCity:       contributorCity,
-								ContributorState:      contributorState,
+								ContributorRegion:     contributorRegion,
 								ContributorCountry:    contributorCountry,
-								ContributorCounty:     contributorCounty,
 								Keyword:               keyword,
 							}
 							StoreHarvestedData(hashtag)
@@ -233,9 +229,8 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 							ContributorLatitude:   itemLat,
 							ContributorGeohash:    locationGeoHash,
 							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
+							ContributorRegion:     contributorRegion,
 							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
 							Type:                  attachment.ObjectType,
 							Preview:               previewImg,
 							Source:                fullImg,
@@ -312,18 +307,16 @@ func GooglePlusActivityByAccount(territoryName string, harvestState config.Harve
 				var itemLng = 0.0
 				// Reverse code to get city, state, country, etc.
 				var contributorCountry = ""
-				var contributorState = ""
+				var contributorRegion = ""
 				var contributorCity = ""
-				var contributorCounty = ""
 				if item.Location != nil && item.Location.Position != nil {
 					if item.Location.Position.Latitude != 0.0 && item.Location.Position.Longitude != 0.0 {
 						itemLat = item.Location.Position.Latitude
 						itemLng = item.Location.Position.Longitude
 						reverseLocation := services.geocoder.ReverseGeocode(item.Location.Position.Latitude, item.Location.Position.Longitude)
-						contributorState = reverseLocation.Region
+						contributorRegion = reverseLocation.Region
 						contributorCity = reverseLocation.City
 						contributorCountry = reverseLocation.Country
-						//contributorCounty = reverseLocation.County
 					}
 				}
 
@@ -351,9 +344,8 @@ func GooglePlusActivityByAccount(territoryName string, harvestState config.Harve
 					ContributorLatitude:   itemLat,
 					ContributorGeohash:    locationGeoHash,
 					ContributorCity:       contributorCity,
-					ContributorState:      contributorState,
+					ContributorRegion:     contributorRegion,
 					ContributorCountry:    contributorCountry,
-					ContributorCounty:     contributorCounty,
 					Message:               item.Object.Content,
 					IsQuestion:            Btoi(IsQuestion(item.Object.OriginalContent, harvestConfig.QuestionRegex)),
 					GooglePlusReshares:    item.Object.Resharers.TotalItems,
@@ -395,9 +387,8 @@ func GooglePlusActivityByAccount(territoryName string, harvestState config.Harve
 							ContributorLatitude:   itemLat,
 							ContributorGeohash:    locationGeoHash,
 							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
+							ContributorRegion:     contributorRegion,
 							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
 							Type:                  attachment.ObjectType,
 							Preview:               previewImg,
 							Source:                fullImg,

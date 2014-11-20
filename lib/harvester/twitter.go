@@ -81,10 +81,12 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 			// TODO: figure out type somehow...
 			var contributorType = DetectContributorType(tweet.User.Name, contributorGender)
 
+			// While `tweet.Place.CountryCode` exists, city and state/region don't. So that doesn't help much. I suppose we could use it for supporting information send to the geocoder...
+			// But if the `tweet.User.Location` string already has a country code or name in there then I don't want to confuse it.
+			// I thought I'd be able to use more geo data from Twitter, but I guess not for now. Really happy the geocoder is now in memory.
 			var contributorCountry = ""
-			var contributorState = ""
+			var contributorRegion = ""
 			var contributorCity = ""
-			var contributorCounty = ""
 
 			var statusLongitude = 0.0
 			var statusLatitude = 0.0
@@ -123,18 +125,17 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 					location := services.geocoder.Geocode(tweet.User.Location)
 					contributorLat = location.Latitude
 					contributorLng = location.Longitude
-					contributorState = location.Region
+					contributorRegion = location.Region
 					contributorCity = location.City
 					contributorCountry = location.Country
-					//contributorCounty = location.County
 				}
+
 				//contributorLat, contributorLng = Geocode(tweet.User.Location)
 			} else {
 				reverseLocation := services.geocoder.ReverseGeocode(statusLatitude, statusLongitude)
-				contributorState = reverseLocation.Region
+				contributorRegion = reverseLocation.Region
 				contributorCity = reverseLocation.City
 				contributorCountry = reverseLocation.Country
-				//contributorCounty = reverseLocation.County
 
 				// keep these, no need to change - might change accuracy, etc.
 				contributorLat = statusLatitude
@@ -164,9 +165,8 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				ContributorLatitude:      contributorLat,
 				ContributorGeohash:       contributorLocationGeoHash,
 				ContributorCity:          contributorCity,
-				ContributorState:         contributorState,
+				ContributorRegion:        contributorRegion,
 				ContributorCountry:       contributorCountry,
-				ContributorCounty:        contributorCounty,
 				ContributorVerified:      Btoi(tweet.User.Verified),
 				ContributorFollowers:     tweet.User.FollowersCount,
 				ContributorStatusesCount: int(tweet.User.StatusesCount),
@@ -208,9 +208,8 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLatitude:   contributorLat,
 							ContributorGeohash:    contributorLocationGeoHash,
 							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
+							ContributorRegion:     contributorRegion,
 							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
 							Keyword:               keyword,
 						}
 						StoreHarvestedData(hashtag)
@@ -246,9 +245,8 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLatitude:   contributorLat,
 							ContributorGeohash:    contributorLocationGeoHash,
 							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
+							ContributorRegion:     contributorRegion,
 							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
 							Url:                   link.Url,
 							ExpandedUrl:           link.Expanded_url,
 							Host:                  linkHostName,
@@ -285,9 +283,8 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLatitude:   contributorLat,
 							ContributorGeohash:    contributorLocationGeoHash,
 							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
+							ContributorRegion:     contributorRegion,
 							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
 							Url:                   media.Url,
 							ExpandedUrl:           media.Expanded_url,
 							Host:                  mediaHostName,
@@ -322,9 +319,8 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 							ContributorLatitude:   contributorLat,
 							ContributorGeohash:    contributorLocationGeoHash,
 							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
+							ContributorRegion:     contributorRegion,
 							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
 							Tag:                   tag.Text,
 						}
 						StoreHarvestedData(hashtag)
@@ -401,9 +397,8 @@ func TwitterAccountStream(territoryName string, harvestState config.HarvestState
 			var contributorType = DetectContributorType(tweet.User.Name, contributorGender)
 
 			var contributorCountry = ""
-			var contributorState = ""
+			var contributorRegion = ""
 			var contributorCity = ""
-			var contributorCounty = ""
 
 			var statusLongitude = 0.0
 			var statusLatitude = 0.0
@@ -442,18 +437,16 @@ func TwitterAccountStream(territoryName string, harvestState config.HarvestState
 					location := services.geocoder.Geocode(tweet.User.Location)
 					contributorLat = location.Latitude
 					contributorLng = location.Longitude
-					contributorState = location.Region
+					contributorRegion = location.Region
 					contributorCity = location.City
 					contributorCountry = location.Country
-					//contributorCounty = location.County
 				}
 				//contributorLat, contributorLng = Geocode(tweet.User.Location)
 			} else {
 				reverseLocation := services.geocoder.ReverseGeocode(statusLatitude, statusLongitude)
-				contributorState = reverseLocation.Region
+				contributorRegion = reverseLocation.Region
 				contributorCity = reverseLocation.City
 				contributorCountry = reverseLocation.Country
-				//contributorCounty = reverseLocation.County
 
 				// keep these, no need to change - might change accuracy, etc.
 				contributorLat = statusLatitude
@@ -483,9 +476,8 @@ func TwitterAccountStream(territoryName string, harvestState config.HarvestState
 				ContributorLatitude:      contributorLat,
 				ContributorGeohash:       contributorLocationGeoHash,
 				ContributorCity:          contributorCity,
-				ContributorState:         contributorState,
+				ContributorRegion:        contributorRegion,
 				ContributorCountry:       contributorCountry,
-				ContributorCounty:        contributorCounty,
 				ContributorVerified:      Btoi(tweet.User.Verified),
 				ContributorFollowers:     tweet.User.FollowersCount,
 				ContributorStatusesCount: int(tweet.User.StatusesCount),
@@ -529,9 +521,8 @@ func TwitterAccountStream(territoryName string, harvestState config.HarvestState
 							ContributorLatitude:   contributorLat,
 							ContributorGeohash:    contributorLocationGeoHash,
 							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
+							ContributorRegion:     contributorRegion,
 							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
 							Url:                   link.Url,
 							ExpandedUrl:           link.Expanded_url,
 							Host:                  linkHostName,
@@ -570,9 +561,8 @@ func TwitterAccountStream(territoryName string, harvestState config.HarvestState
 							ContributorLatitude:   contributorLat,
 							ContributorGeohash:    contributorLocationGeoHash,
 							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
+							ContributorRegion:     contributorRegion,
 							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
 							Url:                   media.Url,
 							ExpandedUrl:           media.Expanded_url,
 							Host:                  mediaHostName,
@@ -609,9 +599,8 @@ func TwitterAccountStream(territoryName string, harvestState config.HarvestState
 							ContributorLatitude:   contributorLat,
 							ContributorGeohash:    contributorLocationGeoHash,
 							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
+							ContributorRegion:     contributorRegion,
 							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
 							Tag:                   tag.Text,
 						}
 						// Send to the harvester observer

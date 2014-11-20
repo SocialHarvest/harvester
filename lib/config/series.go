@@ -88,8 +88,11 @@ type SocialHarvestMessage struct {
 	ContributorLang       string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
 	ContributorCountry    string  `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
 	ContributorCity       string  `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
-	ContributorState      string  `json:"contributor_state" db:"contributor_state" bson:"contributor_state"`
-	ContributorCounty     string  `json:"contributor_county" db:"contributor_county" bson:"contributor_county"`
+	ContributorRegion     string  `json:"contributor_region" db:"contributor_region" bson:"contributor_region"`
+	// County isn't always available with Geobed information and while many counties will be, they still need to be decoded with the Geonames data set (id numbers to string names).
+	// When Geobed updates, then Social Harvest can add county information in again. "State" (US state) has also changed to "Region" due to the data sets being used.
+	// A little consistency has been lost, but geocoding is all internal now. Not a bad trade off.
+	// ContributorCounty     string  `json:"contributor_county" db:"contributor_county" bson:"contributor_county"`
 
 	// Data that changes, think about the value of having it...maybe remove it... API calls can always be made to get this current info.
 	// But this kinda gives a user an idea for influencers (at the harvest time at least). So while it's definitely dated...It could be used as a
@@ -135,8 +138,7 @@ type SocialHarvestSharedLink struct {
 	ContributorLang       string    `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
 	ContributorCountry    string    `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
 	ContributorCity       string    `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
-	ContributorState      string    `json:"contributor_state" db:"contributor_state" bson:"contributor_state"`
-	ContributorCounty     string    `json:"contributor_county" db:"contributor_county" bson:"contributor_county"`
+	ContributorRegion     string    `json:"contributor_region" db:"contributor_region" bson:"contributor_region"`
 	Type                  string    `json:"type" db:"type" bson:"type"`
 	Preview               string    `json:"preview" db:"preview" bson:"preview"`
 	Source                string    `json:"source" db:"source" bson:"source"`
@@ -173,8 +175,7 @@ type SocialHarvestHashtag struct {
 	ContributorLang       string  `json:"contributor_lang" db:"contributor_lang" bson:"contributor_lang"`
 	ContributorCountry    string  `json:"contributor_country" db:"contributor_country" bson:"contributor_country"`
 	ContributorCity       string  `json:"contributor_city" db:"contributor_city" bson:"contributor_city"`
-	ContributorState      string  `json:"contributor_state" db:"contributor_state" bson:"contributor_state"`
-	ContributorCounty     string  `json:"contributor_county" db:"contributor_county" bson:"contributor_county"`
+	ContributorRegion     string  `json:"contributor_region" db:"contributor_region" bson:"contributor_region"`
 }
 
 // When contributors mention other contributors (and from where - useful for tracking customer base for example). This series tells a good story visually (hopefully on a map).

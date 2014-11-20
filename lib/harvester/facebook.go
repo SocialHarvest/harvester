@@ -233,15 +233,18 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 
 			// Reverse code to get city, state, country, etc.
 			var contributorCountry = ""
-			var contributorState = ""
+			var contributorRegion = ""
 			var contributorCity = ""
-			var contributorCounty = ""
+			// This isn't always available with Geobed information and while many counties will be, they still need to be decoded with the Geonames data set (id numbers to string names).
+			// When Geobed updates, then Social Harvest can add county information in again. "State" (US state) has also changed to "Region" due to the data sets being used.
+			// A little consistency has been lost, but geocoding is all internal now. Not a bad trade off.
+			// var contributorCounty = ""
 			if contributor.Location.Latitude != 0.0 && contributor.Location.Latitude != 0.0 {
 				reverseLocation := services.geocoder.ReverseGeocode(contributor.Location.Latitude, contributor.Location.Longitude)
-				contributorState = reverseLocation.Region
+				contributorRegion = reverseLocation.Region
 				contributorCity = reverseLocation.City
 				contributorCountry = reverseLocation.Country
-				// contributorCounty = reverseLocation.County // not always available (yet, may add it to geobed)
+				// contributorCounty = reverseLocation.County
 			}
 
 			// Geohash
@@ -269,9 +272,8 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 				ContributorLatitude:   contributor.Location.Latitude,
 				ContributorGeohash:    locationGeoHash,
 				ContributorCity:       contributorCity,
-				ContributorState:      contributorState,
+				ContributorRegion:     contributorRegion,
 				ContributorCountry:    contributorCountry,
-				ContributorCounty:     contributorCounty,
 				ContributorLikes:      contributor.Likes,
 				Message:               post.Message,
 				FacebookShares:        post.Shares.Count,
@@ -306,9 +308,8 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 							ContributorLatitude:   contributor.Location.Latitude,
 							ContributorGeohash:    locationGeoHash,
 							ContributorCity:       contributorCity,
-							ContributorState:      contributorState,
+							ContributorRegion:     contributorRegion,
 							ContributorCountry:    contributorCountry,
-							ContributorCounty:     contributorCounty,
 							Keyword:               keyword,
 						}
 						StoreHarvestedData(hashtag)
@@ -336,9 +337,8 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 					ContributorLatitude:   contributor.Location.Latitude,
 					ContributorGeohash:    locationGeoHash,
 					ContributorCity:       contributorCity,
-					ContributorState:      contributorState,
+					ContributorRegion:     contributorRegion,
 					ContributorCountry:    contributorCountry,
-					ContributorCounty:     contributorCounty,
 					Type:                  post.Type,
 					Preview:               post.Picture,
 					Source:                post.Source,

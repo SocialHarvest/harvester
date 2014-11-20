@@ -100,9 +100,8 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 				var contributorType = DetectContributorType(item.User.FullName, contributorGender)
 
 				var contributorCountry = ""
-				var contributorState = ""
+				var contributorRegion = ""
 				var contributorCity = ""
-				var contributorCounty = ""
 
 				var statusLongitude = 0.0
 				var statusLatitude = 0.0
@@ -116,10 +115,9 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 				contributorLng := 0.0
 				if statusLatitude != 0.0 && statusLatitude != 0.0 {
 					reverseLocation := services.geocoder.ReverseGeocode(statusLatitude, statusLongitude)
-					contributorState = reverseLocation.Region
+					contributorRegion = reverseLocation.Region
 					contributorCity = reverseLocation.City
 					contributorCountry = reverseLocation.Country
-					//contributorCounty = reverseLocation.County
 
 					// They don't provide user location of any sort, so use the status lat/lng.
 					contributorLat = statusLatitude
@@ -164,9 +162,8 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 					ContributorLatitude:      contributorLat,
 					ContributorGeohash:       contributorLocationGeoHash,
 					ContributorCity:          contributorCity,
-					ContributorState:         contributorState,
+					ContributorRegion:        contributorRegion,
 					ContributorCountry:       contributorCountry,
-					ContributorCounty:        contributorCounty,
 					ContributorFollowers:     contributorFollowedByCount,
 					ContributorStatusesCount: contributorMediaCount,
 					ContributorGender:        contributorGender,
@@ -202,9 +199,8 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 								ContributorLatitude:   contributorLat,
 								ContributorGeohash:    contributorLocationGeoHash,
 								ContributorCity:       contributorCity,
-								ContributorState:      contributorState,
+								ContributorRegion:     contributorRegion,
 								ContributorCountry:    contributorCountry,
-								ContributorCounty:     contributorCounty,
 								ContributorGender:     contributorGender,
 								ContributorType:       contributorType,
 								Keyword:               keyword,
@@ -246,9 +242,8 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 					ContributorLatitude:   contributorLat,
 					ContributorGeohash:    contributorLocationGeoHash,
 					ContributorCity:       contributorCity,
-					ContributorState:      contributorState,
+					ContributorRegion:     contributorRegion,
 					ContributorCountry:    contributorCountry,
-					ContributorCounty:     contributorCounty,
 					ContributorGender:     contributorGender,
 					ContributorType:       contributorType,
 					Url:                   item.Link,
@@ -282,9 +277,8 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 								ContributorLatitude:   contributorLat,
 								ContributorGeohash:    contributorLocationGeoHash,
 								ContributorCity:       contributorCity,
-								ContributorState:      contributorState,
+								ContributorRegion:     contributorRegion,
 								ContributorCountry:    contributorCountry,
-								ContributorCounty:     contributorCounty,
 								ContributorGender:     contributorGender,
 								ContributorType:       contributorType,
 								Tag:                   tag,

@@ -4,6 +4,17 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.14.0
+-------------
+
+Adjusted the schema for several series. ```ContibutorState``` is now ```ContributorRegion``` because it can include more 
+then just a US state. It is the equivalent to "admin2 code" in the Geonames data set. ```ContributorCounty``` has been 
+removed. However, it may be added back in the future. The Geobed package can use yet another data set to decode id number 
+values to county names. However, it likely won't be added until needed (or until there's a better time to do so). This 
+does not affect plotted points on a map of course. The only benefit would be to group by county or fill a cloropleth 
+vector map (like those seen with D3.js). However, those are typically for US counties anyway. So it's limited. We can 
+also always get this kind of information after the fact given we have city, region, country.
+
 ## 0.13.0
 -------------
 
