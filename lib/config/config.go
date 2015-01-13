@@ -50,7 +50,7 @@ type SocialHarvestConf struct {
 		} `json:"cors"`
 		AuthKeys []string `json:"authKeys"`
 		Disabled bool     `json:"disabled"`
-	} `json:"harvesterServer"`
+	} `json:"server"`
 	ReporterServer struct {
 		Port int `json:"port"`
 		Cors struct {
