@@ -61,7 +61,7 @@ func NewTwitterTerritoryCredentials(territory string) {
 func TwitterSearch(territoryName string, harvestState config.HarvestState, query string, options url.Values) (url.Values, config.HarvestState) {
 	searchResults, _ := services.twitter.GetSearch(query, options)
 	// The cool thing about Twitter's API is that we have all the user data we need already. So we make less HTTP requests than when using Facebook's API.
-	for _, tweet := range searchResults {
+	for _, tweet := range searchResults.Statuses {
 		//log.Println(tweet)
 		//	log.Println("processing a tweet....")
 
