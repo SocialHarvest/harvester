@@ -13,6 +13,11 @@ build:
         code: |
           cd $WERCKER_SOURCE_DIR
           go version
+          go get github.com/lib/pq
+          go get github.com/stretchr/testify
+          go get gopkg.in/check.v1
+          go get github.com/axw/gocov/gocov
+          go get github.com/mattn/goveralls
           go get -t ./...
 
     # Build the project
@@ -25,4 +30,8 @@ build:
     - script:
         name: go test
         code: |
-          go test ./...
+          go test -coverprofile a.part ./
+          go test -coverprofile b.part ./lib/harvester
+          echo "mode: set" >coverage.out
+          grep -h -v "mode: set" *.part >>coverage.out
+          goveralls -coverprofile=coverage.out -service drone.io -repotoken $COVERALLS_TOKEN
