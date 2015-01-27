@@ -281,6 +281,7 @@ func FacebookPostsOut(posts []FacebookPost, territoryName string, params Faceboo
 				Message:                   post.Message,
 				FacebookShares:            post.Shares.Count,
 				Category:                  contributor.Category,
+				Sentiment:                 services.sentimentAnalyzer.Classify(post.Message),
 				IsQuestion:                Btoi(IsQuestion(post.Message, harvestConfig.QuestionRegex)),
 			}
 			StoreHarvestedData(messageRow)

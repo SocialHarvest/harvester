@@ -172,6 +172,7 @@ func InstagramSearch(territoryName string, harvestState config.HarvestState, tag
 					ContributorGender:         contributorGender,
 					ContributorType:           contributorType,
 					Message:                   caption,
+					Sentiment:                 services.sentimentAnalyzer.Classify(caption),
 					IsQuestion:                isQuestion,
 					MessageId:                 item.ID,
 					LikeCount:                 item.Likes.Count,

@@ -22,6 +22,7 @@ import (
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/geobed"
 	"github.com/SocialHarvest/harvester/lib/config"
+	"github.com/SocialHarvest/sentiment"
 	"github.com/carbocation/go-instagram/instagram"
 	"net"
 	"net/http"
@@ -29,12 +30,13 @@ import (
 )
 
 type harvesterServices struct {
-	twitter          *anaconda.TwitterApi
-	facebookAppToken string
-	instagram        *instagram.Client
-	googlePlus       *plus.Service
-	youTube          *youtube.Service
-	geocoder         geobed.GeoBed
+	twitter           *anaconda.TwitterApi
+	facebookAppToken  string
+	instagram         *instagram.Client
+	googlePlus        *plus.Service
+	youTube           *youtube.Service
+	geocoder          geobed.GeoBed
+	sentimentAnalyzer sentiment.Analyzer
 }
 
 var harvestConfig = config.HarvestConfig{}
@@ -53,6 +55,8 @@ func New(configuration config.SocialHarvestConf, database *config.SocialHarvestD
 	NewYouTube(configuration.Services)
 	// I'm calling this a "service" because I want to treat it as such, though it's local in memory data.
 	services.geocoder = geobed.NewGeobed()
+	// Same for the sentiment analyzer (note: both of these packages require an up front data download and memory allocation).
+	services.sentimentAnalyzer = sentiment.NewAnalyzer()
 
 	// StoreHarvestedData() needs this now
 	socialHarvestDB = database

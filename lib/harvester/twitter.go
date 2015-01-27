@@ -177,6 +177,7 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 				ContributorGender:         contributorGender,
 				ContributorType:           contributorType,
 				Message:                   tweet.Text,
+				Sentiment:                 services.sentimentAnalyzer.Classify(tweet.Text),
 				IsQuestion:                Btoi(IsQuestion(tweet.Text, harvestConfig.QuestionRegex)),
 				MessageId:                 tweet.IdStr,
 				TwitterRetweetCount:       tweet.RetweetCount,

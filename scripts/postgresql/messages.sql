@@ -29,6 +29,7 @@ CREATE TABLE "messages" (
 	"contributor_listed_count" int4,
 	"contributor_followers" int4,
 	"contributor_verified" int2,
+	"sentiment" int2,
 	"is_question" int2,
 	"category" varchar(100) COLLATE "default",
 	"twitter_retweet_count" int4,

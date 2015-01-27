@@ -157,6 +157,7 @@ func GooglePlusActivitySearch(territoryName string, harvestState config.HarvestS
 					ContributorRegion:         contributorRegion,
 					ContributorCountry:        contributorCountry,
 					Message:                   item.Object.Content,
+					Sentiment:                 services.sentimentAnalyzer.Classify(item.Object.Content),
 					IsQuestion:                Btoi(IsQuestion(item.Object.OriginalContent, harvestConfig.QuestionRegex)),
 					GooglePlusReshares:        item.Object.Resharers.TotalItems,
 					GooglePlusOnes:            item.Object.Plusoners.TotalItems,

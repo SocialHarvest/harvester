@@ -108,6 +108,7 @@ type SocialHarvestMessage struct {
 	Message    string `json:"message" db:"message" bson:"message"`
 	IsQuestion int    `json:"is_question" db:"is_question" bson:"is_question"`
 	Category   string `json:"category" db:"category" bson:"category"`
+	Sentiment  int    `json:"sentiment" db:"sentiment" bson:"sentiment"`
 	// Note these values are at the time of harvest. it may be confusing enough to not need these values stored...but how long can we track each message? API rate limits...
 	// TODO: Maybe remove these? (think on it) also these technically don't need prefixes because we have the "network" field.
 	FacebookShares       int `json:"facebook_shares" db:"facebook_shares" bson:"facebook_shares"`

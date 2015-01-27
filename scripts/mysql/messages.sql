@@ -35,6 +35,7 @@ CREATE TABLE `messages` (
   `contributor_listed_count` int(11) DEFAULT NULL,
   `contributor_followers` int(11) DEFAULT NULL,
   `contributor_verified` smallint(6) DEFAULT NULL,
+  `sentiment` smallint(6) NOT NULL DEFAULT '0',
   `is_question` smallint(6) NOT NULL DEFAULT '0',
   `category` varchar(100) DEFAULT NULL,
   `twitter_retweet_count` int(11) NOT NULL DEFAULT '0',
