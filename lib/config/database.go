@@ -19,14 +19,10 @@ package config
 import (
 	"bytes"
 	//"github.com/asaskevich/govalidator"
-	influxdb "github.com/influxdb/influxdb/client"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	// _ "github.com/mathume/monet"
-	"github.com/mitchellh/mapstructure"
-	"hash/crc64"
 	"log"
-	"net/http"
 	"reflect"
 	"strconv"
 	"time"
@@ -34,7 +30,6 @@ import (
 
 type SocialHarvestDB struct {
 	Postgres *sqlx.DB
-	InfluxDB *influxdb.Client
 	MonetDB  *sqlx.DB
 	Series   []string
 	Schema   struct {
@@ -65,23 +60,7 @@ func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 	// Holds some options that will adjust the schema
 	database.Schema = config.Schema
 
-	// Now supporting Postgres OR InfluxDB
-	// (for now...may add more in the future...the re-addition of InfluxDB is to satisfy performance curiosities, it may go away. Postgres will ALWAYS be supported.)
-	// actually, if config.Database becomes an array, we can write to multiple databases...
 	switch config.Database.Type {
-	case "influxdb":
-		config := &influxdb.ClientConfig{
-			Host:       config.Database.Host + ":" + strconv.Itoa(config.Database.Port),
-			Username:   config.Database.User,
-			Password:   config.Database.Password,
-			Database:   config.Database.Database,
-			HttpClient: http.DefaultClient,
-		}
-		database.InfluxDB, err = influxdb.NewClient(config)
-		if err != nil {
-			log.Println(err)
-			return &database
-		}
 	case "postgres", "postgresql":
 		// Note that sqlx just wraps database/sql and `database.Postgres` gets a sqlx.DB which is essentially a wrapped sql.DB
 		database.Postgres, err = sqlx.Connect("postgres", "host="+config.Database.Host+" port="+strconv.Itoa(config.Database.Port)+" sslmode=disable dbname="+config.Database.Database+" user="+config.Database.User+" password="+config.Database.Password)
@@ -100,7 +79,7 @@ func NewDatabase(config SocialHarvestConf) *SocialHarvestDB {
 
 	// Data older than the (optional) retention period won't be stored.
 	database.RetentionDays = config.Database.RetentionDays
-	// Optional partitioning (useful for both InfluxDB's "duration" AND Postgres which has a PARTITION feature)
+	// Optional partitioning (useful for Postgres which has a PARTITION feature)
 	database.PartitionDays = config.Database.PartitionDays
 
 	// Keep a list of series (tables/collections/series - whatever the database calls them, we're going with series because we're really dealing with time with just about all our data)
@@ -168,46 +147,11 @@ func (database *SocialHarvestDB) SetLastHarvestTime(territory string, network st
 }
 
 // Gets the last harvest time for a given action, value, and network (NOTE: This doesn't necessarily need to have been set, it could be empty...check with time.IsZero()).
-// TODO: Support InfluxDB
 func (database *SocialHarvestDB) GetLastHarvestTime(territory string, network string, action string, value string) time.Time {
 	var lastHarvestTime time.Time
 	var lastHarvest SocialHarvestHarvest
 	if database.Postgres != nil {
 		database.Postgres.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
-	}
-	if database.InfluxDB != nil {
-		var buffer bytes.Buffer
-		buffer.WriteString("SELECT * FROM harvest WHERE network = '")
-		buffer.WriteString(network)
-		buffer.WriteString("' AND action = '")
-		buffer.WriteString(action)
-		buffer.WriteString("' AND value = '")
-		buffer.WriteString(value)
-		buffer.WriteString("' AND territory = '")
-		buffer.WriteString(territory)
-		buffer.WriteString("' LIMIT 1")
-		query := buffer.String()
-		buffer.Reset()
-
-		result, err := database.InfluxDB.Query(query)
-		if err == nil {
-			if len(result) > 0 {
-				if len(result[0].Points) > 0 {
-					mappedRecord := map[string]interface{}{}
-					keys := result[0].Columns
-					// Just one in this case (see LIMIT 1 above)
-					record := result[0].Points[0]
-					for i := 0; i < len(keys); i++ {
-						mappedRecord[keys[i]] = record[i]
-					}
-					// mapstructure is a very handy package in this case...
-					err = mapstructure.Decode(mappedRecord, &lastHarvest)
-					if err != nil {
-						log.Println(err)
-					}
-				}
-			}
-		}
 	}
 
 	// log.Println(lastHarvest)
@@ -216,106 +160,21 @@ func (database *SocialHarvestDB) GetLastHarvestTime(territory string, network st
 }
 
 // Gets the last harvest id for a given task, param, and network.
-// TODO: Support InfluxDB
 func (database *SocialHarvestDB) GetLastHarvestId(territory string, network string, action string, value string) string {
 	lastHarvestId := ""
 	var lastHarvest SocialHarvestHarvest
 	if database.Postgres != nil {
 		database.Postgres.Get(&lastHarvest, "SELECT * FROM harvest WHERE network = $1 AND action = $2 AND value = $3 AND territory = $4", network, action, value, territory)
 	}
-	if database.InfluxDB != nil {
-		var buffer bytes.Buffer
-		buffer.WriteString("SELECT * FROM harvest WHERE network = '")
-		buffer.WriteString(network)
-		buffer.WriteString("' AND action = '")
-		buffer.WriteString(action)
-		buffer.WriteString("' AND value = '")
-		buffer.WriteString(value)
-		buffer.WriteString("' AND territory = '")
-		buffer.WriteString(territory)
-		buffer.WriteString("' LIMIT 1")
-		query := buffer.String()
-		buffer.Reset()
-
-		result, err := database.InfluxDB.Query(query)
-		if err == nil {
-			if len(result) > 0 {
-				if len(result[0].Points) > 0 {
-					mappedRecord := map[string]interface{}{}
-					keys := result[0].Columns
-					// Just one in this case (see LIMIT 1 above)
-					record := result[0].Points[0]
-					for i := 0; i < len(keys); i++ {
-						mappedRecord[keys[i]] = record[i]
-					}
-					// mapstructure is a very handy package in this case...
-					err = mapstructure.Decode(mappedRecord, &lastHarvest)
-					if err != nil {
-						log.Println(err)
-					}
-				}
-			}
-		}
-	}
 
 	lastHarvestId = lastHarvest.LastIdHarvested
 	return lastHarvestId
 }
 
-// For InfluxDB. This hash (crc64 checksum) should not easily repeat itself with the time field. Time is to the second in most cases, hashing the message id (id_str for Twitter and Facebook's Id values are strings) should avoid dupes just in case a message is processed twice.
-func MakeSequenceHash(hash string) uint64 {
-	crcTable := crc64.MakeTable(crc64.ECMA)
-	hashBytes := []byte(hash)
-	return crc64.Checksum(hashBytes, crcTable)
-}
-
-// Returns data in a series of points for use with InfluxDB, optionally filtering which fields end up in the series.
-func MakeInfluxRow(row interface{}, fields []string) [][]interface{} {
-	// The values
-	v := reflect.ValueOf(row)
-	// The type (which let's us get the struct field names)
-	vT := reflect.TypeOf(row)
-	values := make([]interface{}, v.NumField())
-	for i := 0; i < v.NumField(); i++ {
-		switch v.Field(i).Interface().(type) {
-		case time.Time:
-			// InfluxDB wants time as int64, ms precision.
-			timeField := v.Field(i).Interface()
-			values[i] = (timeField.(time.Time).Unix() * 1000)
-		default:
-			if len(fields) > 0 {
-				for _, fieldVal := range fields {
-					// If the field from the `row` is listed in `fields` then keep it.
-					if fieldVal == vT.Field(i).Tag.Get("json") {
-						values[i] = v.Field(i).Interface()
-					}
-				}
-			} else {
-				// If `fields` is empty, return all of the fields.
-				values[i] = v.Field(i).Interface()
-			}
-		}
-	}
-	// TODO: Maybe make the sequence_hash optional by looking for it in fields if there have been fields specified? or another argument
-	// We likely will always want a sequence_number generated to avoid dupes...But it's theoretically possible that we would want it to get automaticalled assigned
-	// by InfluxDB somewhere, since this MakeInfluxRow() could be called for a variety of reasons aside from harvested data storage.
-
-	// If we have a HarvestId, convert it to a sequence_number for InfluxDB (helps prevent dupes)
-	harvestId := reflect.ValueOf(row).FieldByName("HarvestId")
-	if harvestId.IsValid() {
-		sequenceHash := MakeSequenceHash(harvestId.String())
-		values = append(values, sequenceHash)
-	}
-	points := [][]interface{}{}
-	points = append(points, values)
-
-	return points
-}
-
 // Stores a harvested row of data into the configured database.
 func (database *SocialHarvestDB) StoreRow(row interface{}) {
 	// A database connection is not required to use Social Harvest (could be logging to file)
-	if database.Postgres == nil && database.InfluxDB == nil {
+	if database.Postgres == nil {
 		// log.Println("There appears to be no database connection.")
 		return
 	}
@@ -394,103 +253,6 @@ func (database *SocialHarvestDB) StoreRow(row interface{}) {
 		case SocialHarvestHarvest:
 			_, err = database.Postgres.NamedExec("INSERT INTO harvest (territory, network, action, value, last_time_harvested, last_id_harvested, items_harvested, harvest_time) VALUES (:territory, :network, :action, :value, :last_time_harvested, :last_id_harvested, :items_harvested, :harvest_time);", row)
 			if err != nil {
-				//log.Println(err)
-			}
-		default:
-			// log.Println("trying to store unknown collection")
-		}
-	}
-
-	if database.InfluxDB != nil {
-		var series = []*influxdb.Series{}
-		switch row.(type) {
-		case SocialHarvestMessage:
-			message := &influxdb.Series{
-				Name:    "messages",
-				Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_region", "contributor_city_pop", "contributor_likes", "contributor_statuses_count", "contributor_listed_count", "contributor_followers", "contributor_verified", "message", "is_question", "category", "facebook_shares", "twitter_retweet_count", "twitter_favorite_count", "like_count", "google_plus_reshares", "google_plus_ones", "sequence_number"},
-				Points:  MakeInfluxRow(row, []string{}),
-			}
-			series = append(series, message)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				//log.Println(err)
-			}
-		case SocialHarvestSharedLink:
-			sharedLink := &influxdb.Series{}
-			if database.Schema.Compact {
-				sharedLink = &influxdb.Series{
-					Name:    "shared_links",
-					Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "type", "preview", "source", "url", "expanded_url", "host", "sequence_number"},
-					Points:  MakeInfluxRow(row, []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "type", "preview", "source", "url", "expanded_url", "host"}),
-				}
-			} else {
-				sharedLink = &influxdb.Series{
-					Name:    "shared_links",
-					Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_region", "contributor_city_pop", "type", "preview", "source", "url", "expanded_url", "host", "sequence_number"},
-					Points:  MakeInfluxRow(row, []string{}),
-				}
-			}
-
-			series = append(series, sharedLink)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				//log.Println(err)
-			}
-		case SocialHarvestMention:
-			mention := &influxdb.Series{}
-			if database.Schema.Compact {
-				mention = &influxdb.Series{
-					Name:    "mentions",
-					Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "mentioned_id", "mentioned_screen_name", "mentioned_name", "mentioned_gender", "mentioned_type", "mentioned_longitude", "mentioned_latitude", "mentioned_geohash", "mentioned_lang", "sequence_number"},
-					Points:  MakeInfluxRow(row, []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "mentioned_id", "mentioned_screen_name", "mentioned_name", "mentioned_gender", "mentioned_type", "mentioned_longitude", "mentioned_latitude", "mentioned_geohash", "mentioned_lang", "sequence_number"}),
-				}
-			} else {
-				mention = &influxdb.Series{
-					Name:    "mentions",
-					Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "mentioned_id", "mentioned_screen_name", "mentioned_name", "mentioned_gender", "mentioned_type", "mentioned_longitude", "mentioned_latitude", "mentioned_geohash", "mentioned_lang", "sequence_number"},
-					Points:  MakeInfluxRow(row, []string{}),
-				}
-			}
-
-			series = append(series, mention)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				//log.Println(err)
-			}
-		case SocialHarvestHashtag:
-			hashtag := &influxdb.Series{}
-			if database.Schema.Compact {
-				hashtag = &influxdb.Series{
-					Name:    "hashtags",
-					Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "tag", "keyword", "contributor_id", "sequence_number"},
-					Points:  MakeInfluxRow(row, []string{"time", "harvest_id", "territory", "network", "message_id", "tag", "keyword", "contributor_id"}),
-				}
-			} else {
-				hashtag = &influxdb.Series{
-					Name:    "hashtags",
-					Columns: []string{"time", "harvest_id", "territory", "network", "message_id", "tag", "keyword", "contributor_id", "contributor_screen_name", "contributor_name", "contributor_gender", "contributor_type", "contributor_longitude", "contributor_latitude", "contributor_geohash", "contributor_lang", "contributor_country", "contributor_city", "contributor_region", "contributor_city_pop", "sequence_number"},
-					Points:  MakeInfluxRow(row, []string{}),
-				}
-			}
-			series = append(series, hashtag)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				//log.Println(err)
-			}
-		case SocialHarvestContributorGrowth:
-			growth := &influxdb.Series{
-				Name:    "contributor_growth",
-				Columns: []string{"time", "harvest_id", "territory", "network", "contributor_id", "likes", "talking_about", "were_here", "checkins", "views", "status_updates", "listed", "favorites", "followers", "following", "plus_ones", "comments", "sequence_number"},
-				Points:  MakeInfluxRow(row, []string{}),
-			}
-			series = append(series, growth)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
-				//log.Println(err)
-			}
-		case SocialHarvestHarvest:
-			harvest := &influxdb.Series{
-				Name:    "harvest",
-				Columns: []string{"territory", "network", "action", "value", "last_time_harvested", "last_id_harvested", "items_harvested", "harvest_time"},
-				Points:  MakeInfluxRow(row, []string{}),
-			}
-			series = append(series, harvest)
-			if err := database.InfluxDB.WriteSeries(series); err != nil {
 				//log.Println(err)
 			}
 		default:
@@ -620,9 +382,6 @@ func (database *SocialHarvestDB) HasAccess() bool {
 		} else {
 			return false
 		}
-	}
-	if database.InfluxDB != nil {
-
 	}
 
 	return false

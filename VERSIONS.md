@@ -4,6 +4,16 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.16.0 Alpha
+-------------
+
+Unfortunately had to remove support for InfluxDB as a storage engine. InfluxDB is undergoing some major changes and 
+the client package has become unstable as a result (in terms of its API and breaking changes). Until InfluxDB is more 
+stable, it has been removed. It wasn't working well for analytics anyway and hopefully that will change as well.
+
+InfluxDB can still, of course, be used if setup through Fluentd. Fluentd can read log output from Social Harvest 
+in order to store data practically anywhere.
+
 ## 0.15.0 Alpha
 -------------
 

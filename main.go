@@ -33,7 +33,7 @@ import (
 	"strconv"
 )
 
-var appVersion = "0.15.0-alpha"
+var appVersion = "0.16.0-alpha"
 var confFile string
 var socialHarvest = config.SocialHarvest{}
 
@@ -167,9 +167,6 @@ func DatabaseInfo(w rest.ResponseWriter, r *rest.Request) {
 		//res.Data["r"] = r
 		//res.Data["err"] = err
 		res.Data["hasAccess"] = socialHarvest.Database.HasAccess()
-	}
-	if socialHarvest.Database.InfluxDB != nil {
-		res.Data["type"] = "infxludb"
 	}
 
 	res.Data["configuredType"] = socialHarvest.Config.Database.Type
