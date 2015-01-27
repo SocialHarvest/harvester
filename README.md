@@ -1,5 +1,5 @@
 #Social Harvest (harvester)
-[![Gitter chat](https://badges.gitter.im/SocialHarvest/harvester.png)](https://gitter.im/SocialHarvest/harvester) [![Build Status](https://drone.io/github.com/SocialHarvest/harvester/status.png)](https://drone.io/github.com/SocialHarvest/harvester/latest) [![Coverage Status](https://coveralls.io/repos/SocialHarvest/harvester/badge.png?branch=master)](https://coveralls.io/r/SocialHarvest/harvester?branch=master)
+[![wercker status](https://app.wercker.com/status/f2922c2bb4a25b6c5adc65ae41b751bb/s "wercker status")](https://app.wercker.com/project/bykey/f2922c2bb4a25b6c5adc65ae41b751bb) [![Coverage Status](https://coveralls.io/repos/SocialHarvest/harvester/badge.png?branch=master)](https://coveralls.io/r/SocialHarvest/harvester?branch=master)
 
 http://www.socialharvest.io
 
