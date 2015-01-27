@@ -364,18 +364,18 @@ func main() {
 
 	// Immedate calls to use for testing during development
 	// Search Facebook public posts using keywords in Social Harvest config
-	go FacebookPublicMessagesByKeyword()
-	//Search Facebook public feeds using account ids in Social Harvest config
-	go FacebookMessagesByAccount()
-	//Search Twitter using keywords in Social Harvest config
-	go TwitterPublicMessagesByKeyword()
-	go TwitterPublicMessagesByAccount()
-	// Search Instagram
-	go InstagramMediaByKeyword()
-	go GooglePlusActivitieByKeyword()
-	go GooglePlusActivitieByAccount()
-	go HarvestAllContent()
-	go HarvestAllAccounts()
+	// go FacebookPublicMessagesByKeyword()
+	// //Search Facebook public feeds using account ids in Social Harvest config
+	// go FacebookMessagesByAccount()
+	// //Search Twitter using keywords in Social Harvest config
+	// go TwitterPublicMessagesByKeyword()
+	// go TwitterPublicMessagesByAccount()
+	// // Search Instagram
+	// go InstagramMediaByKeyword()
+	// go GooglePlusActivitieByKeyword()
+	// go GooglePlusActivitieByAccount()
+	// go HarvestAllContent()
+	// go HarvestAllAccounts()
 
 	//TODO: Continue with this...
 	//socialHarvest.Database.CreatePartitionTable("messages")

@@ -4,6 +4,14 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.15.0 Alpha
+-------------
+
+With the addition of sentiment analysis, Social Harvest (harvester) is now in a feature complete state. Very little, 
+in terms of API and schema for harvested data is expected to change between now and version 1.0. The first version 
+of Social Harvest is focusing on analyzing and monitoring a core set of social networks with internal tools. There 
+are no 3rd party APIs being used for geolocation, sentiment, or gender detection. This has prompted the "alpha" label.
+
 ## 0.14.0
 -------------
 
