@@ -91,30 +91,13 @@ func TwitterSearch(territoryName string, harvestState config.HarvestState, query
 
 			var statusLongitude = 0.0
 			var statusLatitude = 0.0
-			// TODO: is there a better way to do this? sheesh
-			switch coordMap := tweet.Coordinates.(type) {
-			case map[string]interface{}:
-				for k, v := range coordMap {
-					if k == "coordinates" {
-						switch coords := v.(type) {
-						case []interface{}:
-							for i, c := range coords {
-								switch cFloat := c.(type) {
-								case float64:
-									if i == 0 {
-										statusLongitude = cFloat
-									}
-									if i == 1 {
-										statusLatitude = cFloat
-									}
-									break
-								}
-							}
-						}
-
-					}
-				}
-				break
+			lng, errLng := tweet.Longitude()
+			if errLng == nil {
+				statusLongitude = lng
+			}
+			lat, errLat := tweet.Latitude()
+			if errLat == nil {
+				statusLatitude = lat
 			}
 
 			// Contributor location lookup (if no lat/lng was found on the message - try to reduce number of geocode lookups)
@@ -412,30 +395,13 @@ func TwitterAccountStream(territoryName string, harvestState config.HarvestState
 
 			var statusLongitude = 0.0
 			var statusLatitude = 0.0
-			// TODO: is there a better way to do this? sheesh
-			switch coordMap := tweet.Coordinates.(type) {
-			case map[string]interface{}:
-				for k, v := range coordMap {
-					if k == "coordinates" {
-						switch coords := v.(type) {
-						case []interface{}:
-							for i, c := range coords {
-								switch cFloat := c.(type) {
-								case float64:
-									if i == 0 {
-										statusLongitude = cFloat
-									}
-									if i == 1 {
-										statusLatitude = cFloat
-									}
-									break
-								}
-							}
-						}
-
-					}
-				}
-				break
+			lng, errLng := tweet.Longitude()
+			if errLng == nil {
+				statusLongitude = lng
+			}
+			lat, errLat := tweet.Latitude()
+			if errLat == nil {
+				statusLatitude = lat
 			}
 
 			// Contributor location lookup (if no lat/lng was found on the message - try to reduce number of geocode lookups)

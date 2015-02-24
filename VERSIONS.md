@@ -4,6 +4,12 @@ Best efforts will be made to keep this up to date, but there are no guarantees b
 This file will log major feature advancements and bug fixes. Not quite everything will be noted (especially at first). 
 Please check GitHub issues.
 
+## 0.16.1 Alpha
+-------------
+
+The Twitter "anaconda" package had an update which caused a breaking change in the retrieval of status update location.
+
+
 ## 0.16.0 Alpha
 -------------
 
