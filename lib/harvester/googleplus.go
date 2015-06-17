@@ -20,7 +20,7 @@ import (
 	"code.google.com/p/google-api-go-client/googleapi/transport"
 	"code.google.com/p/google-api-go-client/plus/v1"
 	"github.com/SocialHarvest/harvester/lib/config"
-	geohash "github.com/TomiHiltunen/geohash-golang"
+	geohash "github.com/SocialHarvestVendors/geohash-golang"
 	"log"
 	"net/http"
 	"net/url"

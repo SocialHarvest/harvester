@@ -19,8 +19,8 @@ package config
 import (
 	"bytes"
 	//"github.com/asaskevich/govalidator"
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	_ "github.com/SocialHarvestVendors/pq"
+	"github.com/SocialHarvestVendors/sqlx"
 	// _ "github.com/mathume/monet"
 	"log"
 	"reflect"

@@ -17,7 +17,7 @@
 package config
 
 import (
-	"github.com/tmaiaroto/cron"
+	"github.com/SocialHarvestVendors/cron"
 	"log"
 )
 

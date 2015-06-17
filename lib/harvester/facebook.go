@@ -18,8 +18,8 @@ package harvester
 
 import (
 	"github.com/SocialHarvest/harvester/lib/config"
-	geohash "github.com/TomiHiltunen/geohash-golang"
-	"github.com/google/go-querystring/query"
+	geohash "github.com/SocialHarvestVendors/geohash-golang"
+	"github.com/SocialHarvestVendors/go-querystring/query"
 	//"github.com/mitchellh/mapstructure"
 	"bytes"
 	"encoding/json"

@@ -17,9 +17,9 @@
 package harvester
 
 import (
-	"github.com/ChimeraCoder/anaconda"
 	"github.com/SocialHarvest/harvester/lib/config"
-	geohash "github.com/TomiHiltunen/geohash-golang"
+	"github.com/SocialHarvestVendors/anaconda"
+	geohash "github.com/SocialHarvestVendors/geohash-golang"
 	"log"
 	"net/url"
 	"strconv"
