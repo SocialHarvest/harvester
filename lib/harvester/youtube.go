@@ -17,9 +17,9 @@
 package harvester
 
 import (
-	"code.google.com/p/google-api-go-client/googleapi/transport"
-	"code.google.com/p/google-api-go-client/youtube/v3"
 	"github.com/SocialHarvest/harvester/lib/config"
+	"github.com/SocialHarvestVendors/google-api-go-client/googleapi/transport"
+	"github.com/SocialHarvestVendors/google-api-go-client/youtube/v3"
 	//"encoding/json"
 	"log"
 	"net/http"

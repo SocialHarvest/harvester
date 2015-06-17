@@ -38,12 +38,11 @@ You can add as many allowed origins as you like in the configuration.
 
 ## Installation
 
-First, you'll need Git, Mercurial and Bazaar since a few packages use those version control systems. On Ubuntu it's as easy as 
-```apt-get install git``` and ```apt-get install bzr``` and ```apt-get install mercurial```. OS X has homebrew.
+Installation is pretty simple. You'll need to have Go installed and setup, then run: ```go get github.com/SocialHarvest/harvester``` 
 
-Installation is pretty simple. You'll need to have Go installed and with your $GOPATH set: ```go get github.com/SocialHarvest/harvester``` 
-
-Getting the Go packages this application uses is as simple as issueing a ```go get``` command before running or building.
+Getting the Go packages this application uses is as simple as issueing a ```go get``` command before running or building. Every 3rd party 
+package Social Harvest uses has been "vendored" (or forked and available from github.com/SocialHarvestVendors). Even packages that came 
+from other revision control systems. So this means everything should be Git and from GitHub.
 
 The data files used for various machine learning and analysis purposes will automatically be copied into an ```sh-data``` directory. 
 This directory will be created next to the binary or the source (if you ran without building). The data will be downloaded, if it doesn't 
@@ -51,13 +50,11 @@ exist in this directory already, each time the application starts. So if somethi
 the harvester application.
 
 Why the file download? Because ultimately these files could be quite large and they might come from S3 and this process more or less 
-installs things for you so you don't need to go wrangling dependencies. This will become more robust over time.
+installs things for you so you don't need to go wrangling dependencies. This will become more robust over time. Plus, GitHub doesn't
+want us storing such large files and getting the actual packages would take forever.
 
 If you're harvesting into a Postgres database, be sure to setup your tables using the SQL files in the ```scripts/postgresql``` directory. 
 It'll save you a lot of trouble. However, these will change during development until Social Harvest has a stable version released. 
-
-Alternatively, if you want to use InfluxDB, you'll need to install InfluxDB and set the configuration file. Since InfluxDB is schemaless, you won't 
-need to setup any series.
 
 Then to run Social Harvest before (or without) building it (at the package src under your $GOPATH), you can issue the following command because 
 there are multiple files in the main package (and you don't want to run the _test files):
@@ -66,14 +63,14 @@ there are multiple files in the main package (and you don't want to run the _tes
 go run main.go harvest.go
 ```
 
-Preferably, you'll just build a Social Harvest binary by running:
+Preferably, you'll just build and use a Social Harvest binary by running:
 
 ```
 go build
 ```
 
 You need not specify the files in this case. It will leave you with a ```harvester``` executable file. Run this. Once configured and running, you should 
-have a pretty awesome social media data harvester.
+have a pretty awesome social media data harvester. That is all the harvester is responsible for.
 
 ## Testing
 
@@ -96,17 +93,22 @@ per second, but we aren't going to have that many results from an API returned t
 
 Still, speed and concurrency are part of Social Harvest's goals.
 
-## Contributing
+## Contributing & Licensing
 
 Social Harvest is an open-source project and any community contributions are always appreciated. You can write blog posts, tutorials, help 
 with documentation, submit bug reports, feature requests, and even pull requests. It's all helpful.
 
 Please keep in mind that Social Harvest is open-source and any contributions must be compatible with the GPLv3 license. 
 It would also be very much appreciated if you put a "powered by Social Harvest" somewhere on your application/web site (ie. the footer). 
+You are free to make money from Social Harvest of course, but you aren't free to modify the source directly and squirrel it away. Sharing is caring. 
+If you have proprietary stuff, keep it outside of the Social Harvest package/binary. Social Harvest is designed to gather data on its own 
+and not get in the way of other applications.
+
+If GPLv3 does not work for you or your organization, please feel free to get in touch about other commercial licensing options.    
 
 ### Bug Reporting
 Before submitting any bugs, please be sure to check the [issues list in GitHub](https://github.com/SocialHarvest/harvester/issues?state=open) first. 
-Please be sure to provide necessary information with any bugs as it will help expidite the process of fixing them.
+Please be sure to provide necessary information with any bugs as it will help expidite the process of fixing them. Operating system, version of Go, etc.
 
 ### Feature Requests
 If you'd like to see a feature implemented in Social Harvest, again first check the issues looking for [feature requests](https://github.com/SocialHarvest/harvester/issues?labels=feature+request&page=1&state=open) to ensure someone else hasn't already suggested it (feel free to +1 away in the comments).

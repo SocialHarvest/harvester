@@ -17,10 +17,10 @@
 package harvester
 
 import (
-	"code.google.com/p/google-api-go-client/googleapi/transport"
-	"code.google.com/p/google-api-go-client/plus/v1"
 	"github.com/SocialHarvest/harvester/lib/config"
 	geohash "github.com/SocialHarvestVendors/geohash-golang"
+	"github.com/SocialHarvestVendors/google-api-go-client/googleapi/transport"
+	"github.com/SocialHarvestVendors/google-api-go-client/plus/v1"
 	"log"
 	"net/http"
 	"net/url"

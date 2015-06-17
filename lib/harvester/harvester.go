@@ -17,13 +17,13 @@
 package harvester
 
 import (
-	"code.google.com/p/google-api-go-client/plus/v1"
-	"code.google.com/p/google-api-go-client/youtube/v3"
 	"github.com/SocialHarvest/geobed"
 	"github.com/SocialHarvest/harvester/lib/config"
 	"github.com/SocialHarvest/sentiment"
 	"github.com/SocialHarvestVendors/anaconda"
 	"github.com/SocialHarvestVendors/go-instagram/instagram"
+	"github.com/SocialHarvestVendors/google-api-go-client/plus/v1"
+	"github.com/SocialHarvestVendors/google-api-go-client/youtube/v3"
 	"net"
 	"net/http"
 	"time"
